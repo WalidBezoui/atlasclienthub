@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { BrainCircuit, Lightbulb, Loader2, FileText, Save, AlertTriangle, ArrowLeft } from 'lucide-react';
+import { BrainCircuit, Lightbulb, Loader2, FileText, Save, AlertTriangle, ArrowLeft, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
