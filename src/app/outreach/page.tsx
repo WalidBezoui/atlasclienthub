@@ -174,15 +174,15 @@ export default function OutreachPage() {
         return;
     }
     try {
-        if ('id' in prospectData && prospectData.id) { // Editing existing prospect
+        if ('id' in prospectData && prospectData.id) { 
             const { id, userId, ...updateData } = prospectData as OutreachProspect;
             await updateProspect(id, updateData);
             toast({ title: "Success", description: `Prospect ${prospectData.name} updated.` });
-        } else { // Adding new prospect
+        } else { 
             await addProspect(prospectData as Omit<OutreachProspect, 'id'|'userId'>);
             toast({ title: "Success", description: `Prospect ${prospectData.name} added.` });
         }
-        fetchProspects(); // Refresh list
+        fetchProspects(); 
         setIsFormOpen(false);
         setEditingProspect(undefined);
     } catch (error: any) {
@@ -196,7 +196,7 @@ export default function OutreachPage() {
       try {
         await fbDeleteProspect(prospectId);
         toast({ title: "Prospect Deleted", description: `Prospect ${prospectName} has been removed.` });
-        fetchProspects(); // Refresh list
+        fetchProspects(); 
       } catch (error: any) {
         console.error("Error deleting prospect:", error);
         toast({ title: "Error", description: error.message || "Could not delete prospect.", variant: "destructive"});
@@ -315,7 +315,7 @@ export default function OutreachPage() {
         <CardContent>
           {isLoading && prospects.length === 0 ? (
              <div className="flex justify-center items-center py-10"><LoadingSpinner text="Fetching prospects..." /></div>
-          ) : filteredProspects.length > 0 ? (
+          ) : (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -329,46 +329,48 @@ export default function OutreachPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredProspects.map((prospect) => (
-                  <TableRow key={prospect.id}>
-                    <TableCell className="font-medium">{prospect.name}</TableCell>
-                    <TableCell className="hidden md:table-cell text-muted-foreground">{prospect.email}</TableCell>
-                    <TableCell className="hidden sm:table-cell text-muted-foreground">{prospect.company || '-'}</TableCell>
-                    <TableCell>
-                      <Badge variant={getStatusBadgeVariant(prospect.status)}>{prospect.status}</Badge>
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell text-muted-foreground">
-                      {prospect.lastContacted ? new Date(prospect.lastContacted).toLocaleDateString() : '-'}
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell text-muted-foreground">
-                      {prospect.followUpDate ? new Date(prospect.followUpDate).toLocaleDateString() : '-'}
-                    </TableCell>
-                    <TableCell className="text-right">
-                       <Button variant="ghost" size="icon" onClick={() => { setEditingProspect(prospect); setIsFormOpen(true); }} className="mr-2">
-                        <Edit className="h-4 w-4" />
-                         <span className="sr-only">Edit Prospect</span>
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDeleteProspect(prospect.id, prospect.name)} className="text-destructive hover:text-destructive">
-                        <Trash2 className="h-4 w-4" />
-                        <span className="sr-only">Delete Prospect</span>
-                      </Button>
-                    </TableCell>
+                {filteredProspects.length > 0 ? (
+                  filteredProspects.map((prospect) => (
+                    <TableRow key={prospect.id}>
+                      <TableCell className="font-medium">{prospect.name}</TableCell>
+                      <TableCell className="hidden md:table-cell text-muted-foreground">{prospect.email}</TableCell>
+                      <TableCell className="hidden sm:table-cell text-muted-foreground">{prospect.company || '-'}</TableCell>
+                      <TableCell>
+                        <Badge variant={getStatusBadgeVariant(prospect.status)}>{prospect.status}</Badge>
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell text-muted-foreground">
+                        {prospect.lastContacted ? new Date(prospect.lastContacted).toLocaleDateString() : '-'}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell text-muted-foreground">
+                        {prospect.followUpDate ? new Date(prospect.followUpDate).toLocaleDateString() : '-'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                         <Button variant="ghost" size="icon" onClick={() => { setEditingProspect(prospect); setIsFormOpen(true); }} className="mr-2">
+                          <Edit className="h-4 w-4" />
+                           <span className="sr-only">Edit Prospect</span>
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDeleteProspect(prospect.id, prospect.name)} className="text-destructive hover:text-destructive">
+                          <Trash2 className="h-4 w-4" />
+                          <span className="sr-only">Delete Prospect</span>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                      <TableCell colSpan={7} className="text-center h-24">
+                          <div className="flex flex-col items-center justify-center">
+                              <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
+                              <p>No prospects found matching your criteria.</p>
+                              {prospects.length === 0 && searchTerm === '' && statusFilters.size === OUTREACH_STATUS_OPTIONS.length && (
+                                   <p className="text-sm text-muted-foreground">Get started by adding your first prospect!</p>
+                              )}
+                          </div>
+                      </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
-          ) : (
-             <TableRow>
-                <TableCell colSpan={7} className="text-center h-24">
-                    <div className="flex flex-col items-center justify-center">
-                        <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
-                        <p>No prospects found matching your criteria.</p>
-                        {prospects.length === 0 && searchTerm === '' && statusFilters.size === OUTREACH_STATUS_OPTIONS.length && (
-                             <p className="text-sm text-muted-foreground">Get started by adding your first prospect!</p>
-                        )}
-                    </div>
-                </TableCell>
-             </TableRow>
           )}
         </CardContent>
       </Card>

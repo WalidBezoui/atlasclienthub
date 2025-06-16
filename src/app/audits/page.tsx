@@ -58,7 +58,7 @@ export default function AuditsPage() {
       try {
         await fbDeleteAudit(auditId);
         toast({ title: "Audit Deleted", description: `The audit for ${auditHandle} has been removed.` });
-        fetchAudits(); // Refresh list
+        fetchAudits(); 
       } catch (error: any) {
         console.error("Error deleting audit:", error);
         toast({ title: "Error", description: error.message || "Could not delete audit.", variant: "destructive" });
@@ -158,7 +158,7 @@ export default function AuditsPage() {
         <CardContent>
          {isLoading && audits.length === 0 ? (
              <div className="flex justify-center items-center py-10"><LoadingSpinner text="Fetching audits..." /></div>
-          ) : filteredAudits.length > 0 ? (
+          ) : (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -171,51 +171,51 @@ export default function AuditsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredAudits.map((audit) => (
-                  <TableRow key={audit.id}>
-                    <TableCell className="font-medium">{audit.instagramHandle}</TableCell>
-                    <TableCell className="hidden md:table-cell text-muted-foreground">{audit.entityName || 'N/A'}</TableCell>
-                    <TableCell>
-                      <Badge variant={getStatusBadgeVariant(audit.status)}>{audit.status}</Badge>
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell text-muted-foreground">{new Date(audit.requestedDate).toLocaleDateString()}</TableCell>
-                    <TableCell className="hidden lg:table-cell text-muted-foreground">
-                      {audit.completedDate ? new Date(audit.completedDate).toLocaleDateString() : '-'}
-                    </TableCell>
-                    <TableCell className="text-right space-x-1">
-                      <Link href={`/audits/${audit.id}`} passHref>
-                        <Button variant="ghost" size="icon">
-                          <Eye className="h-4 w-4" />
-                           <span className="sr-only">View Audit</span>
-                        </Button>
-                      </Link>
-                       {/* For a real edit page: <Link href={`/audits/edit/${audit.id}`} passHref> */}
-                         <Button variant="ghost" size="icon" disabled> {/* Simple edit disabled for now */}
+                {filteredAudits.length > 0 ? (
+                  filteredAudits.map((audit) => (
+                    <TableRow key={audit.id}>
+                      <TableCell className="font-medium">{audit.instagramHandle}</TableCell>
+                      <TableCell className="hidden md:table-cell text-muted-foreground">{audit.entityName || 'N/A'}</TableCell>
+                      <TableCell>
+                        <Badge variant={getStatusBadgeVariant(audit.status)}>{audit.status}</Badge>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell text-muted-foreground">{new Date(audit.requestedDate).toLocaleDateString()}</TableCell>
+                      <TableCell className="hidden lg:table-cell text-muted-foreground">
+                        {audit.completedDate ? new Date(audit.completedDate).toLocaleDateString() : '-'}
+                      </TableCell>
+                      <TableCell className="text-right space-x-1">
+                        <Link href={`/audits/${audit.id}`} passHref>
+                          <Button variant="ghost" size="icon">
+                            <Eye className="h-4 w-4" />
+                             <span className="sr-only">View Audit</span>
+                          </Button>
+                        </Link>
+                         <Button variant="ghost" size="icon" disabled> 
                            <Edit className="h-4 w-4" />
                            <span className="sr-only">Edit Audit</span>
                          </Button>
-                       {/* </Link> */}
-                      <Button variant="ghost" size="icon" onClick={() => handleDeleteAudit(audit.id, audit.instagramHandle)} className="text-destructive hover:text-destructive">
-                        <Trash2 className="h-4 w-4" />
-                        <span className="sr-only">Delete Audit</span>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                        <Button variant="ghost" size="icon" onClick={() => handleDeleteAudit(audit.id, audit.instagramHandle)} className="text-destructive hover:text-destructive">
+                          <Trash2 className="h-4 w-4" />
+                          <span className="sr-only">Delete Audit</span>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                      <TableCell colSpan={6} className="text-center h-24">
+                          <div className="flex flex-col items-center justify-center">
+                              <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
+                              <p>No audits found matching your criteria.</p>
+                              {audits.length === 0 && searchTerm === '' && statusFilters.size === AUDIT_STATUS_OPTIONS.length && (
+                                   <p className="text-sm text-muted-foreground">Get started by creating your first audit!</p>
+                              )}
+                          </div>
+                      </TableCell>
+                   </TableRow>
+                )}
               </TableBody>
             </Table>
-          ) : (
-            <TableRow>
-                <TableCell colSpan={6} className="text-center h-24">
-                    <div className="flex flex-col items-center justify-center">
-                        <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
-                        <p>No audits found matching your criteria.</p>
-                        {audits.length === 0 && searchTerm === '' && statusFilters.size === AUDIT_STATUS_OPTIONS.length && (
-                             <p className="text-sm text-muted-foreground">Get started by creating your first audit!</p>
-                        )}
-                    </div>
-                </TableCell>
-             </TableRow>
           )}
         </CardContent>
       </Card>

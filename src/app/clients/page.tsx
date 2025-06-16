@@ -44,7 +44,6 @@ function ClientForm({ client, onSave, onCancel }: { client?: Client, onSave: (cl
 
   useEffect(() => {
     if (client) {
-        // Ensure joinedDate is correctly formatted for the input type="date"
         const formattedClient = {
             ...client,
             joinedDate: client.joinedDate ? new Date(client.joinedDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
@@ -174,15 +173,15 @@ export default function ClientsPage() {
         return;
     }
     try {
-        if ('id' in clientData && clientData.id) { // Editing existing client
+        if ('id' in clientData && clientData.id) { 
             const { id, userId, ...updateData } = clientData as Client;
             await updateClient(id, updateData);
             toast({ title: "Success", description: `Client ${clientData.name} updated.` });
-        } else { // Adding new client
+        } else { 
             await addClient(clientData as Omit<Client, 'id' | 'userId'>);
             toast({ title: "Success", description: `Client ${clientData.name} added.` });
         }
-        fetchClients(); // Refresh list
+        fetchClients(); 
         setIsFormOpen(false);
         setEditingClient(undefined);
     } catch (error: any) {
@@ -196,7 +195,7 @@ export default function ClientsPage() {
       try {
         await fbDeleteClient(clientId);
         toast({ title: "Client Deleted", description: `Client ${clientName} has been removed.` });
-        fetchClients(); // Refresh list
+        fetchClients(); 
       } catch (error: any) {
         console.error("Error deleting client:", error);
         toast({ title: "Error", description: error.message || "Could not delete client.", variant: "destructive"});
@@ -237,7 +236,6 @@ export default function ClientsPage() {
   }
 
   if (!user && !authLoading) {
-     // Should be handled by AuthProvider redirect, but as a fallback
     return <div className="flex justify-center items-center h-screen"><p>Redirecting to login...</p></div>;
   }
 
@@ -312,7 +310,7 @@ export default function ClientsPage() {
         <CardContent>
           {isLoading && clients.length === 0 ? (
              <div className="flex justify-center items-center py-10"><LoadingSpinner text="Fetching clients..." /></div>
-          ) : filteredClients.length > 0 ? (
+          ) : (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -325,41 +323,43 @@ export default function ClientsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredClients.map((client) => (
-                  <TableRow key={client.id}>
-                    <TableCell className="font-medium">{client.name}</TableCell>
-                    <TableCell className="hidden md:table-cell text-muted-foreground">{client.contactEmail}</TableCell>
-                    <TableCell>
-                      <Badge variant={getStatusBadgeVariant(client.status)}>{client.status}</Badge>
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell text-muted-foreground">{new Date(client.joinedDate).toLocaleDateString()}</TableCell>
-                    <TableCell className="hidden lg:table-cell text-muted-foreground">{client.instagramHandle || '-'}</TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => { setEditingClient(client); setIsFormOpen(true); }} className="mr-2">
-                        <Edit className="h-4 w-4" />
-                         <span className="sr-only">Edit Client</span>
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDeleteClient(client.id, client.name)} className="text-destructive hover:text-destructive">
-                        <Trash2 className="h-4 w-4" />
-                        <span className="sr-only">Delete Client</span>
-                      </Button>
+                {filteredClients.length > 0 ? (
+                  filteredClients.map((client) => (
+                    <TableRow key={client.id}>
+                      <TableCell className="font-medium">{client.name}</TableCell>
+                      <TableCell className="hidden md:table-cell text-muted-foreground">{client.contactEmail}</TableCell>
+                      <TableCell>
+                        <Badge variant={getStatusBadgeVariant(client.status)}>{client.status}</Badge>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell text-muted-foreground">{new Date(client.joinedDate).toLocaleDateString()}</TableCell>
+                      <TableCell className="hidden lg:table-cell text-muted-foreground">{client.instagramHandle || '-'}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="icon" onClick={() => { setEditingClient(client); setIsFormOpen(true); }} className="mr-2">
+                          <Edit className="h-4 w-4" />
+                           <span className="sr-only">Edit Client</span>
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDeleteClient(client.id, client.name)} className="text-destructive hover:text-destructive">
+                          <Trash2 className="h-4 w-4" />
+                          <span className="sr-only">Delete Client</span>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center h-24">
+                        <div className="flex flex-col items-center justify-center">
+                            <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
+                            <p>No clients found matching your criteria.</p>
+                            {clients.length === 0 && searchTerm === '' && statusFilters.size === CLIENT_STATUS_OPTIONS.length && (
+                                 <p className="text-sm text-muted-foreground">Get started by adding your first client!</p>
+                            )}
+                        </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
-          ) : (
-             <TableRow>
-                <TableCell colSpan={6} className="text-center h-24">
-                    <div className="flex flex-col items-center justify-center">
-                        <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
-                        <p>No clients found matching your criteria.</p>
-                        {clients.length === 0 && searchTerm === '' && statusFilters.size === CLIENT_STATUS_OPTIONS.length && (
-                             <p className="text-sm text-muted-foreground">Get started by adding your first client!</p>
-                        )}
-                    </div>
-                </TableCell>
-             </TableRow>
           )}
         </CardContent>
       </Card>
