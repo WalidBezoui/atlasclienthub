@@ -1,7 +1,8 @@
+
 'use client';
 
-import React, { useState } from 'react';
-import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
@@ -22,27 +23,47 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-
-const initialProspects: OutreachProspect[] = [
-  { id: '1', name: 'Alice Wonderland', email: 'alice@example.com', company: 'Wonderland Bakery', status: 'Contacted', lastContacted: '2024-07-10', instagramHandle: 'wonderland_bakes' },
-  { id: '2', name: 'Bob The Builder', email: 'bob@example.com', company: 'Bob\'s Constructions', status: 'Interested', lastContacted: '2024-07-12', followUpDate: '2024-07-20', instagramHandle: 'bobbuilds' },
-  { id: '3', name: 'Charlie Brown', email: 'charlie@example.com', status: 'To Contact', instagramHandle: 'goodgriefcharlie' },
-  { id: '4', name: 'Diana Prince', email: 'diana@example.com', company: 'Themyscira Exports', status: 'Replied', lastContacted: '2024-07-15', notes: 'Asked for portfolio.' },
-];
+import { useAuth } from '@/hooks/useAuth';
+import { addProspect, getProspects, updateProspect, deleteProspect as fbDeleteProspect } from '@/lib/firebase/services';
+import { LoadingSpinner } from '@/components/shared/loading-spinner';
+import { useRouter } from 'next/navigation';
 
 const OUTREACH_STATUS_OPTIONS: OutreachStatus[] = ["To Contact", "Contacted", "Replied", "Interested", "Not Interested", "Follow-up"];
 
-function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProspect, onSave: (prospect: OutreachProspect) => void, onCancel: () => void }) {
-  const [formData, setFormData] = useState<OutreachProspect>(prospect || {
-    id: prospect ? prospect.id : Date.now().toString(),
+function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProspect, onSave: (prospect: Omit<OutreachProspect, 'id' | 'userId'> | OutreachProspect) => void, onCancel: () => void }) {
+  const [formData, setFormData] = useState<Omit<OutreachProspect, 'id' | 'userId'> | OutreachProspect>(prospect || {
     name: '',
     email: '',
     company: '',
     status: 'To Contact',
     instagramHandle: '',
     notes: '',
+    lastContacted: undefined,
+    followUpDate: undefined,
   });
   const { toast } = useToast();
+
+  useEffect(() => {
+     if (prospect) {
+        const formattedProspect = {
+            ...prospect,
+            lastContacted: prospect.lastContacted ? new Date(prospect.lastContacted).toISOString().split('T')[0] : undefined,
+            followUpDate: prospect.followUpDate ? new Date(prospect.followUpDate).toISOString().split('T')[0] : undefined,
+        };
+      setFormData(formattedProspect);
+    } else {
+      setFormData({
+        name: '',
+        email: '',
+        company: '',
+        status: 'To Contact',
+        instagramHandle: '',
+        notes: '',
+        lastContacted: undefined,
+        followUpDate: undefined,
+      });
+    }
+  }, [prospect]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -65,11 +86,11 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <Label htmlFor="name">Prospect Name</Label>
+        <Label htmlFor="name">Prospect Name *</Label>
         <Input id="name" name="name" value={formData.name} onChange={handleChange} required />
       </div>
       <div>
-        <Label htmlFor="email">Email</Label>
+        <Label htmlFor="email">Email *</Label>
         <Input id="email" name="email" type="email" value={formData.email} onChange={handleChange} required />
       </div>
       <div>
@@ -78,11 +99,11 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
       </div>
       <div>
         <Label htmlFor="instagramHandle">Instagram Handle (Optional)</Label>
-        <Input id="instagramHandle" name="instagramHandle" value={formData.instagramHandle || ''} onChange={handleChange} />
+        <Input id="instagramHandle" name="instagramHandle" placeholder="@username" value={formData.instagramHandle || ''} onChange={handleChange} />
       </div>
       <div>
-        <Label htmlFor="status">Status</Label>
-        <Select value={formData.status} onValueChange={handleStatusChange}>
+        <Label htmlFor="status">Status *</Label>
+        <Select value={formData.status} onValueChange={handleStatusChange} required>
           <SelectTrigger id="status">
             <SelectValue placeholder="Select status" />
           </SelectTrigger>
@@ -93,11 +114,11 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
       </div>
       <div>
         <Label htmlFor="lastContacted">Last Contacted (Optional)</Label>
-        <Input id="lastContacted" name="lastContacted" type="date" value={formData.lastContacted?.split('T')[0] || ''} onChange={handleChange} />
+        <Input id="lastContacted" name="lastContacted" type="date" value={formData.lastContacted || ''} onChange={handleChange} />
       </div>
       <div>
         <Label htmlFor="followUpDate">Follow-up Date (Optional)</Label>
-        <Input id="followUpDate" name="followUpDate" type="date" value={formData.followUpDate?.split('T')[0] || ''} onChange={handleChange} />
+        <Input id="followUpDate" name="followUpDate" type="date" value={formData.followUpDate || ''} onChange={handleChange} />
       </div>
       <div>
         <Label htmlFor="notes">Notes (Optional)</Label>
@@ -105,7 +126,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
       </div>
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-        <Button type="submit">Save Prospect</Button>
+        <Button type="submit">{prospect ? 'Update Prospect' : 'Add Prospect'}</Button>
       </DialogFooter>
     </form>
   );
@@ -113,30 +134,73 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
 
 
 export default function OutreachPage() {
-  const [prospects, setProspects] = useState<OutreachProspect[]>(initialProspects);
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const [prospects, setProspects] = useState<OutreachProspect[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilters, setStatusFilters] = useState<Set<OutreachStatus>>(new Set(OUTREACH_STATUS_OPTIONS));
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProspect, setEditingProspect] = useState<OutreachProspect | undefined>(undefined);
   const { toast } = useToast();
 
-  const handleSaveProspect = (prospect: OutreachProspect) => {
-    setProspects(prev => {
-      const existing = prev.find(p => p.id === prospect.id);
-      if (existing) {
-        return prev.map(p => p.id === prospect.id ? prospect : p);
+  const fetchProspects = useCallback(async () => {
+    if (!user) return;
+    setIsLoading(true);
+    try {
+      const fetchedProspects = await getProspects();
+      setProspects(fetchedProspects);
+    } catch (error) {
+      console.error("Error fetching prospects:", error);
+      toast({ title: "Error", description: "Could not fetch prospects.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, toast]);
+
+  useEffect(() => {
+    if (!authLoading) {
+      if (user) {
+        fetchProspects();
+      } else {
+        router.push('/login');
       }
-      return [...prev, prospect];
-    });
-    toast({ title: "Success", description: `Prospect ${prospect.name} ${editingProspect ? 'updated' : 'added'}.` });
-    setIsFormOpen(false);
-    setEditingProspect(undefined);
+    }
+  }, [user, authLoading, fetchProspects, router]);
+
+  const handleSaveProspect = async (prospectData: Omit<OutreachProspect, 'id'|'userId'> | OutreachProspect) => {
+     if (!user) {
+        toast({title: "Authentication Error", description: "You must be logged in.", variant: "destructive"});
+        return;
+    }
+    try {
+        if ('id' in prospectData && prospectData.id) { // Editing existing prospect
+            const { id, userId, ...updateData } = prospectData as OutreachProspect;
+            await updateProspect(id, updateData);
+            toast({ title: "Success", description: `Prospect ${prospectData.name} updated.` });
+        } else { // Adding new prospect
+            await addProspect(prospectData as Omit<OutreachProspect, 'id'|'userId'>);
+            toast({ title: "Success", description: `Prospect ${prospectData.name} added.` });
+        }
+        fetchProspects(); // Refresh list
+        setIsFormOpen(false);
+        setEditingProspect(undefined);
+    } catch (error: any) {
+        console.error("Error saving prospect:", error);
+        toast({ title: "Error", description: error.message || "Could not save prospect.", variant: "destructive"});
+    }
   };
   
-  const handleDeleteProspect = (prospectId: string) => {
-     if (window.confirm("Are you sure you want to delete this prospect?")) {
-      setProspects(prev => prev.filter(p => p.id !== prospectId));
-      toast({ title: "Prospect Deleted", description: "The prospect has been removed." });
+  const handleDeleteProspect = async (prospectId: string, prospectName: string) => {
+     if (window.confirm(`Are you sure you want to delete prospect "${prospectName}"?`)) {
+      try {
+        await fbDeleteProspect(prospectId);
+        toast({ title: "Prospect Deleted", description: `Prospect ${prospectName} has been removed.` });
+        fetchProspects(); // Refresh list
+      } catch (error: any) {
+        console.error("Error deleting prospect:", error);
+        toast({ title: "Error", description: error.message || "Could not delete prospect.", variant: "destructive"});
+      }
     }
   };
 
@@ -153,21 +217,33 @@ export default function OutreachPage() {
   };
 
   const filteredProspects = prospects.filter(prospect => 
-    (prospect.name.toLowerCase().includes(searchTerm.toLowerCase()) || prospect.email.toLowerCase().includes(searchTerm.toLowerCase())) &&
+    (prospect.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+     prospect.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+     (prospect.company && prospect.company.toLowerCase().includes(searchTerm.toLowerCase())) ||
+     (prospect.instagramHandle && prospect.instagramHandle.toLowerCase().includes(searchTerm.toLowerCase()))
+    ) &&
     statusFilters.has(prospect.status)
   );
 
   const getStatusBadgeVariant = (status: OutreachStatus) => {
     switch (status) {
-      case 'Interested': return 'default'; // primary
+      case 'Interested': return 'default'; 
       case 'Replied': return 'secondary';
       case 'Contacted': return 'outline';
-      case 'Follow-up': return 'default'; // Consider a different color for follow-up, e.g., using accent or a custom class
+      case 'Follow-up': return 'default'; 
       case 'To Contact': return 'outline';
       case 'Not Interested': return 'destructive';
       default: return 'default';
     }
   };
+
+  if (authLoading || isLoading && !prospects.length) {
+    return <div className="flex justify-center items-center h-screen"><LoadingSpinner text="Loading outreach prospects..." size="lg"/></div>;
+  }
+  
+  if (!user && !authLoading) {
+    return <div className="flex justify-center items-center h-screen"><p>Redirecting to login...</p></div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -182,7 +258,10 @@ export default function OutreachPage() {
         }
       />
 
-      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+      <Dialog open={isFormOpen} onOpenChange={(isOpen) => {
+          setIsFormOpen(isOpen);
+          if (!isOpen) setEditingProspect(undefined);
+      }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-headline">{editingProspect ? 'Edit Prospect' : 'Add New Prospect'}</DialogTitle>
@@ -234,21 +313,23 @@ export default function OutreachPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead className="hidden md:table-cell">Email</TableHead>
-                <TableHead className="hidden sm:table-cell">Company</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="hidden lg:table-cell">Last Contacted</TableHead>
-                <TableHead className="hidden lg:table-cell">Follow-up</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredProspects.length > 0 ? (
-                filteredProspects.map((prospect) => (
+          {isLoading && prospects.length === 0 ? (
+             <div className="flex justify-center items-center py-10"><LoadingSpinner text="Fetching prospects..." /></div>
+          ) : filteredProspects.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead className="hidden md:table-cell">Email</TableHead>
+                  <TableHead className="hidden sm:table-cell">Company</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="hidden lg:table-cell">Last Contacted</TableHead>
+                  <TableHead className="hidden lg:table-cell">Follow-up</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredProspects.map((prospect) => (
                   <TableRow key={prospect.id}>
                     <TableCell className="font-medium">{prospect.name}</TableCell>
                     <TableCell className="hidden md:table-cell text-muted-foreground">{prospect.email}</TableCell>
@@ -267,22 +348,28 @@ export default function OutreachPage() {
                         <Edit className="h-4 w-4" />
                          <span className="sr-only">Edit Prospect</span>
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDeleteProspect(prospect.id)} className="text-destructive hover:text-destructive">
+                      <Button variant="ghost" size="icon" onClick={() => handleDeleteProspect(prospect.id, prospect.name)} className="text-destructive hover:text-destructive">
                         <Trash2 className="h-4 w-4" />
                         <span className="sr-only">Delete Prospect</span>
                       </Button>
                     </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center h-24">
-                    No prospects found.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+             <TableRow>
+                <TableCell colSpan={7} className="text-center h-24">
+                    <div className="flex flex-col items-center justify-center">
+                        <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
+                        <p>No prospects found matching your criteria.</p>
+                        {prospects.length === 0 && searchTerm === '' && statusFilters.size === OUTREACH_STATUS_OPTIONS.length && (
+                             <p className="text-sm text-muted-foreground">Get started by adding your first prospect!</p>
+                        )}
+                    </div>
+                </TableCell>
+             </TableRow>
+          )}
         </CardContent>
       </Card>
     </div>

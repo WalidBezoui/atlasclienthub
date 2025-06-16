@@ -1,7 +1,8 @@
+
 'use client';
 
-import React, { useState } from 'react';
-import { BrainCircuit, Lightbulb, Loader2, Send, FileText } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { BrainCircuit, Lightbulb, Loader2, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
@@ -10,31 +11,35 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { generateIgAudit } from '@/ai/flows/generate-ig-audit';
 import { useToast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation'; // For redirecting after save
-import { InstagramAudit, AUDIT_STATUS_OPTIONS, AuditStatus } from '@/lib/types';
+import { useRouter } from 'next/navigation';
+import type { InstagramAudit, AuditStatus } from '@/lib/types';
+import { AUDIT_STATUS_OPTIONS } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
-
-// This component would ideally be part of a shared library or context for managing audits
-// For simplicity, we'll just simulate saving it here.
-async function saveAuditToBackend(auditData: InstagramAudit): Promise<InstagramAudit> {
-  console.log("Saving audit (simulated):", auditData);
-  // In a real app, this would be an API call.
-  // For now, we'll just return the data with a slight delay.
-  return new Promise(resolve => setTimeout(() => resolve(auditData), 500));
-}
-
+import { useAuth } from '@/hooks/useAuth';
+import { addAudit } from '@/lib/firebase/services';
 
 export default function NewAuditPage() {
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+
   const [instagramHandle, setInstagramHandle] = useState('');
+  const [entityName, setEntityName] = useState('');
+  const [entityType, setEntityType] = useState<'Client' | 'Prospect' | undefined>(undefined);
   const [questionnaireResponses, setQuestionnaireResponses] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [auditReport, setAuditReport] = useState<string | undefined>(undefined);
   const [isSaving, setIsSaving] = useState(false);
   const [auditStatus, setAuditStatus] = useState<AuditStatus>('Requested');
-
+  
   const { toast } = useToast();
-  const router = useRouter();
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, authLoading, router]);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,8 +52,8 @@ export default function NewAuditPage() {
       return;
     }
 
-    setIsLoading(true);
-    setAuditReport(undefined); // Clear previous report
+    setIsGenerating(true);
+    setAuditReport(undefined); 
 
     try {
       const result = await generateIgAudit({ questionnaireResponses });
@@ -65,38 +70,49 @@ export default function NewAuditPage() {
         variant: 'destructive',
       });
     } finally {
-      setIsLoading(false);
+      setIsGenerating(false);
     }
   };
 
   const handleSaveAudit = async () => {
+    if (!user) {
+        toast({title: "Authentication Error", description: "You must be logged in to save an audit.", variant: "destructive"});
+        return;
+    }
     if (!auditReport || !instagramHandle) {
       toast({ title: "Cannot Save", description: "No audit report generated or Instagram handle missing.", variant: "destructive" });
       return;
     }
     setIsSaving(true);
-    const newAudit: InstagramAudit = {
-      id: Date.now().toString(), // simple ID generation
+    const newAuditData: Omit<InstagramAudit, 'id' | 'userId' | 'requestedDate'> & { requestedDate?: string } = {
       instagramHandle,
+      entityName: entityName || undefined,
+      entityType: entityType || undefined,
       questionnaireResponses,
       auditReport,
-      status: auditStatus, // Default status, can be updated later
+      status: auditStatus,
       requestedDate: new Date().toISOString(),
-      // entityId, entityName, entityType would be set if linking to client/prospect
     };
 
     try {
-      await saveAuditToBackend(newAudit); // Simulate saving
+      await addAudit(newAuditData);
       toast({ title: "Audit Saved!", description: `Audit for ${instagramHandle} has been saved.`});
-      // Optionally, redirect to the audits list or the new audit's detail page
       router.push('/audits'); 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to save audit:", error);
-      toast({ title: "Save Failed", description: "Could not save the audit. Please try again.", variant: "destructive"});
+      toast({ title: "Save Failed", description: error.message || "Could not save the audit. Please try again.", variant: "destructive"});
     } finally {
       setIsSaving(false);
     }
   };
+
+  if (authLoading) {
+    return <div className="flex justify-center items-center h-screen"><LoadingSpinner text="Loading..." size="lg"/></div>;
+  }
+   if (!user && !authLoading) {
+    return <div className="flex justify-center items-center h-screen"><p>Redirecting to login...</p></div>;
+  }
+
 
   return (
     <div className="space-y-6">
@@ -111,23 +127,46 @@ export default function NewAuditPage() {
           <CardHeader>
             <CardTitle className="font-headline">Audit Input</CardTitle>
             <CardDescription>
-              Provide the Instagram handle and fill out the questionnaire to generate the audit.
+              Provide the Instagram handle and key information to generate the audit.
               The more detailed your responses, the better the audit will be.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="instagramHandle">Instagram Handle</Label>
-              <Input
-                id="instagramHandle"
-                placeholder="@username"
-                value={instagramHandle}
-                onChange={(e) => setInstagramHandle(e.target.value)}
-                required
-              />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <Label htmlFor="instagramHandle">Instagram Handle *</Label>
+                    <Input
+                        id="instagramHandle"
+                        placeholder="@username"
+                        value={instagramHandle}
+                        onChange={(e) => setInstagramHandle(e.target.value)}
+                        required
+                    />
+                </div>
+                 <div>
+                    <Label htmlFor="entityName">Client/Prospect Name (Optional)</Label>
+                    <Input
+                        id="entityName"
+                        placeholder="e.g., Cool Brand Inc."
+                        value={entityName}
+                        onChange={(e) => setEntityName(e.target.value)}
+                    />
+                </div>
+                <div>
+                    <Label htmlFor="entityType">Entity Type (Optional)</Label>
+                    <Select value={entityType} onValueChange={(value: 'Client' | 'Prospect') => setEntityType(value)}>
+                        <SelectTrigger id="entityType">
+                            <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="Client">Client</SelectItem>
+                            <SelectItem value="Prospect">Prospect</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
             <div>
-              <Label htmlFor="questionnaireResponses">Questionnaire / Key Information</Label>
+              <Label htmlFor="questionnaireResponses">Questionnaire / Key Information *</Label>
               <Textarea
                 id="questionnaireResponses"
                 placeholder="Describe the account's goals, target audience, current challenges, content pillars, competitors, etc."
@@ -137,13 +176,13 @@ export default function NewAuditPage() {
                 required
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Example prompts: "Analyze bio effectiveness", "Suggest content pillars for a local coffee shop", "Identify 3 key competitors and their strengths".
+                Example prompts: "Analyze bio effectiveness for a local coffee shop targeting young professionals. Current bio is 'Best coffee in town'. Goals: Increase foot traffic from IG.", "Suggest content pillars for a fitness influencer focusing on home workouts for busy moms. Competitors: @fitmom, @homeworkoutqueen."
               </p>
             </div>
           </CardContent>
           <CardFooter>
-            <Button type="submit" disabled={isLoading || !instagramHandle || !questionnaireResponses}>
-              {isLoading ? (
+            <Button type="submit" disabled={isGenerating || !instagramHandle || !questionnaireResponses}>
+              {isGenerating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Generating...
@@ -158,7 +197,7 @@ export default function NewAuditPage() {
         </Card>
       </form>
 
-      {isLoading && (
+      {isGenerating && (
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="font-headline">Generating Report...</CardTitle>
@@ -169,17 +208,16 @@ export default function NewAuditPage() {
         </Card>
       )}
 
-      {auditReport && !isLoading && (
+      {auditReport && !isGenerating && (
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="font-headline flex items-center">
               <FileText className="mr-2 h-6 w-6 text-primary" />
               Generated Audit Report for {instagramHandle}
             </CardTitle>
-            <CardDescription>Review the report below. You can edit it before saving if needed.</CardDescription>
+            <CardDescription>Review the report below. You can edit it before saving.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* For production, consider a rich text editor or markdown renderer */}
             <Textarea 
               value={auditReport} 
               onChange={(e) => setAuditReport(e.target.value)} 
@@ -200,7 +238,7 @@ export default function NewAuditPage() {
               </div>
           </CardContent>
           <CardFooter className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => {setAuditReport(undefined); setInstagramHandle(''); setQuestionnaireResponses('');}}>
+            <Button variant="outline" onClick={() => {setAuditReport(undefined); setInstagramHandle(''); setQuestionnaireResponses(''); setEntityName(''); setEntityType(undefined)}}>
               Clear & Start New
             </Button>
             <Button onClick={handleSaveAudit} disabled={isSaving}>

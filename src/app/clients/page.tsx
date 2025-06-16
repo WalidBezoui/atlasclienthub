@@ -1,7 +1,8 @@
+
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Users, PlusCircle, Edit, Trash2, Eye, Search, ChevronDown, Filter } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Users, PlusCircle, Edit, Trash2, Search, ChevronDown, Filter, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
@@ -17,25 +18,20 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-
-const initialClients: Client[] = [
-  { id: '1', name: 'Tech Solutions Inc.', contactEmail: 'contact@techsolutions.com', companyName: 'Tech Solutions Inc.', status: 'Active', joinedDate: '2023-01-15', instagramHandle: 'techsolutions', notes: 'Monthly retainer client.' },
-  { id: '2', name: 'GreenLeaf Organics', contactEmail: 'info@greenleaf.com', companyName: 'GreenLeaf Organics', status: 'Active', joinedDate: '2023-03-22', instagramHandle: 'greenleaf_org', notes: 'Focus on content creation.' },
-  { id: '3', name: 'Momentum Fitness', contactEmail: 'support@momentum.fit', companyName: 'Momentum Fitness', status: 'On Hold', joinedDate: '2022-11-01', instagramHandle: 'momentumfit', notes: 'Paused campaign in Q2.' },
-  { id: '4', name: 'Artisan Coffee Co.', contactEmail: 'hello@artisancoffee.co', companyName: 'Artisan Coffee Co.', status: 'Past', joinedDate: '2022-05-10', instagramHandle: 'artisancoffeeco', notes: 'Completed 6-month project.' },
-];
+import { useAuth } from '@/hooks/useAuth';
+import { addClient, getClients, updateClient, deleteClient as fbDeleteClient } from '@/lib/firebase/services';
+import { LoadingSpinner } from '@/components/shared/loading-spinner';
+import { useRouter } from 'next/navigation';
 
 const CLIENT_STATUS_OPTIONS: ClientStatus[] = ["Active", "On Hold", "Past"];
 
-function ClientForm({ client, onSave, onCancel }: { client?: Client, onSave: (client: Client) => void, onCancel: () => void }) {
-  const [formData, setFormData] = useState<Client>(client || {
-    id: client ? client.id : Date.now().toString(),
+function ClientForm({ client, onSave, onCancel }: { client?: Client, onSave: (client: Omit<Client, 'id' | 'userId'> | Client) => void, onCancel: () => void }) {
+  const [formData, setFormData] = useState<Omit<Client, 'id' | 'userId'> | Client>(client || {
     name: '',
     contactEmail: '',
     companyName: '',
@@ -45,6 +41,28 @@ function ClientForm({ client, onSave, onCancel }: { client?: Client, onSave: (cl
     notes: '',
   });
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (client) {
+        // Ensure joinedDate is correctly formatted for the input type="date"
+        const formattedClient = {
+            ...client,
+            joinedDate: client.joinedDate ? new Date(client.joinedDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+        };
+      setFormData(formattedClient);
+    } else {
+      setFormData({
+        name: '',
+        contactEmail: '',
+        companyName: '',
+        status: 'Active',
+        joinedDate: new Date().toISOString().split('T')[0],
+        instagramHandle: '',
+        notes: '',
+      });
+    }
+  }, [client]);
+
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -58,7 +76,7 @@ function ClientForm({ client, onSave, onCancel }: { client?: Client, onSave: (cl
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.contactEmail || !formData.companyName) {
-       toast({ title: "Error", description: "Please fill in all required fields.", variant: "destructive" });
+       toast({ title: "Error", description: "Please fill in Client/Company Name, Contact Email, and Company Name.", variant: "destructive" });
        return;
     }
     onSave(formData);
@@ -67,12 +85,16 @@ function ClientForm({ client, onSave, onCancel }: { client?: Client, onSave: (cl
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <Label htmlFor="name">Client/Company Name</Label>
+        <Label htmlFor="name">Client/Company Name *</Label>
         <Input id="name" name="name" value={formData.name} onChange={handleChange} required />
       </div>
       <div>
-        <Label htmlFor="contactEmail">Contact Email</Label>
+        <Label htmlFor="contactEmail">Contact Email *</Label>
         <Input id="contactEmail" name="contactEmail" type="email" value={formData.contactEmail} onChange={handleChange} required />
+      </div>
+       <div>
+        <Label htmlFor="companyName">Company Name (if different from Client Name) *</Label>
+        <Input id="companyName" name="companyName" value={formData.companyName} onChange={handleChange} required/>
       </div>
       <div>
         <Label htmlFor="contactPhone">Contact Phone (Optional)</Label>
@@ -80,11 +102,11 @@ function ClientForm({ client, onSave, onCancel }: { client?: Client, onSave: (cl
       </div>
       <div>
         <Label htmlFor="instagramHandle">Instagram Handle (Optional)</Label>
-        <Input id="instagramHandle" name="instagramHandle" value={formData.instagramHandle || ''} onChange={handleChange} />
+        <Input id="instagramHandle" name="instagramHandle" placeholder="@username" value={formData.instagramHandle || ''} onChange={handleChange} />
       </div>
       <div>
-        <Label htmlFor="status">Status</Label>
-         <Select value={formData.status} onValueChange={handleStatusChange}>
+        <Label htmlFor="status">Status *</Label>
+         <Select value={formData.status} onValueChange={handleStatusChange} required>
           <SelectTrigger id="status">
             <SelectValue placeholder="Select status" />
           </SelectTrigger>
@@ -94,7 +116,7 @@ function ClientForm({ client, onSave, onCancel }: { client?: Client, onSave: (cl
         </Select>
       </div>
       <div>
-        <Label htmlFor="joinedDate">Joined Date</Label>
+        <Label htmlFor="joinedDate">Joined Date *</Label>
         <Input id="joinedDate" name="joinedDate" type="date" value={formData.joinedDate} onChange={handleChange} required />
       </div>
       <div>
@@ -103,7 +125,7 @@ function ClientForm({ client, onSave, onCancel }: { client?: Client, onSave: (cl
       </div>
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-        <Button type="submit">Save Client</Button>
+        <Button type="submit">{client ? 'Update Client' : 'Add Client'}</Button>
       </DialogFooter>
     </form>
   );
@@ -111,30 +133,74 @@ function ClientForm({ client, onSave, onCancel }: { client?: Client, onSave: (cl
 
 
 export default function ClientsPage() {
-  const [clients, setClients] = useState<Client[]>(initialClients);
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const [clients, setClients] = useState<Client[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilters, setStatusFilters] = useState<Set<ClientStatus>>(new Set(CLIENT_STATUS_OPTIONS));
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | undefined>(undefined);
   const { toast } = useToast();
 
-  const handleSaveClient = (client: Client) => {
-    setClients(prev => {
-      const existing = prev.find(c => c.id === client.id);
-      if (existing) {
-        return prev.map(c => c.id === client.id ? client : c);
+  const fetchClients = useCallback(async () => {
+    if (!user) return;
+    setIsLoading(true);
+    try {
+      const fetchedClients = await getClients();
+      setClients(fetchedClients);
+    } catch (error) {
+      console.error("Error fetching clients:", error);
+      toast({ title: "Error", description: "Could not fetch clients.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, toast]);
+
+  useEffect(() => {
+    if (!authLoading) {
+      if (user) {
+        fetchClients();
+      } else {
+        router.push('/login');
       }
-      return [...prev, client];
-    });
-    toast({ title: "Success", description: `Client ${client.name} ${editingClient ? 'updated' : 'added'}.` });
-    setIsFormOpen(false);
-    setEditingClient(undefined);
+    }
+  }, [user, authLoading, fetchClients, router]);
+
+
+  const handleSaveClient = async (clientData: Omit<Client, 'id' | 'userId'> | Client) => {
+    if (!user) {
+        toast({title: "Authentication Error", description: "You must be logged in.", variant: "destructive"});
+        return;
+    }
+    try {
+        if ('id' in clientData && clientData.id) { // Editing existing client
+            const { id, userId, ...updateData } = clientData as Client;
+            await updateClient(id, updateData);
+            toast({ title: "Success", description: `Client ${clientData.name} updated.` });
+        } else { // Adding new client
+            await addClient(clientData as Omit<Client, 'id' | 'userId'>);
+            toast({ title: "Success", description: `Client ${clientData.name} added.` });
+        }
+        fetchClients(); // Refresh list
+        setIsFormOpen(false);
+        setEditingClient(undefined);
+    } catch (error: any) {
+        console.error("Error saving client:", error);
+        toast({ title: "Error", description: error.message || "Could not save client.", variant: "destructive"});
+    }
   };
   
-  const handleDeleteClient = (clientId: string) => {
-    if (window.confirm("Are you sure you want to delete this client? This action cannot be undone.")) {
-      setClients(prev => prev.filter(c => c.id !== clientId));
-      toast({ title: "Client Deleted", description: "The client has been removed." });
+  const handleDeleteClient = async (clientId: string, clientName: string) => {
+    if (window.confirm(`Are you sure you want to delete client "${clientName}"? This action cannot be undone.`)) {
+      try {
+        await fbDeleteClient(clientId);
+        toast({ title: "Client Deleted", description: `Client ${clientName} has been removed.` });
+        fetchClients(); // Refresh list
+      } catch (error: any) {
+        console.error("Error deleting client:", error);
+        toast({ title: "Error", description: error.message || "Could not delete client.", variant: "destructive"});
+      }
     }
   };
 
@@ -151,7 +217,9 @@ export default function ClientsPage() {
   };
 
   const filteredClients = clients.filter(client => 
-    client.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
+    (client.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+     (client.companyName && client.companyName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+     (client.instagramHandle && client.instagramHandle.toLowerCase().includes(searchTerm.toLowerCase()))) &&
     statusFilters.has(client.status)
   );
 
@@ -163,6 +231,16 @@ export default function ClientsPage() {
       default: return 'default';
     }
   };
+  
+  if (authLoading || isLoading && !clients.length) {
+    return <div className="flex justify-center items-center h-screen"><LoadingSpinner text="Loading clients..." size="lg"/></div>;
+  }
+
+  if (!user && !authLoading) {
+     // Should be handled by AuthProvider redirect, but as a fallback
+    return <div className="flex justify-center items-center h-screen"><p>Redirecting to login...</p></div>;
+  }
+
 
   return (
     <div className="space-y-6">
@@ -177,7 +255,10 @@ export default function ClientsPage() {
         }
       />
 
-      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+      <Dialog open={isFormOpen} onOpenChange={(isOpen) => {
+          setIsFormOpen(isOpen);
+          if (!isOpen) setEditingClient(undefined);
+      }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-headline">{editingClient ? 'Edit Client' : 'Add New Client'}</DialogTitle>
@@ -229,20 +310,22 @@ export default function ClientsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead className="hidden md:table-cell">Email</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="hidden sm:table-cell">Joined Date</TableHead>
-                <TableHead className="hidden lg:table-cell">IG Handle</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredClients.length > 0 ? (
-                filteredClients.map((client) => (
+          {isLoading && clients.length === 0 ? (
+             <div className="flex justify-center items-center py-10"><LoadingSpinner text="Fetching clients..." /></div>
+          ) : filteredClients.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead className="hidden md:table-cell">Email</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="hidden sm:table-cell">Joined Date</TableHead>
+                  <TableHead className="hidden lg:table-cell">IG Handle</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredClients.map((client) => (
                   <TableRow key={client.id}>
                     <TableCell className="font-medium">{client.name}</TableCell>
                     <TableCell className="hidden md:table-cell text-muted-foreground">{client.contactEmail}</TableCell>
@@ -256,22 +339,28 @@ export default function ClientsPage() {
                         <Edit className="h-4 w-4" />
                          <span className="sr-only">Edit Client</span>
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDeleteClient(client.id)} className="text-destructive hover:text-destructive">
+                      <Button variant="ghost" size="icon" onClick={() => handleDeleteClient(client.id, client.name)} className="text-destructive hover:text-destructive">
                         <Trash2 className="h-4 w-4" />
                         <span className="sr-only">Delete Client</span>
                       </Button>
                     </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center h-24">
-                    No clients found.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+             <TableRow>
+                <TableCell colSpan={6} className="text-center h-24">
+                    <div className="flex flex-col items-center justify-center">
+                        <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
+                        <p>No clients found matching your criteria.</p>
+                        {clients.length === 0 && searchTerm === '' && statusFilters.size === CLIENT_STATUS_OPTIONS.length && (
+                             <p className="text-sm text-muted-foreground">Get started by adding your first client!</p>
+                        )}
+                    </div>
+                </TableCell>
+             </TableRow>
+          )}
         </CardContent>
       </Card>
     </div>

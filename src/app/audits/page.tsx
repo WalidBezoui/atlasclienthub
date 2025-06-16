@@ -1,7 +1,8 @@
+
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { ListChecks, PlusCircle, Eye, Filter, ChevronDown, Search, Edit, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { ListChecks, PlusCircle, Eye, Filter, ChevronDown, Search, Edit, Trash2, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -11,27 +12,57 @@ import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMe
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import type { InstagramAudit, AuditStatus } from '@/lib/types';
-import { AUDIT_STATUS_OPTIONS } from '@/lib/types'; // Import options
+import { AUDIT_STATUS_OPTIONS } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-
-const initialAudits: InstagramAudit[] = [
-  { id: 'audit1', instagramHandle: '@coolbrand', entityName: 'Cool Brand Inc.', entityType: 'Client', status: 'Completed', requestedDate: '2024-07-01', completedDate: '2024-07-05', questionnaireResponses: 'Likes fashion, targets Gen Z' },
-  { id: 'audit2', instagramHandle: '@foodiegalore', entityName: 'Foodie Galore Blog', entityType: 'Prospect', status: 'In Progress', requestedDate: '2024-07-10', questionnaireResponses: 'Food blog, wants more engagement' },
-  { id: 'audit3', instagramHandle: '@fitnessguru', entityName: 'Mr. Fitness', entityType: 'Client', status: 'Requested', requestedDate: '2024-07-15', questionnaireResponses: 'Fitness influencer, needs content strategy' },
-  { id: 'audit4', instagramHandle: '@traveldreams', entityName: 'Wanderlust Travels', entityType: 'Prospect', status: 'Exported', requestedDate: '2024-06-20', completedDate: '2024-06-25', questionnaireResponses: 'Travel agency, luxury market' },
-];
+import { useAuth } from '@/hooks/useAuth';
+import { getAudits, deleteAudit as fbDeleteAudit } from '@/lib/firebase/services';
+import { LoadingSpinner } from '@/components/shared/loading-spinner';
+import { useRouter } from 'next/navigation';
 
 
 export default function AuditsPage() {
-  const [audits, setAudits] = useState<InstagramAudit[]>(initialAudits);
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const [audits, setAudits] = useState<InstagramAudit[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilters, setStatusFilters] = useState<Set<AuditStatus>>(new Set(AUDIT_STATUS_OPTIONS));
   const { toast } = useToast();
 
-  const handleDeleteAudit = (auditId: string) => {
-    if (window.confirm("Are you sure you want to delete this audit? This action cannot be undone.")) {
-      setAudits(prev => prev.filter(a => a.id !== auditId));
-      toast({ title: "Audit Deleted", description: "The audit has been removed." });
+  const fetchAudits = useCallback(async () => {
+    if (!user) return;
+    setIsLoading(true);
+    try {
+      const fetchedAudits = await getAudits();
+      setAudits(fetchedAudits);
+    } catch (error) {
+      console.error("Error fetching audits:", error);
+      toast({ title: "Error", description: "Could not fetch audits.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, toast]);
+
+  useEffect(() => {
+    if (!authLoading) {
+      if (user) {
+        fetchAudits();
+      } else {
+        router.push('/login');
+      }
+    }
+  }, [user, authLoading, fetchAudits, router]);
+
+  const handleDeleteAudit = async (auditId: string, auditHandle: string) => {
+    if (window.confirm(`Are you sure you want to delete the audit for "${auditHandle}"? This action cannot be undone.`)) {
+      try {
+        await fbDeleteAudit(auditId);
+        toast({ title: "Audit Deleted", description: `The audit for ${auditHandle} has been removed.` });
+        fetchAudits(); // Refresh list
+      } catch (error: any) {
+        console.error("Error deleting audit:", error);
+        toast({ title: "Error", description: error.message || "Could not delete audit.", variant: "destructive" });
+      }
     }
   };
   
@@ -48,21 +79,30 @@ export default function AuditsPage() {
   };
 
   const filteredAudits = audits.filter(audit => 
-    (audit.instagramHandle.toLowerCase().includes(searchTerm.toLowerCase()) || (audit.entityName && audit.entityName.toLowerCase().includes(searchTerm.toLowerCase()))) &&
+    (audit.instagramHandle.toLowerCase().includes(searchTerm.toLowerCase()) || 
+     (audit.entityName && audit.entityName.toLowerCase().includes(searchTerm.toLowerCase()))) &&
     statusFilters.has(audit.status)
   );
   
   const getStatusBadgeVariant = (status: AuditStatus): "default" | "secondary" | "outline" | "destructive" => {
     switch (status) {
-      case 'Completed': return 'default'; // Using ShadCN "primary" via default
+      case 'Completed': return 'default';
       case 'Exported': return 'default'; 
       case 'In Progress': return 'secondary';
       case 'Requested': return 'outline';
-      case 'Needs Follow-up': return 'default'; // Could be accent if available, use primary for now
+      case 'Needs Follow-up': return 'default'; 
       case 'Canceled': return 'destructive';
       default: return 'outline';
     }
   };
+
+  if (authLoading || isLoading && !audits.length) {
+    return <div className="flex justify-center items-center h-screen"><LoadingSpinner text="Loading audits..." size="lg"/></div>;
+  }
+
+  if (!user && !authLoading) {
+    return <div className="flex justify-center items-center h-screen"><p>Redirecting to login...</p></div>;
+  }
 
 
   return (
@@ -116,20 +156,22 @@ export default function AuditsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>IG Handle</TableHead>
-                <TableHead className="hidden md:table-cell">Client/Prospect</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="hidden sm:table-cell">Requested</TableHead>
-                <TableHead className="hidden lg:table-cell">Completed</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredAudits.length > 0 ? (
-                filteredAudits.map((audit) => (
+         {isLoading && audits.length === 0 ? (
+             <div className="flex justify-center items-center py-10"><LoadingSpinner text="Fetching audits..." /></div>
+          ) : filteredAudits.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>IG Handle</TableHead>
+                  <TableHead className="hidden md:table-cell">Client/Prospect</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="hidden sm:table-cell">Requested</TableHead>
+                  <TableHead className="hidden lg:table-cell">Completed</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredAudits.map((audit) => (
                   <TableRow key={audit.id}>
                     <TableCell className="font-medium">{audit.instagramHandle}</TableCell>
                     <TableCell className="hidden md:table-cell text-muted-foreground">{audit.entityName || 'N/A'}</TableCell>
@@ -147,29 +189,34 @@ export default function AuditsPage() {
                            <span className="sr-only">View Audit</span>
                         </Button>
                       </Link>
-                       {/* Edit might link to /audits/new with prefilled data, or a dedicated edit page */}
-                       <Link href={`/audits/edit/${audit.id}`} passHref>
+                       {/* For a real edit page: <Link href={`/audits/edit/${audit.id}`} passHref> */}
                          <Button variant="ghost" size="icon" disabled> {/* Simple edit disabled for now */}
                            <Edit className="h-4 w-4" />
                            <span className="sr-only">Edit Audit</span>
                          </Button>
-                       </Link>
-                      <Button variant="ghost" size="icon" onClick={() => handleDeleteAudit(audit.id)} className="text-destructive hover:text-destructive">
+                       {/* </Link> */}
+                      <Button variant="ghost" size="icon" onClick={() => handleDeleteAudit(audit.id, audit.instagramHandle)} className="text-destructive hover:text-destructive">
                         <Trash2 className="h-4 w-4" />
                         <span className="sr-only">Delete Audit</span>
                       </Button>
                     </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center h-24">
-                    No audits found.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <TableRow>
+                <TableCell colSpan={6} className="text-center h-24">
+                    <div className="flex flex-col items-center justify-center">
+                        <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
+                        <p>No audits found matching your criteria.</p>
+                        {audits.length === 0 && searchTerm === '' && statusFilters.size === AUDIT_STATUS_OPTIONS.length && (
+                             <p className="text-sm text-muted-foreground">Get started by creating your first audit!</p>
+                        )}
+                    </div>
+                </TableCell>
+             </TableRow>
+          )}
         </CardContent>
       </Card>
     </div>

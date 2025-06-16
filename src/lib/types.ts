@@ -1,6 +1,8 @@
+
 export type ClientStatus = "Active" | "On Hold" | "Past";
 export type Client = {
   id: string;
+  userId: string; // Added for Firebase
   name: string;
   contactEmail: string;
   contactPhone?: string;
@@ -14,6 +16,7 @@ export type Client = {
 export type OutreachStatus = "To Contact" | "Contacted" | "Replied" | "Interested" | "Not Interested" | "Follow-up";
 export type OutreachProspect = {
   id: string;
+  userId: string; // Added for Firebase
   name: string;
   email: string;
   company?: string;
@@ -29,6 +32,7 @@ export const AUDIT_STATUS_OPTIONS: AuditStatus[] = ["Requested", "In Progress", 
 
 export type InstagramAudit = {
   id: string;
+  userId: string; // Added for Firebase
   entityId?: string; // Link to Client or OutreachProspect ID
   entityName?: string; // Name of Client or OutreachProspect
   entityType?: 'Client' | 'Prospect';
@@ -42,3 +46,11 @@ export type InstagramAudit = {
 
 // Utility type for form values, helps with Partial updates
 export type Optional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
+
+// Data for dashboard charts
+export type MonthlyActivity = {
+  month: string;
+  clients: number;
+  outreach: number;
+  audits: number;
+};
