@@ -28,6 +28,7 @@ import { addProspect, getProspects, updateProspect, deleteProspect as fbDeletePr
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
 
 const OUTREACH_STATUS_OPTIONS: OutreachStatus[] = ["To Contact", "Contacted", "Replied", "Interested", "Not Interested", "Follow-up"];
 
@@ -79,7 +80,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto max-h-[65vh] pr-3">
       <div>
         <Label htmlFor="name">Prospect Name *</Label>
         <Input id="name" name="name" value={formData.name} onChange={handleChange} required />
@@ -119,7 +120,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
         <Label htmlFor="notes">Notes (Optional)</Label>
         <Textarea id="notes" name="notes" value={formData.notes || ''} onChange={handleChange} />
       </div>
-      <DialogFooter>
+      <DialogFooter className="pt-2">
         <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
         <Button type="submit">{prospect ? 'Update Prospect' : 'Add Prospect'}</Button>
       </DialogFooter>
@@ -269,7 +270,8 @@ export default function OutreachPage() {
           setIsFormOpen(isOpen);
           if (!isOpen) {
             setEditingProspect(undefined);
-            if(!editingProspect) setFormData(initialFormData); // Reset if adding new
+            // ProspectForm's useEffect will handle resetting its internal form data
+            // when editingProspect becomes undefined.
           }
       }}>
         <DialogContent className="sm:max-w-lg">
@@ -282,7 +284,7 @@ export default function OutreachPage() {
           <ProspectForm 
             prospect={editingProspect} 
             onSave={handleSaveProspect} 
-            onCancel={() => { setIsFormOpen(false); setEditingProspect(undefined); if(!editingProspect) setFormData(initialFormData); }} 
+            onCancel={() => { setIsFormOpen(false); setEditingProspect(undefined);}} 
           />
         </DialogContent>
       </Dialog>

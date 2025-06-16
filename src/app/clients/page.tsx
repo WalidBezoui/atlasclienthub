@@ -28,11 +28,12 @@ import { addClient, getClients, updateClient, deleteClient as fbDeleteClient } f
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
 
 
 const CLIENT_STATUS_OPTIONS: ClientStatus[] = ["Active", "On Hold", "Past"];
 
-const initialFormDataState = { // Renamed to avoid conflict if lifted later
+const initialFormDataState = { 
   name: '',
   contactEmail: '',
   companyName: '',
@@ -81,7 +82,7 @@ function ClientForm({ client, onSave, onCancel }: { client?: Client, onSave: (cl
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto max-h-[65vh] pr-3">
       <div>
         <Label htmlFor="name">Client/Company Name *</Label>
         <Input id="name" name="name" value={formData.name} onChange={handleChange} required />
@@ -121,7 +122,7 @@ function ClientForm({ client, onSave, onCancel }: { client?: Client, onSave: (cl
         <Label htmlFor="notes">Notes (Optional)</Label>
         <Textarea id="notes" name="notes" value={formData.notes || ''} onChange={handleChange} />
       </div>
-      <DialogFooter>
+      <DialogFooter className="pt-2">
         <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
         <Button type="submit">{client ? 'Update Client' : 'Add Client'}</Button>
       </DialogFooter>
@@ -265,8 +266,6 @@ export default function ClientsPage() {
           setIsFormOpen(isOpen);
           if (!isOpen) {
             setEditingClient(undefined);
-            // The ClientForm's useEffect will handle resetting its internal form data
-            // when editingClient becomes undefined.
           }
       }}>
         <DialogContent className="sm:max-w-lg">
