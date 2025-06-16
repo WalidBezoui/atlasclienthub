@@ -76,12 +76,12 @@ export default function DashboardPage() {
   }, [user]);
 
   useEffect(() => {
-    setIsClient(true); // For Recharts hydration
+    setIsClient(true); 
     if (!authLoading) {
       if (user) {
         fetchDashboardData();
       } else {
-        router.push('/login');
+        // AuthProvider handles redirect
       }
     }
   }, [user, authLoading, fetchDashboardData, router]);
@@ -132,11 +132,13 @@ export default function DashboardPage() {
   ];
 
 
-  if (authLoading || (isLoadingData && user)) {
+  if (authLoading || (isLoadingData && user && !overviewData.activeClients && !overviewData.auditsInProgress)) { // Show loader if auth loading OR data loading for user and overview is still initial
     return <div className="flex justify-center items-center h-screen"><LoadingSpinner text="Loading dashboard..." size="lg"/></div>;
   }
   if (!user && !authLoading) {
-     return <div className="flex justify-center items-center h-screen"><p>Redirecting to login...</p></div>;
+     // AuthProvider should handle redirect.
+     // Return null or a minimal placeholder to avoid rendering page content before redirect.
+    return null;
   }
 
   return (
@@ -153,7 +155,7 @@ export default function DashboardPage() {
           </Link>
         }
       />
-    {isLoadingData ? (
+    {isLoadingData && !displayOverviewData.some(item => item.value > 0) ? ( // Show skeleton for overview cards only if data is loading AND no data is yet available
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             {Array(4).fill(0).map((_, index) => (
                  <Card key={index} className="shadow-lg">
@@ -251,7 +253,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             {isLoadingData ? (
-                 <div className="h-[300px] w-full flex items-center justify-center bg-muted rounded-md animate-pulse">
+                 <div className="h-[300px] w-full flex items-center justify-center bg-muted/30 rounded-md">
                     <LoadingSpinner text="Loading chart data..."/>
                  </div>
             ) : isClient && chartData.some(d => d.clients > 0 || d.outreach > 0 || d.audits > 0) ? (
@@ -345,4 +347,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-

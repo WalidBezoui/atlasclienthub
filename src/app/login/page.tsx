@@ -13,7 +13,8 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { LogIn, Mail, KeyRound } from 'lucide-react';
 import { APP_NAME } from '@/lib/constants';
-import { useAuth } from '@/hooks/useAuth'; // Import useAuth
+import { useAuth } from '@/hooks/useAuth';
+import { LoadingSpinner } from '@/components/shared/loading-spinner';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -21,11 +22,11 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
-  const { user, loading: authLoading } = useAuth(); // Get user and loading state
+  const { user, loading: authLoading } = useAuth();
 
   useEffect(() => {
     if (!authLoading && user) {
-      router.push('/'); // Redirect if already logged in
+      router.push('/'); 
     }
   }, [user, authLoading, router]);
 
@@ -49,8 +50,11 @@ export default function LoginPage() {
   };
   
   if (authLoading || (!authLoading && user)) {
-    // Show loading or prevent rendering if redirecting
-    return <div className="flex h-screen items-center justify-center"><p>Loading...</p></div>;
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <LoadingSpinner text="Checking authentication..." size="lg" />
+      </div>
+    );
   }
 
 

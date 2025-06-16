@@ -5,7 +5,7 @@ import React, { useState, FormEvent, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase/config'; // Ensure this path is correct
+import { auth } from '@/lib/firebase/config'; 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Mail, KeyRound } from 'lucide-react';
 import { APP_NAME } from '@/lib/constants';
 import { useAuth } from '@/hooks/useAuth';
+import { LoadingSpinner } from '@/components/shared/loading-spinner';
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
@@ -26,7 +27,7 @@ export default function SignupPage() {
 
  useEffect(() => {
     if (!authLoading && user) {
-      router.push('/'); // Redirect if already logged in
+      router.push('/'); 
     }
   }, [user, authLoading, router]);
 
@@ -40,7 +41,7 @@ export default function SignupPage() {
     try {
       await createUserWithEmailAndPassword(auth, email, password);
       toast({ title: 'Account Created!', description: `Welcome to ${APP_NAME}! You can now log in.` });
-      router.push('/login'); // Redirect to login page after successful signup
+      router.push('/login'); 
     } catch (error: any) {
       toast({
         title: 'Signup Failed',
@@ -53,7 +54,11 @@ export default function SignupPage() {
   };
 
   if (authLoading || (!authLoading && user)) {
-    return <div className="flex h-screen items-center justify-center"><p>Loading...</p></div>;
+     return (
+      <div className="flex h-screen items-center justify-center">
+        <LoadingSpinner text="Checking authentication..." size="lg" />
+      </div>
+    );
   }
 
   return (
