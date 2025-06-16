@@ -162,7 +162,7 @@ export default function AuditsPage() {
         </CardHeader>
         <CardContent>
          {isLoading && audits.length === 0 ? (
-             <div className="flex justify-center items-center py-10"><LoadingSpinner text="Fetching audits..." /></div>
+             <div className="py-10"><LoadingSpinner text="Fetching audits..." /></div>
           ) : (
             <Table>
               <TableHeader>
@@ -195,10 +195,12 @@ export default function AuditsPage() {
                              <span className="sr-only">View Audit</span>
                           </Button>
                         </Link>
-                         <Button variant="ghost" size="icon" disabled aria-label={`Edit audit for ${audit.instagramHandle}`}> 
-                           <Edit className="h-4 w-4" />
-                           <span className="sr-only">Edit Audit</span>
-                         </Button>
+                         <Link href={`/audits/${audit.id}/edit`} passHref>
+                           <Button variant="ghost" size="icon" aria-label={`Edit audit for ${audit.instagramHandle}`}> 
+                             <Edit className="h-4 w-4" />
+                             <span className="sr-only">Edit Audit</span>
+                           </Button>
+                         </Link>
                         <Button variant="ghost" size="icon" onClick={() => handleDeleteAudit(audit.id, audit.instagramHandle)} className="text-destructive hover:text-destructive" aria-label={`Delete audit for ${audit.instagramHandle}`}>
                           <Trash2 className="h-4 w-4" />
                           <span className="sr-only">Delete Audit</span>
@@ -207,24 +209,24 @@ export default function AuditsPage() {
                     </TableRow>
                   ))
                 ) : (
-                  <TableRow>
-                      <TableCell colSpan={6} className="text-center h-24">
-                          <div className="flex flex-col items-center justify-center">
-                              <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
-                              <p className="font-semibold">
-                                {audits.length === 0 && searchTerm === '' && (statusFilters.size === AUDIT_STATUS_OPTIONS.length || statusFilters.size === 0)
-                                  ? "No audits found."
-                                  : "No audits found matching your criteria."
-                                }
-                              </p>
-                              {audits.length === 0 && searchTerm === '' && (statusFilters.size === AUDIT_STATUS_OPTIONS.length || statusFilters.size === 0) && (
-                                   <p className="text-sm text-muted-foreground">
-                                      Get started by <Link href="/audits/new" className="text-primary hover:underline">creating your first audit</Link>!
-                                   </p>
-                              )}
-                          </div>
-                      </TableCell>
-                   </TableRow>
+                 <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center">
+                        <div className="flex flex-col items-center justify-center">
+                            <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
+                            <p className="font-semibold">
+                              {audits.length === 0 && searchTerm === '' && (statusFilters.size === AUDIT_STATUS_OPTIONS.length || statusFilters.size === 0)
+                                ? "No audits found."
+                                : "No audits found matching your criteria."
+                              }
+                            </p>
+                            {audits.length === 0 && searchTerm === '' && (statusFilters.size === AUDIT_STATUS_OPTIONS.length || statusFilters.size === 0) && (
+                                 <p className="text-sm text-muted-foreground">
+                                    Get started by <Link href="/audits/new" className="text-primary hover:underline">creating your first audit</Link>!
+                                 </p>
+                            )}
+                        </div>
+                    </TableCell>
+                 </TableRow>
                 )}
               </TableBody>
             </Table>
@@ -234,3 +236,4 @@ export default function AuditsPage() {
     </div>
   );
 }
+
