@@ -30,7 +30,21 @@ const clientsCollection = collection(db, 'clients');
 export const addClient = async (clientData: Omit<Client, 'id' | 'userId'>): Promise<string> => {
   const userId = getCurrentUserId();
   if (!userId) throw new Error('User not authenticated');
-  const docRef = await addDoc(clientsCollection, { ...clientData, userId, joinedDate: Timestamp.fromDate(new Date(clientData.joinedDate)) });
+
+  const dataForFirestore: any = {
+    userId,
+    name: clientData.name,
+    contactEmail: clientData.contactEmail,
+    companyName: clientData.companyName,
+    status: clientData.status,
+    joinedDate: Timestamp.fromDate(new Date(clientData.joinedDate)),
+  };
+
+  if (clientData.contactPhone) dataForFirestore.contactPhone = clientData.contactPhone;
+  if (clientData.instagramHandle) dataForFirestore.instagramHandle = clientData.instagramHandle;
+  if (clientData.notes) dataForFirestore.notes = clientData.notes;
+  
+  const docRef = await addDoc(clientsCollection, dataForFirestore);
   return docRef.id;
 };
 
@@ -53,10 +67,18 @@ export const updateClient = async (id: string, clientData: Partial<Omit<Client, 
   const userId = getCurrentUserId();
   if (!userId) throw new Error('User not authenticated');
   const clientDoc = doc(db, 'clients', id);
-  const updateData = { ...clientData } as any;
+  
+  const updateData:any = { ...clientData };
   if (clientData.joinedDate) {
     updateData.joinedDate = Timestamp.fromDate(new Date(clientData.joinedDate));
   }
+  // Ensure undefined optional fields are handled or omitted by Firestore
+  for (const key in updateData) {
+    if (updateData[key] === undefined) {
+      delete updateData[key]; // Or set to null if appropriate for your schema
+    }
+  }
+
   await updateDoc(clientDoc, updateData);
 };
 
@@ -72,11 +94,21 @@ const prospectsCollection = collection(db, 'prospects');
 export const addProspect = async (prospectData: Omit<OutreachProspect, 'id' | 'userId'>): Promise<string> => {
   const userId = getCurrentUserId();
   if (!userId) throw new Error('User not authenticated');
-  const dataToSave: any = { ...prospectData, userId };
-  if (prospectData.lastContacted) dataToSave.lastContacted = Timestamp.fromDate(new Date(prospectData.lastContacted));
-  if (prospectData.followUpDate) dataToSave.followUpDate = Timestamp.fromDate(new Date(prospectData.followUpDate));
+  
+  const dataForFirestore: any = { 
+    userId,
+    name: prospectData.name,
+    email: prospectData.email,
+    status: prospectData.status,
+  };
 
-  const docRef = await addDoc(prospectsCollection, dataToSave);
+  if (prospectData.company) dataForFirestore.company = prospectData.company;
+  if (prospectData.instagramHandle) dataForFirestore.instagramHandle = prospectData.instagramHandle;
+  if (prospectData.notes) dataForFirestore.notes = prospectData.notes;
+  if (prospectData.lastContacted) dataForFirestore.lastContacted = Timestamp.fromDate(new Date(prospectData.lastContacted));
+  if (prospectData.followUpDate) dataForFirestore.followUpDate = Timestamp.fromDate(new Date(prospectData.followUpDate));
+
+  const docRef = await addDoc(prospectsCollection, dataForFirestore);
   return docRef.id;
 };
 
@@ -100,9 +132,17 @@ export const updateProspect = async (id: string, prospectData: Partial<Omit<Outr
   const userId = getCurrentUserId();
   if (!userId) throw new Error('User not authenticated');
   const prospectDoc = doc(db, 'prospects', id);
+  
   const dataToUpdate: any = { ...prospectData };
   if (prospectData.lastContacted) dataToUpdate.lastContacted = Timestamp.fromDate(new Date(prospectData.lastContacted));
   if (prospectData.followUpDate) dataToUpdate.followUpDate = Timestamp.fromDate(new Date(prospectData.followUpDate));
+  
+  for (const key in dataToUpdate) {
+    if (dataToUpdate[key] === undefined) {
+      delete dataToUpdate[key];
+    }
+  }
+
   await updateDoc(prospectDoc, dataToUpdate);
 };
 
@@ -120,13 +160,26 @@ export const addAudit = async (auditData: Omit<InstagramAudit, 'id' | 'userId' |
   const userId = getCurrentUserId();
   if (!userId) throw new Error('User not authenticated');
   
-  const dataToSave: any = {
-    ...auditData,
+  const dataForFirestore: any = {
     userId,
+    instagramHandle: auditData.instagramHandle,
+    status: auditData.status,
+    questionnaireResponses: auditData.questionnaireResponses,
     requestedDate: auditData.requestedDate ? Timestamp.fromDate(new Date(auditData.requestedDate)) : serverTimestamp(),
-    completedDate: auditData.completedDate ? Timestamp.fromDate(new Date(auditData.completedDate)) : undefined,
   };
-  const docRef = await addDoc(auditsCollection, dataToSave);
+
+  // Add optional fields only if they have a value (not undefined)
+  if (auditData.entityName) dataForFirestore.entityName = auditData.entityName;
+  if (auditData.entityType) dataForFirestore.entityType = auditData.entityType;
+  if (auditData.auditReport) dataForFirestore.auditReport = auditData.auditReport;
+  
+  // If completedDate is provided and valid, convert it to Timestamp.
+  // If it's not provided (undefined), it won't be added to dataForFirestore, avoiding the error.
+  if (auditData.completedDate) {
+    dataForFirestore.completedDate = Timestamp.fromDate(new Date(auditData.completedDate));
+  }
+
+  const docRef = await addDoc(auditsCollection, dataForFirestore);
   return docRef.id;
 };
 
@@ -169,11 +222,21 @@ export const updateAudit = async (id: string, auditData: Partial<Omit<InstagramA
   const userId = getCurrentUserId();
   if (!userId) throw new Error('User not authenticated');
   const auditDoc = doc(db, 'audits', id);
+  
   const dataToUpdate: any = { ...auditData };
+
   if (auditData.requestedDate) dataToUpdate.requestedDate = Timestamp.fromDate(new Date(auditData.requestedDate));
   
-  if (auditData.hasOwnProperty('completedDate')) {
+  // Handle completedDate specifically: allow setting to null or a new date
+  if (auditData.hasOwnProperty('completedDate')) { // Check if completedDate key is explicitly in auditData
     dataToUpdate.completedDate = auditData.completedDate ? Timestamp.fromDate(new Date(auditData.completedDate)) : null;
+  }
+
+  // Remove any other fields that might be undefined from the partial update
+  for (const key in dataToUpdate) {
+    if (dataToUpdate[key] === undefined && key !== 'completedDate') { // Don't delete completedDate if it was intentionally set to null
+      delete dataToUpdate[key];
+    }
   }
 
   await updateDoc(auditDoc, dataToUpdate);
@@ -212,11 +275,10 @@ export const getDashboardOverview = async (): Promise<{
     where('lastContacted', '<=', currentMonthEndTimestamp)
   );
   
-  // For newLeadsThisMonth, we'll filter based on 'lastContacted' date for those 'Interested'.
   const newLeadsQuery = query(prospectsCollection, 
     where('userId', '==', userId), 
     where('status', '==', 'Interested'),
-    where('lastContacted', '>=', currentMonthStartTimestamp), // Assuming 'lastContacted' is updated when status becomes 'Interested' or shortly after
+    where('lastContacted', '>=', currentMonthStartTimestamp), 
     where('lastContacted', '<=', currentMonthEndTimestamp)
   );
 
@@ -249,20 +311,17 @@ export const getMonthlyActivityData = async (): Promise<MonthlyActivity[]> => {
   const activityData: MonthlyActivity[] = [];
   const monthLabels: string[] = [];
 
-  // Generate labels for the last 6 months (current month + 5 previous)
   for (let i = 5; i >= 0; i--) {
     monthLabels.push(format(subMonths(today, i), 'MMM'));
   }
   
-  // Initialize activityData with zeros for all 6 months
   for (const monthName of monthLabels) {
     activityData.push({ month: monthName, clients: 0, outreach: 0, audits: 0 });
   }
 
-  // Fetch data for the last 6 months period
   const sixMonthsAgo = startOfMonth(subMonths(today, 5));
   const sixMonthsAgoTimestamp = Timestamp.fromDate(sixMonthsAgo);
-  const nowTimestamp = Timestamp.fromDate(endOfMonth(today)); // Use end of current month
+  const nowTimestamp = Timestamp.fromDate(endOfMonth(today)); 
 
   const clientsQuery = query(clientsCollection, 
     where('userId', '==', userId), 
@@ -309,7 +368,6 @@ export const getMonthlyActivityData = async (): Promise<MonthlyActivity[]> => {
     if (monthData) monthData.audits++;
   });
   
-  // Ensure the order of months is correct (from 5 months ago to current month)
   const correctlyOrderedActivityData = monthLabels.map(label => {
     return activityData.find(ad => ad.month === label) || { month: label, clients: 0, outreach: 0, audits: 0 };
   });
