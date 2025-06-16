@@ -182,7 +182,7 @@ export default function AuditDetailPage() {
             <h3 className="font-semibold text-lg mb-2 font-headline print-section-title">AI Generated Audit Report</h3>
             {audit.auditReport ? (
               <article 
-                className="prose prose-sm max-w-none p-4 border rounded-md bg-background dark:prose-invert text-xs md:text-sm print-audit-report"
+                className="prose prose-sm dark:prose-invert max-w-none p-4 border rounded-md bg-background print-audit-report"
               >
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {audit.auditReport}
@@ -308,3 +308,4 @@ export default function AuditDetailPage() {
     </div>
   );
 }
+
