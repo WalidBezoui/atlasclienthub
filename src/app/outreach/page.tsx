@@ -80,7 +80,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto max-h-[65vh] pr-3">
+    <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto max-h-[65vh] pr-4">
       <div>
         <Label htmlFor="name">Prospect Name *</Label>
         <Input id="name" name="name" value={formData.name} onChange={handleChange} required />
@@ -326,7 +326,7 @@ export default function OutreachPage() {
         </CardHeader>
         <CardContent>
           {isLoading && prospects.length === 0 ? (
-             <div className="flex justify-center items-center py-10"><LoadingSpinner text="Fetching prospects..." /></div>
+            <Table><TableBody><TableRow><TableCell colSpan={7} className="h-24 text-center"><LoadingSpinner text="Fetching prospects..." /></TableCell></TableRow></TableBody></Table>
           ) : (
             <Table>
               <TableHeader>
