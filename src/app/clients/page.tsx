@@ -32,7 +32,7 @@ import Link from 'next/link';
 
 const CLIENT_STATUS_OPTIONS: ClientStatus[] = ["Active", "On Hold", "Past"];
 
-const initialFormData = {
+const initialFormDataState = { // Renamed to avoid conflict if lifted later
   name: '',
   contactEmail: '',
   companyName: '',
@@ -45,19 +45,19 @@ const initialFormData = {
 
 
 function ClientForm({ client, onSave, onCancel }: { client?: Client, onSave: (client: Omit<Client, 'id' | 'userId'> | Client) => void, onCancel: () => void }) {
-  const [formData, setFormData] = useState<Omit<Client, 'id' | 'userId'> | Client>(initialFormData);
+  const [formData, setFormData] = useState<Omit<Client, 'id' | 'userId'> | Client>(initialFormDataState);
   const { toast } = useToast();
 
   useEffect(() => {
     if (client) {
         const formattedClient = {
-            ...initialFormData, // Start with defaults to ensure all fields are present
+            ...initialFormDataState, 
             ...client,
             joinedDate: client.joinedDate ? new Date(client.joinedDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
         };
       setFormData(formattedClient);
     } else {
-      setFormData(initialFormData);
+      setFormData(initialFormDataState);
     }
   }, [client]);
 
@@ -265,8 +265,8 @@ export default function ClientsPage() {
           setIsFormOpen(isOpen);
           if (!isOpen) {
             setEditingClient(undefined);
-            // Reset form data when dialog closes and not editing
-            if (!editingClient) setFormData(initialFormData);
+            // The ClientForm's useEffect will handle resetting its internal form data
+            // when editingClient becomes undefined.
           }
       }}>
         <DialogContent className="sm:max-w-lg">
@@ -279,7 +279,7 @@ export default function ClientsPage() {
           <ClientForm 
             client={editingClient} 
             onSave={handleSaveClient} 
-            onCancel={() => { setIsFormOpen(false); setEditingClient(undefined); if (!editingClient) setFormData(initialFormData); }} 
+            onCancel={() => { setIsFormOpen(false); setEditingClient(undefined); }} 
           />
         </DialogContent>
       </Dialog>
