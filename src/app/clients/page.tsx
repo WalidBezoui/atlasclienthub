@@ -82,7 +82,7 @@ function ClientForm({ client, onSave, onCancel }: { client?: Client, onSave: (cl
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto max-h-[65vh] pr-4">
+    <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto max-h-[65vh] pr-5">
       <div>
         <Label htmlFor="name">Client/Company Name *</Label>
         <Input id="name" name="name" value={formData.name} onChange={handleChange} required />
@@ -320,8 +320,16 @@ export default function ClientsPage() {
         </CardHeader>
         <CardContent>
           {isLoading && clients.length === 0 ? (
-            <Table><TableBody><TableRow><TableCell colSpan={6} className="h-24 text-center"><LoadingSpinner text="Fetching clients..." /></TableCell></TableRow></TableBody></Table>
-          ) : (
+             <Table>
+                <TableBody>
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center">
+                      <LoadingSpinner text="Fetching clients..." />
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+          ) : filteredClients.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -334,8 +342,7 @@ export default function ClientsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredClients.length > 0 ? (
-                  filteredClients.map((client) => (
+                  {filteredClients.map((client) => (
                     <TableRow key={client.id}>
                       <TableCell className="font-medium">{client.name}</TableCell>
                       <TableCell className="hidden md:table-cell text-muted-foreground">{client.contactEmail}</TableCell>
@@ -355,8 +362,12 @@ export default function ClientsPage() {
                         </Button>
                       </TableCell>
                     </TableRow>
-                  ))
-                ) : (
+                  ))}
+              </TableBody>
+            </Table>
+          ) : (
+              <Table>
+                <TableBody>
                   <TableRow>
                     <TableCell colSpan={6} className="text-center h-24">
                         <div className="flex flex-col items-center justify-center">
@@ -375,9 +386,8 @@ export default function ClientsPage() {
                         </div>
                     </TableCell>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                </TableBody>
+              </Table>
           )}
         </CardContent>
       </Card>

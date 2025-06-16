@@ -80,7 +80,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto max-h-[65vh] pr-4">
+    <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto max-h-[65vh] pr-5">
       <div>
         <Label htmlFor="name">Prospect Name *</Label>
         <Input id="name" name="name" value={formData.name} onChange={handleChange} required />
@@ -325,9 +325,17 @@ export default function OutreachPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {isLoading && prospects.length === 0 ? (
-            <Table><TableBody><TableRow><TableCell colSpan={7} className="h-24 text-center"><LoadingSpinner text="Fetching prospects..." /></TableCell></TableRow></TableBody></Table>
-          ) : (
+         {isLoading && prospects.length === 0 ? (
+             <Table>
+                <TableBody>
+                  <TableRow>
+                    <TableCell colSpan={7} className="h-24 text-center">
+                      <LoadingSpinner text="Fetching prospects..." />
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+          ) : filteredProspects.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -341,8 +349,7 @@ export default function OutreachPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredProspects.length > 0 ? (
-                  filteredProspects.map((prospect) => (
+                  {filteredProspects.map((prospect) => (
                     <TableRow key={prospect.id}>
                       <TableCell className="font-medium">{prospect.name}</TableCell>
                       <TableCell className="hidden md:table-cell text-muted-foreground">{prospect.email}</TableCell>
@@ -367,8 +374,12 @@ export default function OutreachPage() {
                         </Button>
                       </TableCell>
                     </TableRow>
-                  ))
-                ) : (
+                  ))}
+              </TableBody>
+            </Table>
+          ) : (
+              <Table>
+                <TableBody>
                   <TableRow>
                       <TableCell colSpan={7} className="text-center h-24">
                           <div className="flex flex-col items-center justify-center">
@@ -387,9 +398,8 @@ export default function OutreachPage() {
                           </div>
                       </TableCell>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                </TableBody>
+              </Table>
           )}
         </CardContent>
       </Card>
