@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from 'next/link';
@@ -28,7 +29,7 @@ export function AppSidebar() {
         <SidebarMenu>
           {NAV_ITEMS.map((item) => (
             <SidebarMenuItem key={item.href}>
-              <Link href={item.href} passHref legacyBehavior>
+              <Link href={item.href}>
                 <SidebarMenuButton
                   asChild={false} // Ensure it's a button for tooltip to work correctly when collapsed
                   className={cn(
