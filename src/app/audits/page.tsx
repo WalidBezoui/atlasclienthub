@@ -48,7 +48,7 @@ export default function AuditsPage() {
       if (user) {
         fetchAudits();
       } else {
-        router.push('/login');
+        // AuthProvider should handle redirect
       }
     }
   }, [user, authLoading, fetchAudits, router]);
@@ -74,6 +74,10 @@ export default function AuditsPage() {
       } else {
         newSet.add(status);
       }
+      // If all filters are deselected, select all by default
+      if (newSet.size === 0) {
+        return new Set(AUDIT_STATUS_OPTIONS);
+      }
       return newSet;
     });
   };
@@ -81,7 +85,7 @@ export default function AuditsPage() {
   const filteredAudits = audits.filter(audit => 
     (audit.instagramHandle.toLowerCase().includes(searchTerm.toLowerCase()) || 
      (audit.entityName && audit.entityName.toLowerCase().includes(searchTerm.toLowerCase()))) &&
-    statusFilters.has(audit.status)
+    (statusFilters.size === AUDIT_STATUS_OPTIONS.length || statusFilters.has(audit.status)) // Apply filter only if not all are selected
   );
   
   const getStatusBadgeVariant = (status: AuditStatus): "default" | "secondary" | "outline" | "destructive" => {
@@ -96,11 +100,12 @@ export default function AuditsPage() {
     }
   };
 
-  if (authLoading || isLoading && !audits.length) {
+  if (authLoading || (isLoading && !audits.length && user)) { // Show loading if auth is loading OR data is loading for an authenticated user
     return <div className="flex justify-center items-center h-screen"><LoadingSpinner text="Loading audits..." size="lg"/></div>;
   }
 
   if (!user && !authLoading) {
+     // This should ideally be handled by AuthProvider, but good for fallback
     return <div className="flex justify-center items-center h-screen"><p>Redirecting to login...</p></div>;
   }
 
@@ -185,16 +190,16 @@ export default function AuditsPage() {
                       </TableCell>
                       <TableCell className="text-right space-x-1">
                         <Link href={`/audits/${audit.id}`} passHref>
-                          <Button variant="ghost" size="icon">
+                          <Button variant="ghost" size="icon" aria-label={`View audit for ${audit.instagramHandle}`}>
                             <Eye className="h-4 w-4" />
                              <span className="sr-only">View Audit</span>
                           </Button>
                         </Link>
-                         <Button variant="ghost" size="icon" disabled> 
+                         <Button variant="ghost" size="icon" disabled aria-label={`Edit audit for ${audit.instagramHandle}`}> 
                            <Edit className="h-4 w-4" />
                            <span className="sr-only">Edit Audit</span>
                          </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDeleteAudit(audit.id, audit.instagramHandle)} className="text-destructive hover:text-destructive">
+                        <Button variant="ghost" size="icon" onClick={() => handleDeleteAudit(audit.id, audit.instagramHandle)} className="text-destructive hover:text-destructive" aria-label={`Delete audit for ${audit.instagramHandle}`}>
                           <Trash2 className="h-4 w-4" />
                           <span className="sr-only">Delete Audit</span>
                         </Button>
@@ -206,9 +211,16 @@ export default function AuditsPage() {
                       <TableCell colSpan={6} className="text-center h-24">
                           <div className="flex flex-col items-center justify-center">
                               <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
-                              <p>No audits found matching your criteria.</p>
-                              {audits.length === 0 && searchTerm === '' && statusFilters.size === AUDIT_STATUS_OPTIONS.length && (
-                                   <p className="text-sm text-muted-foreground">Get started by creating your first audit!</p>
+                              <p className="font-semibold">
+                                {audits.length === 0 && searchTerm === '' && (statusFilters.size === AUDIT_STATUS_OPTIONS.length || statusFilters.size === 0)
+                                  ? "No audits found."
+                                  : "No audits found matching your criteria."
+                                }
+                              </p>
+                              {audits.length === 0 && searchTerm === '' && (statusFilters.size === AUDIT_STATUS_OPTIONS.length || statusFilters.size === 0) && (
+                                   <p className="text-sm text-muted-foreground">
+                                      Get started by <Link href="/audits/new" className="text-primary hover:underline">creating your first audit</Link>!
+                                   </p>
                               )}
                           </div>
                       </TableCell>

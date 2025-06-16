@@ -27,41 +27,36 @@ import { useAuth } from '@/hooks/useAuth';
 import { addProspect, getProspects, updateProspect, deleteProspect as fbDeleteProspect } from '@/lib/firebase/services';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 const OUTREACH_STATUS_OPTIONS: OutreachStatus[] = ["To Contact", "Contacted", "Replied", "Interested", "Not Interested", "Follow-up"];
 
-function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProspect, onSave: (prospect: Omit<OutreachProspect, 'id' | 'userId'> | OutreachProspect) => void, onCancel: () => void }) {
-  const [formData, setFormData] = useState<Omit<OutreachProspect, 'id' | 'userId'> | OutreachProspect>(prospect || {
+const initialFormData = {
     name: '',
     email: '',
     company: '',
-    status: 'To Contact',
+    status: 'To Contact' as OutreachStatus,
     instagramHandle: '',
     notes: '',
-    lastContacted: undefined,
-    followUpDate: undefined,
-  });
+    lastContacted: undefined as string | undefined,
+    followUpDate: undefined as string | undefined,
+};
+
+function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProspect, onSave: (prospect: Omit<OutreachProspect, 'id' | 'userId'> | OutreachProspect) => void, onCancel: () => void }) {
+  const [formData, setFormData] = useState<Omit<OutreachProspect, 'id' | 'userId'> | OutreachProspect>(initialFormData);
   const { toast } = useToast();
 
   useEffect(() => {
      if (prospect) {
         const formattedProspect = {
+            ...initialFormData, // Start with defaults
             ...prospect,
             lastContacted: prospect.lastContacted ? new Date(prospect.lastContacted).toISOString().split('T')[0] : undefined,
             followUpDate: prospect.followUpDate ? new Date(prospect.followUpDate).toISOString().split('T')[0] : undefined,
         };
       setFormData(formattedProspect);
     } else {
-      setFormData({
-        name: '',
-        email: '',
-        company: '',
-        status: 'To Contact',
-        instagramHandle: '',
-        notes: '',
-        lastContacted: undefined,
-        followUpDate: undefined,
-      });
+      setFormData(initialFormData);
     }
   }, [prospect]);
 
@@ -163,7 +158,7 @@ export default function OutreachPage() {
       if (user) {
         fetchProspects();
       } else {
-        router.push('/login');
+        // AuthProvider should handle redirect
       }
     }
   }, [user, authLoading, fetchProspects, router]);
@@ -174,13 +169,21 @@ export default function OutreachPage() {
         return;
     }
     try {
-        if ('id' in prospectData && prospectData.id) { 
-            const { id, userId, ...updateData } = prospectData as OutreachProspect;
+        const dataToSave = { ...prospectData };
+        // Ensure optional fields are present or undefined
+        dataToSave.company = dataToSave.company || undefined;
+        dataToSave.instagramHandle = dataToSave.instagramHandle || undefined;
+        dataToSave.notes = dataToSave.notes || undefined;
+        dataToSave.lastContacted = dataToSave.lastContacted || undefined;
+        dataToSave.followUpDate = dataToSave.followUpDate || undefined;
+
+        if ('id' in dataToSave && dataToSave.id) { 
+            const { id, userId, ...updateData } = dataToSave as OutreachProspect;
             await updateProspect(id, updateData);
-            toast({ title: "Success", description: `Prospect ${prospectData.name} updated.` });
+            toast({ title: "Success", description: `Prospect ${dataToSave.name} updated.` });
         } else { 
-            await addProspect(prospectData as Omit<OutreachProspect, 'id'|'userId'>);
-            toast({ title: "Success", description: `Prospect ${prospectData.name} added.` });
+            await addProspect(dataToSave as Omit<OutreachProspect, 'id'|'userId'>);
+            toast({ title: "Success", description: `Prospect ${dataToSave.name} added.` });
         }
         fetchProspects(); 
         setIsFormOpen(false);
@@ -212,6 +215,9 @@ export default function OutreachPage() {
       } else {
         newSet.add(status);
       }
+      if (newSet.size === 0) {
+        return new Set(OUTREACH_STATUS_OPTIONS);
+      }
       return newSet;
     });
   };
@@ -222,7 +228,7 @@ export default function OutreachPage() {
      (prospect.company && prospect.company.toLowerCase().includes(searchTerm.toLowerCase())) ||
      (prospect.instagramHandle && prospect.instagramHandle.toLowerCase().includes(searchTerm.toLowerCase()))
     ) &&
-    statusFilters.has(prospect.status)
+    (statusFilters.size === OUTREACH_STATUS_OPTIONS.length || statusFilters.has(prospect.status))
   );
 
   const getStatusBadgeVariant = (status: OutreachStatus) => {
@@ -237,11 +243,12 @@ export default function OutreachPage() {
     }
   };
 
-  if (authLoading || isLoading && !prospects.length) {
+  if (authLoading || (isLoading && !prospects.length && user)) {
     return <div className="flex justify-center items-center h-screen"><LoadingSpinner text="Loading outreach prospects..." size="lg"/></div>;
   }
   
   if (!user && !authLoading) {
+     // This should ideally be handled by AuthProvider
     return <div className="flex justify-center items-center h-screen"><p>Redirecting to login...</p></div>;
   }
 
@@ -260,7 +267,10 @@ export default function OutreachPage() {
 
       <Dialog open={isFormOpen} onOpenChange={(isOpen) => {
           setIsFormOpen(isOpen);
-          if (!isOpen) setEditingProspect(undefined);
+          if (!isOpen) {
+            setEditingProspect(undefined);
+            if(!editingProspect) setFormData(initialFormData); // Reset if adding new
+          }
       }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -272,7 +282,7 @@ export default function OutreachPage() {
           <ProspectForm 
             prospect={editingProspect} 
             onSave={handleSaveProspect} 
-            onCancel={() => { setIsFormOpen(false); setEditingProspect(undefined); }} 
+            onCancel={() => { setIsFormOpen(false); setEditingProspect(undefined); if(!editingProspect) setFormData(initialFormData); }} 
           />
         </DialogContent>
       </Dialog>
@@ -345,11 +355,11 @@ export default function OutreachPage() {
                         {prospect.followUpDate ? new Date(prospect.followUpDate).toLocaleDateString() : '-'}
                       </TableCell>
                       <TableCell className="text-right">
-                         <Button variant="ghost" size="icon" onClick={() => { setEditingProspect(prospect); setIsFormOpen(true); }} className="mr-2">
+                         <Button variant="ghost" size="icon" onClick={() => { setEditingProspect(prospect); setIsFormOpen(true); }} className="mr-2" aria-label={`Edit prospect ${prospect.name}`}>
                           <Edit className="h-4 w-4" />
                            <span className="sr-only">Edit Prospect</span>
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDeleteProspect(prospect.id, prospect.name)} className="text-destructive hover:text-destructive">
+                        <Button variant="ghost" size="icon" onClick={() => handleDeleteProspect(prospect.id, prospect.name)} className="text-destructive hover:text-destructive" aria-label={`Delete prospect ${prospect.name}`}>
                           <Trash2 className="h-4 w-4" />
                           <span className="sr-only">Delete Prospect</span>
                         </Button>
@@ -361,9 +371,16 @@ export default function OutreachPage() {
                       <TableCell colSpan={7} className="text-center h-24">
                           <div className="flex flex-col items-center justify-center">
                               <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
-                              <p>No prospects found matching your criteria.</p>
-                              {prospects.length === 0 && searchTerm === '' && statusFilters.size === OUTREACH_STATUS_OPTIONS.length && (
-                                   <p className="text-sm text-muted-foreground">Get started by adding your first prospect!</p>
+                              <p className="font-semibold">
+                                {prospects.length === 0 && searchTerm === '' && (statusFilters.size === OUTREACH_STATUS_OPTIONS.length || statusFilters.size === 0)
+                                  ? "No prospects found."
+                                  : "No prospects found matching your criteria."
+                                }
+                              </p>
+                              {prospects.length === 0 && searchTerm === '' && (statusFilters.size === OUTREACH_STATUS_OPTIONS.length || statusFilters.size === 0) && (
+                                   <p className="text-sm text-muted-foreground">
+                                     Start building your outreach list by <Button variant="link" className="p-0 h-auto" onClick={() => { setEditingProspect(undefined); setIsFormOpen(true);}}>adding your first prospect</Button>!
+                                   </p>
                               )}
                           </div>
                       </TableCell>

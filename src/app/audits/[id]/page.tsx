@@ -55,6 +55,7 @@ export default function AuditDetailPage() {
       if (user && id) {
         fetchAudit(id);
       } else if (!user) {
+        // AuthProvider should handle redirect, but defensive check
         router.push('/login');
       }
     }
@@ -67,9 +68,17 @@ export default function AuditDetailPage() {
   const handleStatusChange = async (newStatus: AuditStatus) => {
     if (!audit || !user) return;
     try {
-      await updateAudit(audit.id, { status: newStatus, completedDate: newStatus === 'Completed' && !audit.completedDate ? new Date().toISOString() : audit.completedDate });
+      const updateData: Partial<InstagramAudit> = { status: newStatus };
+      if (newStatus === 'Completed' && (!audit.completedDate || audit.status !== 'Completed')) {
+        updateData.completedDate = new Date().toISOString();
+      } else if (newStatus !== 'Completed' && audit.status === 'Completed' && audit.completedDate) {
+        // If moving away from 'Completed', we might want to clear completedDate or keep it as a record.
+        // For now, let's keep it. If you want to clear it, set updateData.completedDate = null;
+      }
+      
+      await updateAudit(audit.id, updateData);
       setCurrentStatus(newStatus);
-      setAudit(prev => prev ? { ...prev, status: newStatus, completedDate: newStatus === 'Completed' && !audit.completedDate ? new Date().toISOString() : audit.completedDate } : null);
+      setAudit(prev => prev ? { ...prev, ...updateData, completedDate: updateData.completedDate || prev.completedDate } : null);
       toast({ title: "Status Updated", description: `Audit status changed to ${newStatus}.` });
     } catch (error) {
       console.error("Error updating status:", error);
@@ -82,6 +91,7 @@ export default function AuditDetailPage() {
   }
 
   if (!user && !authLoading) {
+     // This should ideally be handled by AuthProvider, but good for fallback
     return <div className="flex justify-center items-center h-screen"><p>Redirecting to login...</p></div>;
   }
 
@@ -112,14 +122,11 @@ export default function AuditDetailPage() {
             <Button onClick={handlePrint}>
               <Printer className="mr-2 h-4 w-4" /> Export to PDF
             </Button>
-             {/* <Button variant="secondary" disabled>
-              <Edit className="mr-2 h-4 w-4" /> Edit Audit Data (Non-Report)
-            </Button> */}
           </div>
         }
       />
 
-      <Card className="shadow-lg printable-area-card"> {/* Added printable-area-card */}
+      <Card className="shadow-lg printable-area-card">
         <CardHeader className="no-print">
           <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
             <div>
@@ -127,7 +134,7 @@ export default function AuditDetailPage() {
               {audit.entityName && <CardDescription>{audit.entityType}: {audit.entityName}</CardDescription>}
             </div>
             <div className="flex flex-col sm:items-end gap-2 w-full sm:w-auto">
-               <Badge variant={audit.status === 'Completed' || audit.status === 'Exported' ? 'default' : audit.status === 'Canceled' ? 'destructive' : 'secondary'} className="text-sm px-3 py-1 self-start sm:self-end">
+               <Badge variant={currentStatus === 'Completed' || currentStatus === 'Exported' ? 'default' : currentStatus === 'Canceled' ? 'destructive' : 'secondary'} className="text-sm px-3 py-1 self-start sm:self-end">
                 {currentStatus}
               </Badge>
               <div className="w-full sm:w-[200px]">
@@ -144,42 +151,41 @@ export default function AuditDetailPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Info section for print */}
            <div className="print-only-header mb-6 hidden">
-                <h1 className="text-2xl font-bold mb-1">Instagram Audit: {audit.instagramHandle}</h1>
-                {audit.entityName && <h2 className="text-lg text-gray-700 mb-3">{audit.entityType}: {audit.entityName}</h2>}
+                <h1 className="text-2xl font-bold mb-1 print-title">Instagram Audit: {audit.instagramHandle}</h1>
+                {audit.entityName && <h2 className="text-lg text-gray-700 mb-3 print-subtitle">{audit.entityType}: {audit.entityName}</h2>}
            </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div className="flex items-center">
-              <CalendarDays className="mr-2 h-5 w-5 text-muted-foreground" />
+              <CalendarDays className="mr-2 h-5 w-5 text-muted-foreground print-icon" />
               <strong>Requested:</strong>&nbsp;{new Date(audit.requestedDate).toLocaleDateString()}
             </div>
             {audit.completedDate && (
               <div className="flex items-center">
-                <CheckCircle className="mr-2 h-5 w-5 text-green-500" />
+                <CheckCircle className="mr-2 h-5 w-5 text-green-500 print-icon" />
                 <strong>Completed:</strong>&nbsp;{new Date(audit.completedDate).toLocaleDateString()}
               </div>
             )}
           </div>
-           <div className="print-only-status text-sm mb-4 hidden"><strong>Status:</strong> {audit.status}</div>
+           <div className="print-only-status text-sm mb-4 hidden"><strong>Status:</strong> {currentStatus}</div>
           
-          <Separator />
+          <Separator className="print-separator" />
 
           <div>
-            <h3 className="font-semibold text-lg mb-2 font-headline">Questionnaire Summary</h3>
-            <p className="text-muted-foreground bg-muted/50 p-4 rounded-md whitespace-pre-wrap text-sm">
+            <h3 className="font-semibold text-lg mb-2 font-headline print-section-title">Questionnaire Summary</h3>
+            <p className="text-muted-foreground bg-muted/50 p-4 rounded-md whitespace-pre-wrap text-sm print-text-block">
               {audit.questionnaireResponses || "No questionnaire summary provided."}
             </p>
           </div>
 
-          <Separator />
+          <Separator className="print-separator" />
           
           <div>
-            <h3 className="font-semibold text-lg mb-2 font-headline">AI Generated Audit Report</h3>
+            <h3 className="font-semibold text-lg mb-2 font-headline print-section-title">AI Generated Audit Report</h3>
             {audit.auditReport ? (
               <div 
-                className="prose prose-sm max-w-none p-4 border rounded-md bg-background dark:prose-invert whitespace-pre-wrap font-mono text-xs md:text-sm" 
+                className="prose prose-sm max-w-none p-4 border rounded-md bg-background dark:prose-invert whitespace-pre-wrap font-mono text-xs md:text-sm print-audit-report" 
               >
                 {audit.auditReport}
               </div>
@@ -189,47 +195,114 @@ export default function AuditDetailPage() {
           </div>
         </CardContent>
         <CardFooter className="flex justify-end no-print">
-           {/* Additional actions like share, download raw can be added here */}
         </CardFooter>
       </Card>
       
       <style jsx global>{`
         @media print {
-          body * {
+          body, html {
             visibility: hidden;
+            background-color: white !important;
+            color: black !important;
+            -webkit-print-color-adjust: exact !important; /* Chrome, Safari */
+            color-adjust: exact !important; /* Firefox, Edge */
           }
           .printable-area-card, .printable-area-card * {
-            visibility: visible;
+            visibility: visible !important;
           }
           .printable-area-card {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
             box-shadow: none !important;
             border: none !important;
+            margin: 0 !important;
+            padding: 20px !important; /* Add some padding for print */
+            background-color: white !important;
           }
           .no-print {
             display: none !important;
           }
           .print-only-header, .print-only-status {
-            display: block !important; /* Show elements meant only for print */
+            display: block !important;
+            color: black !important;
           }
-          .prose { 
+          .print-title {
+            font-size: 20pt !important;
+            color: black !important;
+            margin-bottom: 4px !important;
+          }
+          .print-subtitle {
+            font-size: 14pt !important;
+            color: #333 !important;
+            margin-bottom: 12px !important;
+          }
+          .print-section-title {
+            font-size: 16pt !important;
+            color: black !important;
+            margin-top: 1em !important;
+            margin-bottom: 0.5em !important;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 0.25em;
+          }
+          .print-text-block, .print-audit-report {
+            font-size: 10pt !important;
+            line-height: 1.4 !important;
+            color: black !important;
+            background-color: white !important;
+            border-color: #eee !important;
+            padding: 8px !important;
+          }
+          .print-audit-report {
+             white-space: pre-wrap !important; /* Ensure pre-wrap is respected */
+             font-family: 'Courier New', Courier, monospace !important; /* Consistent mono font for report */
+          }
+          .prose { /* Base prose styles for print */
             font-size: 10pt !important;
             color: black !important;
             max-width: 100% !important;
           }
-          .prose h1, .prose h2, .prose h3, .prose h4 {
+           .prose h1, .prose h2, .prose h3, .prose h4, .prose p, .prose li, .prose strong, .prose em {
              color: black !important;
-             margin-top: 0.5em;
-             margin-bottom: 0.25em;
           }
-           .prose p, .prose li {
-            color: black !important;
+          .text-muted-foreground, .print-icon {
+            color: #555 !important;
           }
-          .bg-background {
+          .text-green-500 {
+            color: green !important;
+          }
+          .print-separator {
+            border-color: #ccc !important;
+            margin-top: 1em !important;
+            margin-bottom: 1em !important;
+          }
+          /* Ensure ShadCN specific background/text colors are overridden */
+          .bg-background, .bg-muted\\/50, .border {
             background-color: white !important;
+            border-color: #ddd !important; /* Lighten border for print */
+          }
+          .dark\\:prose-invert { /* Disable dark mode prose inversion for print */
+             --tw-prose-body: black !important;
+             --tw-prose-headings: black !important;
+             --tw-prose-lead: black !important;
+             --tw-prose-links: black !important;
+             --tw-prose-bold: black !important;
+             --tw-prose-counters: black !important;
+             --tw-prose-bullets: black !important;
+             --tw-prose-hr: #ccc !important;
+             --tw-prose-quotes: black !important;
+             --tw-prose-quote-borders: #ccc !important;
+             --tw-prose-captions: black !important;
+             --tw-prose-code: black !important;
+             --tw-prose-pre-code: black !important;
+             --tw-prose-pre-bg: #f5f5f5 !important; /* Light background for code blocks */
+             --tw-prose-th-borders: #ccc !important;
+             --tw-prose-td-borders: #ccc !important;
+          }
+          /* Hide elements that might overlap or are not needed in print */
+          header, footer, nav, aside, .app-header, .app-sidebar { 
+            display: none !important;
           }
         }
       `}</style>

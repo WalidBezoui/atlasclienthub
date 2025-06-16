@@ -19,26 +19,46 @@ import { LoadingSpinner } from '@/components/shared/loading-spinner';
 import { useAuth } from '@/hooks/useAuth';
 import { addAudit } from '@/lib/firebase/services';
 
+const initialFormState = {
+  instagramHandle: '',
+  entityName: '',
+  entityType: undefined as 'Client' | 'Prospect' | undefined,
+  questionnaireResponses: '',
+  auditReport: undefined as string | undefined,
+  auditStatus: 'Requested' as AuditStatus,
+};
+
 export default function NewAuditPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
 
-  const [instagramHandle, setInstagramHandle] = useState('');
-  const [entityName, setEntityName] = useState('');
-  const [entityType, setEntityType] = useState<'Client' | 'Prospect' | undefined>(undefined);
-  const [questionnaireResponses, setQuestionnaireResponses] = useState('');
+  const [instagramHandle, setInstagramHandle] = useState(initialFormState.instagramHandle);
+  const [entityName, setEntityName] = useState(initialFormState.entityName);
+  const [entityType, setEntityType] = useState(initialFormState.entityType);
+  const [questionnaireResponses, setQuestionnaireResponses] = useState(initialFormState.questionnaireResponses);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [auditReport, setAuditReport] = useState<string | undefined>(undefined);
+  const [auditReport, setAuditReport] = useState(initialFormState.auditReport);
   const [isSaving, setIsSaving] = useState(false);
-  const [auditStatus, setAuditStatus] = useState<AuditStatus>('Requested');
+  const [auditStatus, setAuditStatus] = useState<AuditStatus>(initialFormState.auditStatus);
   
   const { toast } = useToast();
 
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push('/login');
+      // AuthProvider should handle redirect
     }
   }, [user, authLoading, router]);
+
+  const clearForm = () => {
+    setInstagramHandle(initialFormState.instagramHandle);
+    setEntityName(initialFormState.entityName);
+    setEntityType(initialFormState.entityType);
+    setQuestionnaireResponses(initialFormState.questionnaireResponses);
+    setAuditReport(initialFormState.auditReport);
+    setAuditStatus(initialFormState.auditStatus);
+    setIsGenerating(false);
+    setIsSaving(false);
+  };
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -92,6 +112,7 @@ export default function NewAuditPage() {
       auditReport,
       status: auditStatus,
       requestedDate: new Date().toISOString(),
+      // completedDate will be set when status becomes 'Completed'
     };
 
     try {
@@ -110,6 +131,7 @@ export default function NewAuditPage() {
     return <div className="flex justify-center items-center h-screen"><LoadingSpinner text="Loading..." size="lg"/></div>;
   }
    if (!user && !authLoading) {
+    // This should ideally be handled by AuthProvider, but good for fallback
     return <div className="flex justify-center items-center h-screen"><p>Redirecting to login...</p></div>;
   }
 
@@ -238,7 +260,7 @@ export default function NewAuditPage() {
               </div>
           </CardContent>
           <CardFooter className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => {setAuditReport(undefined); setInstagramHandle(''); setQuestionnaireResponses(''); setEntityName(''); setEntityType(undefined)}}>
+            <Button variant="outline" onClick={clearForm}>
               Clear & Start New
             </Button>
             <Button onClick={handleSaveAudit} disabled={isSaving}>
