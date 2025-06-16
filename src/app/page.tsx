@@ -1,7 +1,7 @@
 
 'use client';
 import React, { useEffect, useState, useCallback } from 'react';
-import { LayoutDashboard, Users, Send, ListChecks, Zap, PlusCircle, TrendingUp, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, Users, Send, ListChecks, Zap, PlusCircle, TrendingUp, AlertTriangle, Compass, CheckSquare, Scaling, Clock, UsersRound, Lightbulb, BrainCircuit, Rocket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
@@ -14,6 +14,7 @@ import { useRouter } from 'next/navigation';
 import { getDashboardOverview, getMonthlyActivityData } from '@/lib/firebase/services';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
 import type { MonthlyActivity } from '@/lib/types';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 
 const initialOverviewData = {
@@ -92,6 +93,45 @@ export default function DashboardPage() {
     { metric: 'New Leads (Interested)', value: overviewData.newLeadsThisMonth, icon: Zap, color: 'text-purple-500', bgColor: 'bg-purple-100' },
   ];
 
+  const fastlaneInsights = [
+    {
+      id: "control",
+      icon: CheckSquare,
+      title: "The Commandment of Control",
+      question: "Are you building systems you own and fully control, or are you dependent on platforms and factors outside your direct influence? (e.g., client platform changes, algorithm shifts). True Fastlane businesses are built on assets you govern.",
+      color: "text-sky-500",
+    },
+    {
+      id: "entry",
+      icon: Rocket,
+      title: "The Commandment of Entry",
+      question: "Is your service offering easily replicable by anyone, or is there a significant barrier to entry? (e.g., specialized skills, unique process, strong brand). A low barrier means high competition and commoditization.",
+      color: "text-amber-500",
+    },
+    {
+      id: "need",
+      icon: Lightbulb,
+      title: "The Commandment of Need",
+      question: "Does your service solve a genuine, significant market need or a burning pain point for your target clients? Businesses that solve real problems thrive and command higher value.",
+      color: "text-emerald-500",
+    },
+    {
+      id: "time",
+      icon: Clock,
+      title: "The Commandment of Time",
+      question: "Can your business operate and generate income detached from your direct time involvement? (e.g., through scalable systems, automation, delegation, productized services). Trading hours for money is the Slowlane.",
+      color: "text-violet-500",
+    },
+    {
+      id: "scale",
+      icon: Scaling,
+      title: "The Commandment of Scale",
+      question: "Can your business effectively serve a larger audience or market (magnitude) or command a higher price point (leverage) without proportionally increasing your effort or costs? Scalability is key to wealth creation.",
+      color: "text-rose-500",
+    },
+  ];
+
+
   if (authLoading || (isLoadingData && user)) {
     return <div className="flex justify-center items-center h-screen"><LoadingSpinner text="Loading dashboard..." size="lg"/></div>;
   }
@@ -145,6 +185,63 @@ export default function DashboardPage() {
       </div>
     )}
 
+      <Card className="shadow-lg">
+        <CardHeader>
+          <CardTitle className="font-headline flex items-center">
+            <Compass className="mr-3 h-7 w-7 text-primary" />
+            Atlas Growth Compass: Fastlane Insights
+          </CardTitle>
+          <CardDescription>
+            Navigate your agency's growth with these core principles from &quot;The Millionaire Fastlane&quot;. Reflect on these checkpoints to build a scalable and impactful business.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Accordion type="single" collapsible className="w-full">
+            {fastlaneInsights.map((insight) => (
+              <AccordionItem value={insight.id} key={insight.id}>
+                <AccordionTrigger className="text-base hover:no-underline">
+                  <div className="flex items-center">
+                    <insight.icon className={`mr-3 h-5 w-5 shrink-0 ${insight.color ?? 'text-primary'}`} />
+                    {insight.title}
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="text-sm text-muted-foreground pl-8 pr-2 pb-4">
+                  {insight.question}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+          <div className="mt-6 space-y-4">
+            <div className="p-4 bg-muted/50 rounded-md">
+              <h4 className="font-semibold text-md flex items-center mb-1">
+                <BrainCircuit className="mr-2 h-5 w-5 text-primary" />
+                Producer Mindset
+              </h4>
+              <p className="text-sm text-muted-foreground">
+                Focus on creating scalable value and systems. Shift from consuming trends to producing high-impact strategies and assets for your clients and your business.
+              </p>
+            </div>
+            <div className="p-4 bg-muted/50 rounded-md">
+              <h4 className="font-semibold text-md flex items-center mb-1">
+                <TrendingUp className="mr-2 h-5 w-5 text-primary" />
+                Value Skew
+              </h4>
+              <p className="text-sm text-muted-foreground">
+                Strive to deliver disproportionate value. How can your service be 10x better, faster, or significantly different from alternatives? This is how you command premium pricing and loyalty.
+              </p>
+            </div>
+            <div className="p-4 bg-muted/50 rounded-md">
+              <h4 className="font-semibold text-md flex items-center mb-1">
+                <UsersRound className="mr-2 h-5 w-5 text-primary" />
+                Process Over Event
+              </h4>
+              <p className="text-sm text-muted-foreground">
+                Build reliable, repeatable processes for client acquisition, onboarding, service delivery, and achieving results. Sustainable success is built on systems, not isolated wins or luck.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
         <Card className="shadow-lg">
@@ -248,3 +345,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+
