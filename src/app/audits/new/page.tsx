@@ -112,7 +112,6 @@ export default function NewAuditPage() {
       auditReport,
       status: auditStatus,
       requestedDate: new Date().toISOString(),
-      // completedDate will be set when status becomes 'Completed'
     };
 
     try {
@@ -131,7 +130,6 @@ export default function NewAuditPage() {
     return <div className="flex justify-center items-center h-screen"><LoadingSpinner text="Loading..." size="lg"/></div>;
   }
    if (!user && !authLoading) {
-    // This should ideally be handled by AuthProvider, but good for fallback
     return <div className="flex justify-center items-center h-screen"><p>Redirecting to login...</p></div>;
   }
 
@@ -244,7 +242,7 @@ export default function NewAuditPage() {
               value={auditReport} 
               onChange={(e) => setAuditReport(e.target.value)} 
               rows={20}
-              className="font-mono text-sm p-4 bg-muted/30 rounded-md border"
+              className="text-sm p-4 bg-muted/30 rounded-md border"
               aria-label="Generated Audit Report"
             />
              <div>

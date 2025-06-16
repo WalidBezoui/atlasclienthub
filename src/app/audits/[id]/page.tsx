@@ -3,7 +3,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Printer, Edit, Share2, Download, FileText, Tag, CalendarDays, CheckCircle, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Printer, FileText, CalendarDays, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
@@ -16,6 +16,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { getAuditById, updateAudit } from '@/lib/firebase/services';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 
 export default function AuditDetailPage() {
@@ -55,7 +57,6 @@ export default function AuditDetailPage() {
       if (user && id) {
         fetchAudit(id);
       } else if (!user) {
-        // AuthProvider should handle redirect, but defensive check
         router.push('/login');
       }
     }
@@ -71,9 +72,6 @@ export default function AuditDetailPage() {
       const updateData: Partial<InstagramAudit> = { status: newStatus };
       if (newStatus === 'Completed' && (!audit.completedDate || audit.status !== 'Completed')) {
         updateData.completedDate = new Date().toISOString();
-      } else if (newStatus !== 'Completed' && audit.status === 'Completed' && audit.completedDate) {
-        // If moving away from 'Completed', we might want to clear completedDate or keep it as a record.
-        // For now, let's keep it. If you want to clear it, set updateData.completedDate = null;
       }
       
       await updateAudit(audit.id, updateData);
@@ -91,7 +89,6 @@ export default function AuditDetailPage() {
   }
 
   if (!user && !authLoading) {
-     // This should ideally be handled by AuthProvider, but good for fallback
     return <div className="flex justify-center items-center h-screen"><p>Redirecting to login...</p></div>;
   }
 
@@ -184,11 +181,13 @@ export default function AuditDetailPage() {
           <div>
             <h3 className="font-semibold text-lg mb-2 font-headline print-section-title">AI Generated Audit Report</h3>
             {audit.auditReport ? (
-              <div 
-                className="prose prose-sm max-w-none p-4 border rounded-md bg-background dark:prose-invert whitespace-pre-wrap font-mono text-xs md:text-sm print-audit-report" 
+              <article 
+                className="prose prose-sm max-w-none p-4 border rounded-md bg-background dark:prose-invert text-xs md:text-sm print-audit-report"
               >
-                {audit.auditReport}
-              </div>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {audit.auditReport}
+                </ReactMarkdown>
+              </article>
             ) : (
               <p className="text-muted-foreground">Audit report is not yet available or in progress.</p>
             )}
@@ -255,16 +254,16 @@ export default function AuditDetailPage() {
             padding: 8px !important;
           }
           .print-audit-report {
-             white-space: pre-wrap !important; /* Ensure pre-wrap is respected */
-             font-family: 'Courier New', Courier, monospace !important; /* Consistent mono font for report */
+             font-family: Inter, sans-serif !important; /* Use body font for rendered report */
           }
-          .prose { /* Base prose styles for print */
+           .prose { /* Base prose styles for print */
             font-size: 10pt !important;
             color: black !important;
             max-width: 100% !important;
           }
-           .prose h1, .prose h2, .prose h3, .prose h4, .prose p, .prose li, .prose strong, .prose em {
+           .prose h1, .prose h2, .prose h3, .prose h4, .prose p, .prose li, .prose strong, .prose em, .prose ul, .prose ol, .prose blockquote {
              color: black !important;
+             background-color: transparent !important;
           }
           .text-muted-foreground, .print-icon {
             color: #555 !important;
