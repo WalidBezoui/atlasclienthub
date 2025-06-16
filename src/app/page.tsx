@@ -52,7 +52,7 @@ export default function DashboardPage() {
     <div className="flex-1 space-y-6">
       <PageHeader
         title="Dashboard"
-        description="Welcome back to Atlas Client Hub! Here's an overview of your agency's activities."
+        description="Welcome back to Atlas Social Studio! Here's an overview of your agency's activities."
         icon={LayoutDashboard}
         actions={
           <Link href="/audits/new" passHref>

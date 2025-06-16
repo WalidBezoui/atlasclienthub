@@ -38,4 +38,4 @@ export const NAV_ITEMS: NavItem[] = [
   // },
 ];
 
-export const APP_NAME = "Atlas Client Hub";
+export const APP_NAME = "Atlas Social Studio";
