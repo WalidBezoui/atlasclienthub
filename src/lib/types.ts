@@ -20,6 +20,7 @@ export type OutreachProspect = {
   name: string;
   email: string;
   company?: string;
+  industry?: string; // Added industry field
   status: OutreachStatus;
   lastContacted?: string; // ISO date string
   followUpDate?: string; // ISO date string
@@ -54,3 +55,4 @@ export type MonthlyActivity = {
   outreach: number;
   audits: number;
 };
+

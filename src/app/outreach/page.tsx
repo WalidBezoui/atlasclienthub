@@ -2,12 +2,20 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle } from 'lucide-react';
+import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, BotMessageSquare, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
 import { Input } from '@/components/ui/input';
-import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { 
+  DropdownMenu, 
+  DropdownMenuCheckboxItem, 
+  DropdownMenuContent, 
+  DropdownMenuLabel, 
+  DropdownMenuSeparator, 
+  DropdownMenuTrigger,
+  DropdownMenuItem
+} from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import type { OutreachProspect, OutreachStatus } from '@/lib/types';
@@ -29,6 +37,10 @@ import { LoadingSpinner } from '@/components/shared/loading-spinner';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { useScriptContext } from '@/contexts/ScriptContext';
+import { generateContextualScript, type GenerateContextualScriptInput, type GenerateContextualScriptOutput } from '@/ai/flows/generate-contextual-script';
+import { ScriptModal } from '@/components/scripts/script-modal';
+
 
 const OUTREACH_STATUS_OPTIONS: OutreachStatus[] = ["To Contact", "Contacted", "Replied", "Interested", "Not Interested", "Follow-up"];
 
@@ -36,6 +48,7 @@ const initialFormData = {
     name: '',
     email: '',
     company: '',
+    industry: '',
     status: 'To Contact' as OutreachStatus,
     instagramHandle: '',
     notes: '',
@@ -93,12 +106,16 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
         <Input id="name" name="name" value={formData.name} onChange={handleChange} required />
       </div>
       <div>
-        <Label htmlFor="email">Email (Optional, IG Handle required if blank)</Label>
+        <Label htmlFor="email">Email (Optional, IG Handle & Name required if blank)</Label>
         <Input id="email" name="email" type="email" value={formData.email} onChange={handleChange} />
       </div>
       <div>
         <Label htmlFor="company">Company (Optional)</Label>
         <Input id="company" name="company" value={formData.company || ''} onChange={handleChange} />
+      </div>
+       <div>
+        <Label htmlFor="industry">Industry (Optional)</Label>
+        <Input id="industry" name="industry" placeholder="e.g., Beauty, SaaS, Coaching" value={formData.industry || ''} onChange={handleChange} />
       </div>
       <div>
         <Label htmlFor="instagramHandle">Instagram Handle (Optional, Name required if blank email)</Label>
@@ -139,13 +156,27 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
 export default function OutreachPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const { setClientContext, clearContext: clearScriptContext } = useScriptContext();
   const [prospects, setProspects] = useState<OutreachProspect[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilters, setStatusFilters] = useState<Set<OutreachStatus>>(new Set(OUTREACH_STATUS_OPTIONS));
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProspect, setEditingProspect] = useState<OutreachProspect | undefined>(undefined);
+  
+  const [isScriptModalOpen, setIsScriptModalOpen] = useState(false);
+  const [generatedScript, setGeneratedScript] = useState('');
+  const [scriptModalTitle, setScriptModalTitle] = useState("Generated Script");
+  const [isGeneratingScript, setIsGeneratingScript] = useState(false);
+  const [currentScriptGenerationInput, setCurrentScriptGenerationInput] = useState<GenerateContextualScriptInput | null>(null);
+  
   const { toast } = useToast();
+
+  const scriptMenuItems: Array<{label: string, type: GenerateContextualScriptInput['scriptType']}> = [
+    { label: "Cold Outreach DM", type: "Cold Outreach DM" },
+    { label: "Warm Follow-Up DM", type: "Warm Follow-Up DM" },
+    // { label: "Audit Delivery Message", type: "Audit Delivery Message" }, // Keep if relevant for prospects
+  ];
 
   const fetchProspects = useCallback(async () => {
     if (!user) return;
@@ -179,6 +210,7 @@ export default function OutreachPage() {
     try {
         const dataToSave = { ...prospectData };
         dataToSave.company = dataToSave.company || undefined;
+        dataToSave.industry = dataToSave.industry || undefined;
         dataToSave.instagramHandle = dataToSave.instagramHandle || undefined;
         dataToSave.notes = dataToSave.notes || undefined;
         dataToSave.lastContacted = dataToSave.lastContacted || undefined;
@@ -225,7 +257,6 @@ export default function OutreachPage() {
     } catch (error) {
       console.error("Error updating status:", error);
       toast({ title: "Error", description: "Failed to update status.", variant: "destructive" });
-      // Revert local state if update failed (optional, could also re-fetch)
       fetchProspects(); 
     }
   };
@@ -245,10 +276,69 @@ export default function OutreachPage() {
     });
   };
 
+  const handleGenerateProspectScript = async (prospect: OutreachProspect, scriptType: GenerateContextualScriptInput['scriptType']) => {
+    setIsGeneratingScript(true);
+    setIsScriptModalOpen(true);
+    setGeneratedScript('');
+    setScriptModalTitle(`Generating ${scriptType} for ${prospect.name}...`);
+
+    setClientContext({ // Set context for this specific prospect. Navbar actions will overwrite this if used.
+        clientHandle: prospect.instagramHandle,
+        clientName: prospect.name,
+        clientIndustry: prospect.industry || "Not Specified",
+        // Potentially add lastTouch/desiredAction based on prospect status or form
+    });
+    
+    const input: GenerateContextualScriptInput = {
+        scriptType,
+        clientHandle: prospect.instagramHandle,
+        clientName: prospect.name,
+        clientIndustry: prospect.industry || "Not Specified",
+        // lastTouch: ..., desiredAction: ... (can be derived or be static for these actions)
+    };
+    setCurrentScriptGenerationInput(input); // For regeneration
+
+    try {
+        const result: GenerateContextualScriptOutput = await generateContextualScript(input);
+        setGeneratedScript(result.script);
+        setScriptModalTitle(`${scriptType} for ${prospect.name}`);
+    } catch (error) {
+        console.error("Error generating script for prospect:", error);
+        toast({ title: "Script Generation Failed", description: (error as Error).message || "Could not generate script.", variant: "destructive" });
+        setScriptModalTitle("Error Generating Script");
+        setGeneratedScript("Failed to generate script. Please try again.");
+    } finally {
+        setIsGeneratingScript(false);
+    }
+  };
+  
+  const handleRegenerateProspectScript = async (): Promise<string | null> => {
+    if (!currentScriptGenerationInput) {
+        toast({ title: "Error", description: "No script context to regenerate.", variant: "destructive" });
+        return null;
+    }
+    setIsGeneratingScript(true);
+    setGeneratedScript('');
+    try {
+        const result = await generateContextualScript(currentScriptGenerationInput);
+        setGeneratedScript(result.script);
+        setIsGeneratingScript(false);
+        return result.script;
+    } catch (error) {
+        console.error("Error regenerating script:", error);
+        toast({ title: "Script Regeneration Failed", description: (error as Error).message || "Could not regenerate script.", variant: "destructive" });
+        setGeneratedScript("Failed to regenerate script. Please try again.");
+        setIsGeneratingScript(false);
+        return null;
+    }
+  };
+
+
   const filteredProspects = prospects.filter(prospect => 
     (prospect.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
      prospect.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
      (prospect.company && prospect.company.toLowerCase().includes(searchTerm.toLowerCase())) ||
+     (prospect.industry && prospect.industry.toLowerCase().includes(searchTerm.toLowerCase())) ||
      (prospect.instagramHandle && prospect.instagramHandle.toLowerCase().includes(searchTerm.toLowerCase()))
     ) &&
     (statusFilters.size === OUTREACH_STATUS_OPTIONS.length || statusFilters.has(prospect.status))
@@ -363,7 +453,7 @@ export default function OutreachPage() {
                   <TableRow>
                     <TableHead>Name</TableHead>
                     <TableHead className="hidden md:table-cell">Email</TableHead>
-                    <TableHead className="hidden sm:table-cell">Company</TableHead>
+                    <TableHead className="hidden sm:table-cell">Industry</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="hidden lg:table-cell">Last Contacted</TableHead>
                     <TableHead className="hidden lg:table-cell">Follow-up</TableHead>
@@ -375,13 +465,13 @@ export default function OutreachPage() {
                       <TableRow key={prospect.id}>
                         <TableCell className="font-medium">{prospect.name}</TableCell>
                         <TableCell className="hidden md:table-cell text-muted-foreground">{prospect.email}</TableCell>
-                        <TableCell className="hidden sm:table-cell text-muted-foreground">{prospect.company || '-'}</TableCell>
+                        <TableCell className="hidden sm:table-cell text-muted-foreground">{prospect.industry || '-'}</TableCell>
                         <TableCell>
                           <Select 
                             value={prospect.status} 
                             onValueChange={(newStatus: OutreachStatus) => handleStatusChange(prospect.id, newStatus)}
                           >
-                            <SelectTrigger className="h-auto py-0.5 px-2.5 border-none shadow-none [&>span]:flex [&>span]:items-center">
+                            <SelectTrigger className="h-auto py-0.5 px-2.5 border-none shadow-none [&>span]:flex [&>span]:items-center text-xs">
                               <SelectValue asChild>
                                 <Badge variant={getStatusBadgeVariant(prospect.status)} className="cursor-pointer text-xs">
                                   {prospect.status}
@@ -399,8 +489,28 @@ export default function OutreachPage() {
                         <TableCell className="hidden lg:table-cell text-muted-foreground">
                           {prospect.followUpDate ? new Date(prospect.followUpDate).toLocaleDateString() : '-'}
                         </TableCell>
-                        <TableCell className="text-right">
-                           <Button variant="ghost" size="icon" onClick={() => { setEditingProspect(prospect); setIsFormOpen(true); }} className="mr-2" aria-label={`Edit prospect ${prospect.name}`}>
+                        <TableCell className="text-right space-x-0.5">
+                           <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" aria-label={`Generate script for ${prospect.name}`}>
+                                  <BotMessageSquare className="h-4 w-4" />
+                                  <span className="sr-only">Scripts</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                {scriptMenuItems.map(item => (
+                                    <DropdownMenuItem
+                                        key={item.type}
+                                        onClick={() => handleGenerateProspectScript(prospect, item.type)}
+                                        disabled={isGeneratingScript && currentScriptGenerationInput?.clientName === prospect.name && currentScriptGenerationInput?.scriptType === item.type}
+                                    >
+                                      {item.label}
+                                      {isGeneratingScript && currentScriptGenerationInput?.clientName === prospect.name && currentScriptGenerationInput?.scriptType === item.type && <Loader2 className="ml-auto h-4 w-4 animate-spin" />}
+                                    </DropdownMenuItem>
+                                ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                           <Button variant="ghost" size="icon" onClick={() => { setEditingProspect(prospect); setIsFormOpen(true); }} aria-label={`Edit prospect ${prospect.name}`}>
                             <Edit className="h-4 w-4" />
                              <span className="sr-only">Edit Prospect</span>
                           </Button>
@@ -442,6 +552,20 @@ export default function OutreachPage() {
           )}
         </CardContent>
       </Card>
+      <ScriptModal
+        isOpen={isScriptModalOpen}
+        onClose={() => {
+          setIsScriptModalOpen(false);
+          // Optionally clear specific context if it was only for this page's modal
+          // However, the AppHeader's script button also uses clientContext.
+          // It's safer if AppHeader always re-sets its context if no client is *globally* selected.
+          // For now, we don't clear it here to allow AppHeader to potentially use last set prospect context.
+        }}
+        scriptContent={generatedScript}
+        title={scriptModalTitle}
+        onRegenerate={handleRegenerateProspectScript}
+        isLoadingInitially={isGeneratingScript && !generatedScript}
+      />
     </div>
   );
 }

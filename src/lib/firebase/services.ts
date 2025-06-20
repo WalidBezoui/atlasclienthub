@@ -103,6 +103,7 @@ export const addProspect = async (prospectData: Omit<OutreachProspect, 'id' | 'u
   };
 
   if (prospectData.company) dataForFirestore.company = prospectData.company;
+  if (prospectData.industry) dataForFirestore.industry = prospectData.industry;
   if (prospectData.instagramHandle) dataForFirestore.instagramHandle = prospectData.instagramHandle;
   if (prospectData.notes) dataForFirestore.notes = prospectData.notes;
   if (prospectData.lastContacted) dataForFirestore.lastContacted = Timestamp.fromDate(new Date(prospectData.lastContacted));
@@ -122,6 +123,7 @@ export const getProspects = async (): Promise<OutreachProspect[]> => {
     return {
       id: docSnap.id,
       ...data,
+      industry: data.industry || undefined, // Ensure industry is mapped
       lastContacted: data.lastContacted ? (data.lastContacted as Timestamp).toDate().toISOString().split('T')[0] : undefined,
       followUpDate: data.followUpDate ? (data.followUpDate as Timestamp).toDate().toISOString().split('T')[0] : undefined,
     } as OutreachProspect;
@@ -136,6 +138,7 @@ export const updateProspect = async (id: string, prospectData: Partial<Omit<Outr
   const dataToUpdate: any = { ...prospectData };
   if (prospectData.lastContacted) dataToUpdate.lastContacted = Timestamp.fromDate(new Date(prospectData.lastContacted));
   if (prospectData.followUpDate) dataToUpdate.followUpDate = Timestamp.fromDate(new Date(prospectData.followUpDate));
+  // No specific conversion for industry as it's a string
   
   for (const key in dataToUpdate) {
     if (dataToUpdate[key] === undefined) {
@@ -177,7 +180,11 @@ export const addAudit = async (auditData: Omit<InstagramAudit, 'id' | 'userId' |
   // If it's not provided (undefined), it won't be added to dataForFirestore, avoiding the error.
   if (auditData.completedDate) {
     dataForFirestore.completedDate = Timestamp.fromDate(new Date(auditData.completedDate));
+  } else {
+    // Explicitly ensure completedDate is not set to undefined if it's missing
+    // This field is optional, so if not present, it shouldn't be in dataForFirestore
   }
+
 
   const docRef = await addDoc(auditsCollection, dataForFirestore);
   return docRef.id;
@@ -278,6 +285,9 @@ export const getDashboardOverview = async (): Promise<{
   const newLeadsQuery = query(prospectsCollection, 
     where('userId', '==', userId), 
     where('status', '==', 'Interested'),
+    // Assuming status 'Interested' is set around the time of last contact or a follow-up action.
+    // For a more precise "new leads this month", you might need a dedicated "becameLeadDate" field.
+    // Using lastContacted as a proxy for recent activity leading to "Interested".
     where('lastContacted', '>=', currentMonthStartTimestamp), 
     where('lastContacted', '<=', currentMonthEndTimestamp)
   );
@@ -374,3 +384,4 @@ export const getMonthlyActivityData = async (): Promise<MonthlyActivity[]> => {
 
   return correctlyOrderedActivityData;
 };
+
