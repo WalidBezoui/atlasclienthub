@@ -112,8 +112,8 @@ export const addProspect = async (prospectData: Omit<OutreachProspect, 'id' | 'u
     prospectLocation: prospectData.prospectLocation || null,
     industry: prospectData.industry || null,
     email: prospectData.email || null,
-    visualStyle: prospectData.visualStyle || null, // New field
-    bioSummary: prospectData.bioSummary || null, // New field
+    visualStyle: prospectData.visualStyle || null, 
+    bioSummary: prospectData.bioSummary || null, 
     businessType: prospectData.businessType || null,
     businessTypeOther: prospectData.businessTypeOther || null,
     accountStage: prospectData.accountStage || null,
@@ -161,8 +161,8 @@ export const getProspects = async (): Promise<OutreachProspect[]> => {
       prospectLocation: data.prospectLocation,
       industry: data.industry,
       email: data.email,
-      visualStyle: data.visualStyle, // New field
-      bioSummary: data.bioSummary, // New field
+      visualStyle: data.visualStyle, 
+      bioSummary: data.bioSummary, 
       businessType: data.businessType,
       businessTypeOther: data.businessTypeOther,
       accountStage: data.accountStage,
@@ -225,7 +225,7 @@ export const updateProspect = async (id: string, prospectData: Partial<Omit<Outr
 
   const optionalFieldsToNullify: (keyof OutreachProspect)[] = [
       'instagramHandle', 'businessName', 'website', 'prospectLocation', 'industry', 'email',
-      'visualStyle', 'bioSummary', // New fields
+      'visualStyle', 'bioSummary', 
       'businessType', 'businessTypeOther', 'accountStage', 'source',
       'uniqueNote', 'helpStatement', 'tonePreference', 'notes'
   ];
@@ -434,7 +434,7 @@ export const getDashboardOverview = async (): Promise<{
     getCountFromServer(clientsQuery),
     getCountFromServer(auditsQuery),
     getCountFromServer(outreachSentQuery),
-    getCountFromServer(newLeadsSnapshot)
+    getCountFromServer(newLeadsQuery) 
   ]);
 
   return {
@@ -516,4 +516,5 @@ export const getMonthlyActivityData = async (): Promise<MonthlyActivity[]> => {
 
   return correctlyOrderedActivityData;
 };
+
 
