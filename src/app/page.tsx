@@ -156,7 +156,7 @@ export default function DashboardPage() {
         }
       />
     {isLoadingData && !displayOverviewData.some(item => item.value > 0) ? ( // Show skeleton for overview cards only if data is loading AND no data is yet available
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             {Array(4).fill(0).map((_, index) => (
                  <Card key={index} className="shadow-lg">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -170,7 +170,7 @@ export default function DashboardPage() {
             ))}
         </div>
     ) : (
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         {displayOverviewData.map((item) => (
           <Card key={item.metric} className="shadow-lg hover:shadow-xl transition-shadow duration-300">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -180,7 +180,7 @@ export default function DashboardPage() {
               <item.icon className={`h-5 w-5 ${item.color}`} />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold font-headline">{item.value}</div>
+              <div className="text-2xl sm:text-3xl font-bold font-headline">{item.value}</div>
             </CardContent>
           </Card>
         ))}
