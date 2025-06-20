@@ -44,6 +44,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { fetchInstagramMetrics } from '@/app/actions/fetch-ig-metrics';
 
 
 const initialFormData: Omit<OutreachProspect, 'id' | 'userId'> = {
@@ -70,7 +71,7 @@ const initialFormData: Omit<OutreachProspect, 'id' | 'userId'> = {
     followUpNeeded: false,
     offerInterest: [],
     uniqueNote: '',
-    helpStatement: '', // Kept from old, though not explicitly in new spec section 7, but good for context
+    helpStatement: '', 
     tonePreference: undefined,
     notes: '',
 };
@@ -78,6 +79,7 @@ const initialFormData: Omit<OutreachProspect, 'id' | 'userId'> = {
 function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProspect, onSave: (prospectData: Omit<OutreachProspect, 'id' | 'userId'> | OutreachProspect) => void, onCancel: () => void }) {
   const [formData, setFormData] = useState<Omit<OutreachProspect, 'id' | 'userId'> | OutreachProspect>(initialFormData);
   const { toast } = useToast();
+  const [isFetchingMetrics, setIsFetchingMetrics] = useState(false);
 
   useEffect(() => {
      if (prospect) {
@@ -128,9 +130,33 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleFetchMetrics = () => {
-      // Placeholder for actual metrics fetching logic
-      toast({ title: "Feature Coming Soon", description: "Automated metrics fetching will be implemented in a future update. Please enter manually for now." });
+  const handleFetchMetrics = async () => {
+    if (!formData.instagramHandle) {
+      toast({ title: "Missing Handle", description: "Please enter an Instagram handle to fetch metrics.", variant: "destructive" });
+      return;
+    }
+    setIsFetchingMetrics(true);
+    try {
+      const result = await fetchInstagramMetrics(formData.instagramHandle);
+      if (result.error) {
+        toast({ title: "Metrics Fetch Failed", description: result.error, variant: "destructive" });
+      } else if (result.data) {
+        setFormData(prev => ({
+          ...prev,
+          followerCount: result.data!.followerCount,
+          postCount: result.data!.postCount,
+          avgLikes: result.data!.avgLikes,
+          avgComments: result.data!.avgComments,
+          // Optionally update accountStage based on followerCount here
+           accountStage: result.data!.followerCount < 100 ? "New (0–100 followers)" : result.data!.followerCount < 1000 ? "Growing (100–1k followers)" : "Established (>1k followers)",
+        }));
+        toast({ title: "Metrics Fetched!", description: `Data for @${formData.instagramHandle} updated.` });
+      }
+    } catch (error: any) {
+      toast({ title: "Error Fetching Metrics", description: error.message || "An unexpected error occurred.", variant: "destructive" });
+    } finally {
+      setIsFetchingMetrics(false);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -159,7 +185,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
             <Input id="name" name="name" value={formData.name} onChange={handleChange} required />
           </div>
           <div>
-            <Label htmlFor="instagramHandle">IG Handle (Optional, required if no Email)</Label>
+            <Label htmlFor="instagramHandle">IG Handle (Required if no Email)</Label>
             <Input id="instagramHandle" name="instagramHandle" placeholder="@username" value={formData.instagramHandle || ''} onChange={handleChange} />
           </div>
           <div>
@@ -180,11 +206,11 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
             </Select>
           </div>
            <div>
-            <Label htmlFor="industry">Industry (General, e.g., Fashion, SaaS, Coaching)</Label>
+            <Label htmlFor="industry">Industry (e.g., Fashion, SaaS, Coaching)</Label>
             <Input id="industry" name="industry" value={formData.industry || ''} onChange={handleChange} />
           </div>
           <div>
-            <Label htmlFor="email">Email (Optional, required if no IG Handle)</Label>
+            <Label htmlFor="email">Email (Required if no IG Handle)</Label>
             <Input id="email" name="email" type="email" value={formData.email || ''} onChange={handleChange} />
           </div>
         </CardContent>
@@ -204,8 +230,8 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
           >
             {BUSINESS_TYPES.map(type => (
               <div key={type} className="flex items-center space-x-2">
-                <RadioGroupItem value={type} id={`businessType-${type.replace(/ /g, '-')}`} />
-                <Label htmlFor={`businessType-${type.replace(/ /g, '-')}`} className="font-normal">{type}</Label>
+                <RadioGroupItem value={type} id={`businessType-${type.replace(/\s*\/\s*|\s+/g, '-')}`} />
+                <Label htmlFor={`businessType-${type.replace(/\s*\/\s*|\s+/g, '-')}`} className="font-normal">{type}</Label>
               </div>
             ))}
           </RadioGroup>
@@ -221,22 +247,23 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
       
       <Card className="pt-4">
         <CardHeader className="py-2">
-          <DialogTitle className="text-lg font-semibold flex items-center"><BarChart3 className="mr-2 h-5 w-5 text-primary"/>Engagement Metrics</DialogTitle>
+          <DialogTitle className="text-lg font-semibold flex items-center"><BarChart3 className="mr-2 h-5 w-5 text-primary"/>Section 3: Engagement Metrics</DialogTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-            <Button type="button" variant="outline" onClick={handleFetchMetrics} className="mb-3 text-xs">
-                <RefreshCw className="mr-2 h-3 w-3" /> Fetch Metrics (Coming Soon)
+            <Button type="button" variant="outline" onClick={handleFetchMetrics} disabled={isFetchingMetrics || !formData.instagramHandle} className="mb-3 text-xs">
+                {isFetchingMetrics ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <RefreshCw className="mr-2 h-3 w-3" />}
+                Fetch Metrics
             </Button>
-            <div>
-                <Label htmlFor="accountStage">Account Stage</Label>
-                <Select value={formData.accountStage} onValueChange={(value: AccountStage) => handleSelectChange('accountStage', value)}>
-                  <SelectTrigger id="accountStage"><SelectValue placeholder="Select account stage" /></SelectTrigger>
-                  <SelectContent>
-                    {ACCOUNT_STAGES.map(stage => <SelectItem key={stage} value={stage}>{stage}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <Label htmlFor="accountStage">Account Stage</Label>
+                    <Select value={formData.accountStage} onValueChange={(value: AccountStage) => handleSelectChange('accountStage', value)}>
+                    <SelectTrigger id="accountStage"><SelectValue placeholder="Select account stage" /></SelectTrigger>
+                    <SelectContent>
+                        {ACCOUNT_STAGES.map(stage => <SelectItem key={stage} value={stage}>{stage}</SelectItem>)}
+                    </SelectContent>
+                    </Select>
+                </div>
                 <div>
                     <Label htmlFor="followerCount">Follower Count</Label>
                     <Input id="followerCount" name="followerCount" type="number" value={formData.followerCount === undefined ? '' : formData.followerCount} onChange={handleChange} />
@@ -260,18 +287,18 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
 
       <Card className="pt-4">
         <CardHeader className="py-2">
-            <DialogTitle className="text-lg font-semibold flex items-center"><AlertCircle className="mr-2 h-5 w-5 text-primary"/>Section 3: Current Problems / Pain Points</DialogTitle>
+            <DialogTitle className="text-lg font-semibold flex items-center"><AlertCircle className="mr-2 h-5 w-5 text-primary"/>Section 4: Current Problems / Pain Points</DialogTitle>
             <CardFormDescription>These guide pain points in scripts.</CardFormDescription>
         </CardHeader>
         <CardContent className="space-y-2 columns-1 sm:columns-2">
             {PAIN_POINTS.map(point => (
                 <div key={point} className="flex items-center space-x-2 break-inside-avoid-column">
                     <Checkbox
-                        id={`pain-${point.replace(/ /g, '-')}`}
+                        id={`pain-${point.replace(/\s*\/\s*|\s+/g, '-')}`}
                         checked={(formData.painPoints || []).includes(point)}
                         onCheckedChange={() => handleCheckboxFieldChange('painPoints', point)}
                     />
-                    <Label htmlFor={`pain-${point.replace(/ /g, '-')}`} className="font-normal">{point}</Label>
+                    <Label htmlFor={`pain-${point.replace(/\s*\/\s*|\s+/g, '-')}`} className="font-normal">{point}</Label>
                 </div>
             ))}
         </CardContent>
@@ -280,18 +307,18 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
 
       <Card className="pt-4">
         <CardHeader className="py-2">
-            <DialogTitle className="text-lg font-semibold flex items-center"><Target className="mr-2 h-5 w-5 text-primary"/>Section 4: Goals They Might Want</DialogTitle>
+            <DialogTitle className="text-lg font-semibold flex items-center"><Target className="mr-2 h-5 w-5 text-primary"/>Section 5: Goals They Might Want</DialogTitle>
             <CardFormDescription>Used to align with outcomes in message.</CardFormDescription>
         </CardHeader>
         <CardContent className="space-y-2 columns-1 sm:columns-2">
             {GOALS.map(goal => (
                 <div key={goal} className="flex items-center space-x-2 break-inside-avoid-column">
                     <Checkbox
-                        id={`goal-${goal.replace(/ /g, '-')}`}
+                        id={`goal-${goal.replace(/\s*\/\s*|\s+/g, '-')}`}
                         checked={(formData.goals || []).includes(goal)}
                         onCheckedChange={() => handleCheckboxFieldChange('goals', goal)}
                     />
-                    <Label htmlFor={`goal-${goal.replace(/ /g, '-')}`} className="font-normal">{goal}</Label>
+                    <Label htmlFor={`goal-${goal.replace(/\s*\/\s*|\s+/g, '-')}`} className="font-normal">{goal}</Label>
                 </div>
             ))}
         </CardContent>
@@ -300,7 +327,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
       
       <Card className="pt-4">
         <CardHeader className="py-2">
-             <DialogTitle className="text-lg font-semibold flex items-center"><Sparkles className="mr-2 h-5 w-5 text-primary"/>Section 5: Lead Warmth & Status</DialogTitle>
+             <DialogTitle className="text-lg font-semibold flex items-center"><Sparkles className="mr-2 h-5 w-5 text-primary"/>Section 6: Lead Warmth & Status</DialogTitle>
         </CardHeader>
         <CardContent className="space-y-3">
             <div>
@@ -332,7 +359,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
                 </div>
             </div>
             <div className="flex items-center space-x-2 mt-1">
-                <Checkbox id="followUpNeeded" checked={formData.followUpNeeded} onCheckedChange={(checked) => handleSingleCheckboxChange('followUpNeeded', !!checked)} />
+                <Checkbox id="followUpNeeded" checked={!!formData.followUpNeeded} onCheckedChange={(checked) => handleSingleCheckboxChange('followUpNeeded', !!checked)} />
                 <Label htmlFor="followUpNeeded" className="font-normal">Follow-Up Needed?</Label>
             </div>
         </CardContent>
@@ -341,18 +368,18 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
       
       <Card className="pt-4">
         <CardHeader className="py-2">
-            <DialogTitle className="text-lg font-semibold flex items-center"><MessageSquare className="mr-2 h-5 w-5 text-primary"/>Section 6: Offer Interest (If replied)</DialogTitle>
+            <DialogTitle className="text-lg font-semibold flex items-center"><MessageSquare className="mr-2 h-5 w-5 text-primary"/>Section 7: Offer Interest (If replied)</DialogTitle>
             <CardFormDescription>Helps segment what to pitch.</CardFormDescription>
         </CardHeader>
         <CardContent className="space-y-2 columns-1 sm:columns-2">
             {OFFER_INTERESTS.map(interest => (
                 <div key={interest} className="flex items-center space-x-2 break-inside-avoid-column">
                     <Checkbox
-                        id={`interest-${interest.replace(/ /g, '-')}`}
+                        id={`interest-${interest.replace(/\s*\/\s*|\s+/g, '-')}`}
                         checked={(formData.offerInterest || []).includes(interest)}
                         onCheckedChange={() => handleCheckboxFieldChange('offerInterest', interest)}
                     />
-                    <Label htmlFor={`interest-${interest.replace(/ /g, '-')}`} className="font-normal">{interest}</Label>
+                    <Label htmlFor={`interest-${interest.replace(/\s*\/\s*|\s+/g, '-')}`} className="font-normal">{interest}</Label>
                 </div>
             ))}
         </CardContent>
@@ -361,7 +388,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
 
       <Card className="pt-4">
         <CardHeader className="py-2">
-            <DialogTitle className="text-lg font-semibold flex items-center"><Settings2 className="mr-2 h-5 w-5 text-primary"/>Section 7: Smart Question Prompts (Optional)</DialogTitle>
+            <DialogTitle className="text-lg font-semibold flex items-center"><Settings2 className="mr-2 h-5 w-5 text-primary"/>Section 8: Smart Question Prompts (Optional)</DialogTitle>
             <CardFormDescription>These make the LLM outputs sharper.</CardFormDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -382,8 +409,8 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
                   >
                     {TONE_PREFERENCES.map(tone => (
                       <div key={tone} className="flex items-center space-x-2">
-                        <RadioGroupItem value={tone} id={`tone-${tone.replace(/ /g, '-')}`} />
-                        <Label htmlFor={`tone-${tone.replace(/ /g, '-')}`} className="font-normal">{tone}</Label>
+                        <RadioGroupItem value={tone} id={`tone-${tone.replace(/\s*\/\s*|\s+/g, '-')}`} />
+                        <Label htmlFor={`tone-${tone.replace(/\s*\/\s*|\s+/g, '-')}`} className="font-normal">{tone}</Label>
                       </div>
                     ))}
                   </RadioGroup>
@@ -427,6 +454,7 @@ export default function OutreachPage() {
   const scriptMenuItems: Array<{label: string, type: GenerateContextualScriptInput['scriptType']}> = [
     { label: "Cold Outreach DM", type: "Cold Outreach DM" },
     { label: "Warm Follow-Up DM", type: "Warm Follow-Up DM" },
+    { label: "Audit Delivery Message", type: "Audit Delivery Message" },
   ];
 
   const fetchProspects = useCallback(async () => {
@@ -461,7 +489,6 @@ export default function OutreachPage() {
     try {
         const dataToSave: Partial<OutreachProspect> = { ...initialFormData, ...prospectData };
 
-        // Ensure optional fields are undefined if empty, not empty strings, except for specific cases
         (Object.keys(dataToSave) as Array<keyof OutreachProspect>).forEach(key => {
             if (dataToSave[key] === '' && 
                 key !== 'name' && 
@@ -556,7 +583,7 @@ export default function OutreachPage() {
     setIsGeneratingScript(true);
     setIsScriptModalOpen(true);
     setGeneratedScript('');
-    setScriptModalTitle(`Generating ${scriptType} for ${prospect.name}...`);
+    setScriptModalTitle(`Generating ${scriptType} for ${prospect.name || 'Prospect'}...`);
 
     setClientContext({ 
         clientHandle: prospect.instagramHandle,
@@ -587,7 +614,9 @@ export default function OutreachPage() {
 
         leadStatus: prospect.status,
         source: prospect.source,
-        lastTouch: prospect.lastContacted ? `Last contacted on ${new Date(prospect.lastContacted).toLocaleDateString()}` : 'No prior contact',
+        // Use lastContacted from prospect directly, or a default if not available
+        lastTouch: prospect.lastContacted ? `Last contacted on ${new Date(prospect.lastContacted).toLocaleDateString()}` : 'No prior contact recorded',
+        followUpNeeded: prospect.followUpNeeded,
         
         offerInterest: prospect.offerInterest,
         uniqueNote: prospect.uniqueNote,
@@ -600,7 +629,7 @@ export default function OutreachPage() {
     try {
         const result: GenerateContextualScriptOutput = await generateContextualScript(input);
         setGeneratedScript(result.script);
-        setScriptModalTitle(`${scriptType} for ${prospect.name}`);
+        setScriptModalTitle(`${scriptType} for ${prospect.name || 'Prospect'}`);
     } catch (error) {
         console.error("Error generating script for prospect:", error);
         toast({ title: "Script Generation Failed", description: (error as Error).message || "Could not generate script.", variant: "destructive" });
@@ -650,7 +679,7 @@ export default function OutreachPage() {
       case 'Interested': return 'default';
       case 'Warm': return 'secondary';
       case 'Cold':
-      case 'Follow-up': return 'outline';
+      case 'Follow-up': return 'outline'; // 'Follow-up' was missing in your type but seems implied
       case 'Closed - Lost':
       case 'Not Interested': return 'destructive';
       default: return 'default';
@@ -766,7 +795,7 @@ export default function OutreachPage() {
                       <TableRow key={prospect.id}>
                         <TableCell className="font-medium">{prospect.name}</TableCell>
                         <TableCell className="hidden md:table-cell text-muted-foreground">{prospect.instagramHandle || '-'}</TableCell>
-                        <TableCell className="hidden sm:table-cell text-muted-foreground">{prospect.businessType === "Other" ? prospect.businessTypeOther : prospect.businessType || '-'}</TableCell>
+                        <TableCell className="hidden sm:table-cell text-muted-foreground">{prospect.businessType === "Other" && prospect.businessTypeOther ? prospect.businessTypeOther : prospect.businessType || '-'}</TableCell>
                         <TableCell>
                           <Select 
                             value={prospect.status} 
