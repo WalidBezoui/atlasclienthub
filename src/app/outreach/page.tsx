@@ -72,9 +72,16 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.email) {
-       toast({ title: "Error", description: "Name and Email are required.", variant: "destructive" });
-       return;
+    if (!formData.email.trim()) { // If email is not provided
+      if (!formData.name.trim() || !formData.instagramHandle.trim()) {
+        toast({ title: "Error", description: "If no email is provided, Name and Instagram Handle are required.", variant: "destructive" });
+        return;
+      }
+    } else { // If email is provided
+      if (!formData.name.trim()) {
+        toast({ title: "Error", description: "Prospect Name is required.", variant: "destructive" });
+        return;
+      }
     }
     onSave(formData);
   };
@@ -86,15 +93,15 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
         <Input id="name" name="name" value={formData.name} onChange={handleChange} required />
       </div>
       <div>
-        <Label htmlFor="email">Email *</Label>
-        <Input id="email" name="email" type="email" value={formData.email} onChange={handleChange} required />
+        <Label htmlFor="email">Email (Optional if IG Handle provided)</Label>
+        <Input id="email" name="email" type="email" value={formData.email} onChange={handleChange} />
       </div>
       <div>
         <Label htmlFor="company">Company (Optional)</Label>
         <Input id="company" name="company" value={formData.company || ''} onChange={handleChange} />
       </div>
       <div>
-        <Label htmlFor="instagramHandle">Instagram Handle (Optional)</Label>
+        <Label htmlFor="instagramHandle">Instagram Handle (Optional if Email provided)</Label>
         <Input id="instagramHandle" name="instagramHandle" placeholder="@username" value={formData.instagramHandle || ''} onChange={handleChange} />
       </div>
       <div>
@@ -326,15 +333,17 @@ export default function OutreachPage() {
         </CardHeader>
         <CardContent>
          {isLoading && prospects.length === 0 ? (
-             <Table>
-                <TableBody>
-                  <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">
-                      <LoadingSpinner text="Fetching prospects..." />
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+             <div className="overflow-x-auto">
+              <Table>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell colSpan={7} className="h-24 text-center">
+                        <LoadingSpinner text="Fetching prospects..." />
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+             </div>
           ) : filteredProspects.length > 0 ? (
             <div className="overflow-x-auto">
               <Table>
@@ -380,28 +389,30 @@ export default function OutreachPage() {
               </Table>
             </div>
           ) : (
-              <Table>
-                <TableBody>
-                  <TableRow>
-                      <TableCell colSpan={7} className="text-center h-24">
-                          <div className="flex flex-col items-center justify-center">
-                              <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
-                              <p className="font-semibold">
-                                {prospects.length === 0 && searchTerm === '' && (statusFilters.size === OUTREACH_STATUS_OPTIONS.length || statusFilters.size === 0)
-                                  ? "No prospects found."
-                                  : "No prospects found matching your criteria."
-                                }
-                              </p>
-                              {prospects.length === 0 && searchTerm === '' && (statusFilters.size === OUTREACH_STATUS_OPTIONS.length || statusFilters.size === 0) && (
-                                   <p className="text-sm text-muted-foreground">
-                                     Start building your outreach list by <Button variant="link" className="p-0 h-auto" onClick={() => { setEditingProspect(undefined); setIsFormOpen(true);}}>adding your first prospect</Button>!
-                                   </p>
-                              )}
-                          </div>
-                      </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+               <div className="overflow-x-auto">
+                <Table>
+                  <TableBody>
+                    <TableRow>
+                        <TableCell colSpan={7} className="text-center h-24">
+                            <div className="flex flex-col items-center justify-center">
+                                <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
+                                <p className="font-semibold">
+                                  {prospects.length === 0 && searchTerm === '' && (statusFilters.size === OUTREACH_STATUS_OPTIONS.length || statusFilters.size === 0)
+                                    ? "No prospects found."
+                                    : "No prospects found matching your criteria."
+                                  }
+                                </p>
+                                {prospects.length === 0 && searchTerm === '' && (statusFilters.size === OUTREACH_STATUS_OPTIONS.length || statusFilters.size === 0) && (
+                                    <p className="text-sm text-muted-foreground">
+                                      Start building your outreach list by <Button variant="link" className="p-0 h-auto" onClick={() => { setEditingProspect(undefined); setIsFormOpen(true);}}>adding your first prospect</Button>!
+                                    </p>
+                                )}
+                            </div>
+                        </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
           )}
         </CardContent>
       </Card>
@@ -409,3 +420,5 @@ export default function OutreachPage() {
   );
 }
 
+
+    
