@@ -78,6 +78,8 @@ export async function fetchInstagramMetrics(
     'x-ig-app-id': '1217981644879628', // Changed to an iOS app ID
   };
 
+  console.log(`Fetching Instagram metrics for @${igHandle} from URL: ${url} with headers:`, JSON.stringify(headers));
+
   try {
     const response = await fetch(url, { headers, cache: 'no-store' });
 
@@ -86,7 +88,7 @@ export async function fetchInstagramMetrics(
       try {
         errorBodyText = await response.text();
       } catch (e) { /* ignore if can't read body */ }
-      console.error(`Error fetching Instagram data for @${igHandle}: ${response.status} ${response.statusText}. Body: ${errorBodyText.substring(0,500)}`);
+      console.error(`Error fetching Instagram data for @${igHandle}: ${response.status} ${response.statusText}. Response Body: ${errorBodyText}`);
 
       if (response.status === 404) {
         return { error: `Instagram profile @${igHandle} not found or is private.` };
@@ -94,22 +96,32 @@ export async function fetchInstagramMetrics(
       if (response.status === 400) {
         return { error: `Instagram rejected the request (Status 400 - Bad Request). This could be due to API changes, request limits, or invalid headers. Details: ${errorBodyText.substring(0,100)}` };
       }
-      return { error: `Failed to fetch. IG Server responded with Status: ${response.status}. The profile might be private, or access is restricted. Please check the handle or try again later.` };
+      return { error: `Failed to fetch. IG Server responded with Status: ${response.status}. The profile might be private, or access is restricted. Please check the handle or try again later. Details: ${errorBodyText.substring(0,100)}` };
     }
 
     const rawJson = await response.json();
+    
+    // Log the raw JSON response for debugging
+    // console.log(`Raw JSON response for @${igHandle}:`, JSON.stringify(rawJson, null, 2));
     
     // Try to parse the received JSON against our schema
     const parsedResponse = InstagramMainResponseSchema.safeParse(rawJson);
 
     if (!parsedResponse.success) {
       console.error(`Error parsing Instagram JSON structure for @${igHandle}:`, parsedResponse.error.errors);
-      console.error('Raw JSON received:', JSON.stringify(rawJson, null, 2).substring(0, 1000));
+      console.error('Raw JSON received:', JSON.stringify(rawJson, null, 2).substring(0, 1000)); // Log more of the raw JSON
       return { error: 'Failed to parse Instagram data. The API structure might have changed, or the profile is inaccessible.' };
     }
     
     const data = parsedResponse.data;
 
+    // Check for direct error messages from Instagram even with a 200 OK response
+    if (data.status === 'fail' || data.error_type) {
+        const igErrorMessage = data.message || data.error_type || 'Unknown Instagram error';
+        console.warn(`Instagram API indicated an issue for @${igHandle}: ${igErrorMessage}. Raw data: ${JSON.stringify(data).substring(0,500)}`);
+        return { error: `Could not fetch data for @${igHandle}. Instagram message: ${igErrorMessage}` };
+    }
+    
     if (!data.graphql || !data.graphql.user) {
         if (data.message) { // Instagram sometimes returns an error object directly
              console.warn(`Instagram API indicated an issue for @${igHandle}: ${data.message}`);
@@ -156,3 +168,4 @@ export async function fetchInstagramMetrics(
     return { error: error.message || 'An unexpected error occurred while fetching metrics.' };
   }
 }
+
