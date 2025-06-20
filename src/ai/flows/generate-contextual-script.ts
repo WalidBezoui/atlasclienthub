@@ -24,19 +24,19 @@ const GenerateContextualScriptInputSchema = z.object({
   ]).describe("The type of script to generate."),
   
   // Section 1: Basic Prospect Info
-  clientName: z.string().optional().describe("The prospect's or client's name."),
-  clientHandle: z.string().optional().describe("The prospect's or client's Instagram handle (e.g., @brandXYZ)."),
-  businessName: z.string().optional().describe("The prospect's business name."),
-  website: z.string().url().optional().describe("The prospect's website URL."),
-  prospectLocation: z.enum(PROSPECT_LOCATIONS).optional().describe("The prospect's location."),
-  clientIndustry: z.string().optional().describe("The client's industry (e.g., Beauty Salon, Fitness Coach, SaaS)."),
+  clientName: z.string().nullable().optional().describe("The prospect's or client's name."),
+  clientHandle: z.string().nullable().optional().describe("The prospect's or client's Instagram handle (e.g., @brandXYZ)."),
+  businessName: z.string().nullable().optional().describe("The prospect's business name."),
+  website: z.string().url().nullable().optional().describe("The prospect's website URL."),
+  prospectLocation: z.enum(PROSPECT_LOCATIONS).nullable().optional().describe("The prospect's location."),
+  clientIndustry: z.string().nullable().optional().describe("The client's industry (e.g., Beauty Salon, Fitness Coach, SaaS)."),
 
   // Section 2: Business Details
-  businessType: z.enum(BUSINESS_TYPES).optional().describe("The type of business the prospect runs."),
-  businessTypeOther: z.string().optional().describe("Specific business type if 'Other' was selected."),
+  businessType: z.enum(BUSINESS_TYPES).nullable().optional().describe("The type of business the prospect runs."),
+  businessTypeOther: z.string().nullable().optional().describe("Specific business type if 'Other' was selected."),
   
   // Engagement Metrics
-  accountStage: z.enum(ACCOUNT_STAGES).optional().describe("The prospect's account stage based on followers."),
+  accountStage: z.enum(ACCOUNT_STAGES).nullable().optional().describe("The prospect's account stage based on followers."),
   followerCount: z.number().optional().describe("The prospect's follower count."),
   postCount: z.number().optional().describe("The prospect's post count."),
   avgLikes: z.number().optional().describe("Average likes on recent posts."),
@@ -49,25 +49,25 @@ const GenerateContextualScriptInputSchema = z.object({
   goals: z.array(z.enum(GOALS)).optional().describe("List of goals the prospect might want to achieve."),
 
   // Section 5: Lead & Interaction Context
-  leadStatus: z.enum(OUTREACH_LEAD_STAGE_OPTIONS).optional().describe("Current stage of the lead."),
-  source: z.enum(LEAD_SOURCES).optional().describe("How the lead was found or generated."),
-  lastTouch: z.string().optional().describe("Description of the last interaction with the client (e.g., None, Sent intro DM 3 days ago, Viewed story)."),
+  leadStatus: z.enum(OUTREACH_LEAD_STAGE_OPTIONS).nullable().optional().describe("Current stage of the lead."),
+  source: z.enum(LEAD_SOURCES).nullable().optional().describe("How the lead was found or generated."),
+  lastTouch: z.string().nullable().optional().describe("Description of the last interaction with the client (e.g., None, Sent intro DM 3 days ago, Viewed story)."),
   followUpNeeded: z.boolean().optional().describe("Whether a follow-up is marked as needed."),
   
   // Section 6: Offer Interest
   offerInterest: z.array(z.enum(OFFER_INTERESTS)).optional().describe("What the prospect has shown interest in, if they've replied."),
   
   // Section 7: Smart Insights & Content Context
-  uniqueNote: z.string().optional().describe("A unique or interesting observation about the prospect's brand (1-2 sentences)."),
-  helpStatement: z.string().optional().describe("A concise statement on how you could help them (1 sentence)."),
-  tonePreference: z.enum(TONE_PREFERENCES).optional().describe("The preferred tone for the generated script."),
+  uniqueNote: z.string().nullable().optional().describe("A unique or interesting observation about the prospect's brand (1-2 sentences)."),
+  helpStatement: z.string().nullable().optional().describe("A concise statement on how you could help them (1 sentence)."),
+  tonePreference: z.enum(TONE_PREFERENCES).nullable().optional().describe("The preferred tone for the generated script."),
   
   // For "Caption Idea" - future enhancement
   // postTopic: z.string().optional().describe("The topic of the social media post for which a caption is needed."),
   // brandVoice: z.string().optional().describe("The brand voice to use for the script."),
   // objectives: z.array(z.string()).optional().describe("Key objectives for the post or outreach."),
   
-  additionalNotes: z.string().optional().describe("Any other relevant notes or context to consider for script generation.")
+  additionalNotes: z.string().nullable().optional().describe("Any other relevant notes or context to consider for script generation.")
 });
 export type GenerateContextualScriptInput = z.infer<typeof GenerateContextualScriptInputSchema>;
 
