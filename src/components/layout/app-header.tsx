@@ -28,7 +28,7 @@ import { useSidebar } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useScriptContext, ClientScriptContext, ContentScriptContext } from '@/contexts/ScriptContext';
-import { generateContextualScript, GenerateContextualScriptInput } from '@/ai/flows/generate-contextual-script';
+import { generateContextualScript, GenerateContextualScriptInput, GenerateContextualScriptOutput } from '@/ai/flows/generate-contextual-script';
 import { ScriptModal } from '@/components/scripts/script-modal';
 import { useToast } from '@/hooks/use-toast';
 
@@ -55,7 +55,7 @@ export function AppHeader() {
   const handleGenerateScript = async (scriptType: ScriptType, additionalNotes?: string) => {
     setIsGeneratingScript(true);
     setIsScriptModalOpen(true);
-    setGeneratedScript(''); // Clear previous script
+    setGeneratedScript(''); 
     setScriptModalTitle(`Generating ${scriptType}...`);
     
     let input: GenerateContextualScriptInput = { scriptType, additionalNotes };
@@ -65,26 +65,27 @@ export function AppHeader() {
         ...input,
         clientHandle: clientContext.clientHandle,
         clientName: clientContext.clientName,
-        clientIndustry: clientContext.clientIndustry || "Not Specified", // Add default if not present
+        clientIndustry: clientContext.clientIndustry || "Not Specified", 
         lastTouch: clientContext.lastTouch,
         desiredAction: clientContext.desiredAction,
       };
-    } else if (contentContext) { // Placeholder for future content context
+    } else if (contentContext) { 
       input = {
         ...input,
         postTopic: contentContext.postTopic,
         brandVoice: contentContext.brandVoice,
         objectives: contentContext.objectives,
       };
-    } else {
-      // No specific context, provide a generic message or allow generation with only scriptType
-      toast({ title: "Contextual Information", description: "No client or content context set. Generating a generic script.", variant: "default" });
+    } else if (scriptMenuItems.find(item => item.type === scriptType)?.contextRequired === 'client') {
+      toast({ title: "Generating Generic Script", description: `No client context set. A generic "${scriptType}" will be generated.`, variant: "default" });
+    } else if (scriptMenuItems.find(item => item.type === scriptType)?.contextRequired === 'content') {
+       toast({ title: "Generating Generic Script", description: `No content context set. A generic "${scriptType}" will be generated.`, variant: "default" });
     }
     
     setCurrentScriptGenerationInput(input);
 
     try {
-      const result = await generateContextualScript(input);
+      const result: GenerateContextualScriptOutput = await generateContextualScript(input);
       setGeneratedScript(result.script);
       setScriptModalTitle(`${scriptType} - Result`);
     } catch (error) {
@@ -102,11 +103,11 @@ export function AppHeader() {
       toast({ title: "Error", description: "No previous script context to regenerate.", variant: "destructive" });
       return null;
     }
-    setIsGeneratingScript(true); // Ensure modal shows loading during regeneration
+    setIsGeneratingScript(true); 
     setGeneratedScript(''); 
     try {
       const result = await generateContextualScript(currentScriptGenerationInput);
-      setGeneratedScript(result.script); // Update modal content
+      setGeneratedScript(result.script); 
       setIsGeneratingScript(false);
       return result.script;
     } catch (error) {
@@ -124,12 +125,11 @@ export function AppHeader() {
     { label: "Warm Follow-Up DM", type: "Warm Follow-Up DM", contextRequired: 'client' },
     { label: "Audit Delivery Message", type: "Audit Delivery Message", contextRequired: 'client' },
     // { label: "Closing Pitch", type: "Closing Pitch", contextRequired: 'client' },
-    // { label: "Caption Idea", type: "Caption Idea", contextRequired: 'content' },
+    // { label: "Caption Idea", type: "Caption Idea", contextRequired: 'content' }, // Example for content context
   ];
 
-  const isScriptMenuDisabled = () => {
-    // For now, enable if user is logged in. Context checks will happen per item.
-    return !user;
+  const isScriptMenuButtonDisabled = () => {
+    return !user; // Only disable the main "Scripts" button if user is not logged in
   };
 
 
@@ -147,24 +147,27 @@ export function AppHeader() {
               <MenubarMenu>
                 <MenubarTrigger 
                     asChild
-                    disabled={isScriptMenuDisabled()}
+                    disabled={isScriptMenuButtonDisabled()}
                     className="px-3 py-2 h-9 text-sm data-[state=open]:bg-accent data-[state=open]:text-accent-foreground hover:bg-accent hover:text-accent-foreground focus:bg-accent"
                  >
-                   <Button variant="ghost" size="sm" disabled={isScriptMenuDisabled()}>
+                   <Button variant="ghost" size="sm" disabled={isScriptMenuButtonDisabled()}>
                      <BotMessageSquare className="mr-2 h-4 w-4" /> Scripts
                    </Button>
                 </MenubarTrigger>
                 <MenubarContent align="end">
                   {scriptMenuItems.map(item => {
-                     const disabledByContext = (item.contextRequired === 'client' && !clientContext) || (item.contextRequired === 'content' && !contentContext);
-                     const effectiveDisabled = isGeneratingScript || disabledByContext;
-                     const tooltip = disabledByContext ? `Set ${item.contextRequired} context first` : undefined;
+                     const contextMissingMessage =
+                        item.contextRequired === 'client' && !clientContext
+                          ? 'No client context. Will generate a generic script.'
+                          : item.contextRequired === 'content' && !contentContext
+                          ? 'No content context. Will generate a generic script.'
+                          : undefined;
                     return (
                         <MenubarItem 
                             key={item.type} 
                             onClick={() => handleGenerateScript(item.type)}
-                            disabled={effectiveDisabled}
-                            title={tooltip}
+                            disabled={isGeneratingScript} // Only disable if a script is actively being generated
+                            title={contextMissingMessage || (isGeneratingScript && currentScriptGenerationInput?.scriptType === item.type ? "Generating..." : undefined)}
                         >
                           {item.label}
                           {isGeneratingScript && currentScriptGenerationInput?.scriptType === item.type && <Loader2 className="ml-auto h-4 w-4 animate-spin" />}
