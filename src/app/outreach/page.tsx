@@ -50,7 +50,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
   useEffect(() => {
      if (prospect) {
         const formattedProspect = {
-            ...initialFormData, // Start with defaults
+            ...initialFormData, 
             ...prospect,
             lastContacted: prospect.lastContacted ? new Date(prospect.lastContacted).toISOString().split('T')[0] : undefined,
             followUpDate: prospect.followUpDate ? new Date(prospect.followUpDate).toISOString().split('T')[0] : undefined,
@@ -72,12 +72,12 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.email.trim()) { // If email is not provided
-      if (!formData.name.trim() || !formData.instagramHandle.trim()) {
+    if (!formData.email.trim()) { 
+      if (!formData.name.trim() || !formData.instagramHandle?.trim()) {
         toast({ title: "Error", description: "If no email is provided, Name and Instagram Handle are required.", variant: "destructive" });
         return;
       }
-    } else { // If email is provided
+    } else { 
       if (!formData.name.trim()) {
         toast({ title: "Error", description: "Prospect Name is required.", variant: "destructive" });
         return;
@@ -93,7 +93,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
         <Input id="name" name="name" value={formData.name} onChange={handleChange} required />
       </div>
       <div>
-        <Label htmlFor="email">Email (Optional if IG Handle provided)</Label>
+        <Label htmlFor="email">Email (Optional, IG Handle required if blank)</Label>
         <Input id="email" name="email" type="email" value={formData.email} onChange={handleChange} />
       </div>
       <div>
@@ -101,7 +101,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
         <Input id="company" name="company" value={formData.company || ''} onChange={handleChange} />
       </div>
       <div>
-        <Label htmlFor="instagramHandle">Instagram Handle (Optional if Email provided)</Label>
+        <Label htmlFor="instagramHandle">Instagram Handle (Optional, Name required if blank email)</Label>
         <Input id="instagramHandle" name="instagramHandle" placeholder="@username" value={formData.instagramHandle || ''} onChange={handleChange} />
       </div>
       <div>
@@ -178,7 +178,6 @@ export default function OutreachPage() {
     }
     try {
         const dataToSave = { ...prospectData };
-        // Ensure optional fields are present or undefined
         dataToSave.company = dataToSave.company || undefined;
         dataToSave.instagramHandle = dataToSave.instagramHandle || undefined;
         dataToSave.notes = dataToSave.notes || undefined;
@@ -215,6 +214,22 @@ export default function OutreachPage() {
     }
   };
 
+  const handleStatusChange = async (prospectId: string, newStatus: OutreachStatus) => {
+    if (!user) return;
+    try {
+      await updateProspect(prospectId, { status: newStatus });
+      setProspects(prevProspects => 
+        prevProspects.map(p => p.id === prospectId ? { ...p, status: newStatus } : p)
+      );
+      toast({ title: "Status Updated", description: `Prospect status changed to ${newStatus}.` });
+    } catch (error) {
+      console.error("Error updating status:", error);
+      toast({ title: "Error", description: "Failed to update status.", variant: "destructive" });
+      // Revert local state if update failed (optional, could also re-fetch)
+      fetchProspects(); 
+    }
+  };
+
   const toggleStatusFilter = (status: OutreachStatus) => {
     setStatusFilters(prev => {
       const newSet = new Set(prev);
@@ -239,7 +254,7 @@ export default function OutreachPage() {
     (statusFilters.size === OUTREACH_STATUS_OPTIONS.length || statusFilters.has(prospect.status))
   );
 
-  const getStatusBadgeVariant = (status: OutreachStatus) => {
+  const getStatusBadgeVariant = (status: OutreachStatus): "default" | "secondary" | "outline" | "destructive" => {
     switch (status) {
       case 'Interested': return 'default'; 
       case 'Replied': return 'secondary';
@@ -256,7 +271,6 @@ export default function OutreachPage() {
   }
   
   if (!user && !authLoading) {
-     // This should ideally be handled by AuthProvider
     return <div className="flex justify-center items-center h-screen"><p>Redirecting to login...</p></div>;
   }
 
@@ -277,8 +291,6 @@ export default function OutreachPage() {
           setIsFormOpen(isOpen);
           if (!isOpen) {
             setEditingProspect(undefined);
-            // ProspectForm's useEffect will handle resetting its internal form data
-            // when editingProspect becomes undefined.
           }
       }}>
         <DialogContent className="sm:max-w-lg">
@@ -365,7 +377,21 @@ export default function OutreachPage() {
                         <TableCell className="hidden md:table-cell text-muted-foreground">{prospect.email}</TableCell>
                         <TableCell className="hidden sm:table-cell text-muted-foreground">{prospect.company || '-'}</TableCell>
                         <TableCell>
-                          <Badge variant={getStatusBadgeVariant(prospect.status)}>{prospect.status}</Badge>
+                          <Select 
+                            value={prospect.status} 
+                            onValueChange={(newStatus: OutreachStatus) => handleStatusChange(prospect.id, newStatus)}
+                          >
+                            <SelectTrigger className="h-auto py-0.5 px-2.5 border-none shadow-none [&>span]:flex [&>span]:items-center">
+                              <SelectValue asChild>
+                                <Badge variant={getStatusBadgeVariant(prospect.status)} className="cursor-pointer text-xs">
+                                  {prospect.status}
+                                </Badge>
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {OUTREACH_STATUS_OPTIONS.map(s => <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                         <TableCell className="hidden lg:table-cell text-muted-foreground">
                           {prospect.lastContacted ? new Date(prospect.lastContacted).toLocaleDateString() : '-'}
@@ -419,6 +445,6 @@ export default function OutreachPage() {
     </div>
   );
 }
-
+    
 
     
