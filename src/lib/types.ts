@@ -55,6 +55,8 @@ export type OutreachProspect = {
   prospectLocation?: ProspectLocation | null;
   industry?: string | null; // General industry text input
   email?: string | null; // Kept email as optional
+  visualStyle?: string | null; // New field from guide
+  bioSummary?: string | null; // New field from guide
 
   // Section 2: Business Type
   businessType?: BusinessType | null;
@@ -85,7 +87,7 @@ export type OutreachProspect = {
 
   // Section 7: Smart Question Prompts
   uniqueNote?: string | null;
-  helpStatement?: string | null; // This was in the old model, keeping for consistency with prompt
+  helpStatement?: string | null; 
   tonePreference?: TonePreference | null;
   
   notes?: string | null;
@@ -132,3 +134,4 @@ export type ScriptSnippet = {
   tags?: string[] | null; // Optional: for categorization
   createdAt: string; // ISO date string
 };
+

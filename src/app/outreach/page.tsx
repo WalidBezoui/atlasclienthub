@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, BotMessageSquare, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw } from 'lucide-react';
+import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, BotMessageSquare, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileTextIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardDescription as CardFormDescription } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
@@ -55,6 +55,8 @@ const initialFormData: Omit<OutreachProspect, 'id' | 'userId'> = {
     website: null,
     prospectLocation: null,
     industry: null,
+    visualStyle: null, // New field
+    bioSummary: null, // New field
     businessType: null,
     businessTypeOther: null,
     accountStage: null,
@@ -96,6 +98,8 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
             lastContacted: prospect.lastContacted ? new Date(prospect.lastContacted).toISOString().split('T')[0] : undefined,
             followUpDate: prospect.followUpDate ? new Date(prospect.followUpDate).toISOString().split('T')[0] : undefined,
             followUpNeeded: prospect.followUpNeeded || false,
+            visualStyle: prospect.visualStyle || null, // Ensure new field is handled
+            bioSummary: prospect.bioSummary || null, // Ensure new field is handled
         };
       setFormData(formattedProspect);
     } else {
@@ -207,6 +211,14 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
            <div>
             <Label htmlFor="industry">Industry (e.g., Fashion, SaaS, Coaching)</Label>
             <Input id="industry" name="industry" value={formData.industry || ''} onChange={handleChange} />
+          </div>
+           <div>
+            <Label htmlFor="visualStyle">Visual Style Notes (Optional)</Label>
+            <Input id="visualStyle" name="visualStyle" placeholder="e.g., Luxe, clean, messy, vibrant..." value={formData.visualStyle || ''} onChange={handleChange} />
+          </div>
+          <div>
+            <Label htmlFor="bioSummary">Bio Summary (Optional)</Label>
+            <Textarea id="bioSummary" name="bioSummary" placeholder="Summary of their Instagram bio" value={formData.bioSummary || ''} onChange={handleChange} rows={3}/>
           </div>
           <div>
             <Label htmlFor="email">Email (Required if no IG Handle)</Label>
@@ -499,11 +511,12 @@ export default function OutreachPage() {
         return;
     }
     try {
-        const dataToSave: Partial<OutreachProspect> = { ...initialFormData, ...prospectData };
+        const dataToSave: Partial<OutreachProspect> & { userId?: string } = { ...initialFormData, ...prospectData };
 
         (Object.keys(dataToSave) as Array<keyof OutreachProspect>).forEach(key => {
             if (dataToSave[key] === '' && 
                 key !== 'name' && 
+                // Allow empty strings for fields that are string | null
                 key !== 'email' && 
                 key !== 'instagramHandle' && 
                 key !== 'businessName' &&
@@ -512,7 +525,9 @@ export default function OutreachPage() {
                 key !== 'uniqueNote' &&
                 key !== 'helpStatement' &&
                 key !== 'notes' &&
-                key !== 'industry'
+                key !== 'industry' &&
+                key !== 'visualStyle' &&
+                key !== 'bioSummary'
              ) {
                 (dataToSave as any)[key] = null;
             }
@@ -612,6 +627,8 @@ export default function OutreachPage() {
         website: prospect.website || null,
         prospectLocation: prospect.prospectLocation || null,
         clientIndustry: prospect.industry || null,
+        visualStyle: prospect.visualStyle || null, // New field
+        bioSummary: prospect.bioSummary || null, // New field
         
         businessType: prospect.businessType || null,
         businessTypeOther: prospect.businessTypeOther || null,
@@ -631,10 +648,11 @@ export default function OutreachPage() {
         followUpNeeded: prospect.followUpNeeded || false,
         
         offerInterest: prospect.offerInterest || [],
-        uniqueNote: prospect.uniqueNote || null,
-        helpStatement: prospect.helpStatement || null,
+        // uniqueNote: prospect.uniqueNote || null, // This field seems to be removed from the schema, check if it should be added back to schema or removed from here
+        // helpStatement: prospect.helpStatement || null, // Same as above
         tonePreference: prospect.tonePreference || null,
         additionalNotes: prospect.notes || null,
+        // offerType: "Free 3-point audit + visual tips" // Defaulted in Zod schema now
     };
     setCurrentScriptGenerationInput(input);
 
@@ -907,3 +925,4 @@ export default function OutreachPage() {
     </div>
   );
 }
+

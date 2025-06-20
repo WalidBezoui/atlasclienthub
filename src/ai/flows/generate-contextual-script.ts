@@ -101,20 +101,20 @@ Offer: {{offerType}}
 Follow this structure for the DM:
 
 A. Personalized Opening:
-   - Start with a warm greeting (e.g., "Hey {{clientName}}! 👋" or "Hi {{businessName}} team!").
-   - Include a SINCERE compliment that shows you’ve ACTUALLY REVIEWED THEIR FEED. Reference their specific content, products, {{visualStyle}}, or overall vibe related to their {{clientIndustry}}.
-   - Example: "I came across {{#if businessName}}{{businessName}}{{else if clientHandle}}{{clientHandle}}{{else}}your profile{{/if}} and loved the {{#if visualStyle}}{{visualStyle}} vibe of your {{clientIndustry}} content – it really stands out." (Adapt this using available info).
+   - Start with a warm greeting (e.g., "Hey {{#if clientName}}{{clientName}}{{else if businessName}}{{businessName}}{{else if clientHandle}}{{clientHandle}}{{else}}there{{/if}}! 👋").
+   - Include a SINCERE compliment that shows you’ve ACTUALLY REVIEWED THEIR FEED. Reference their specific content, products, {{#if visualStyle}}their {{visualStyle}} visual style, {{/if}}or overall vibe related to their {{#if clientIndustry}}{{clientIndustry}} niche.{{/if}}
+   - Example: "I came across {{#if businessName}}{{businessName}}{{else if clientHandle}}{{clientHandle}}{{else}}your profile{{/if}} and loved the {{#if visualStyle}}{{visualStyle}} vibe{{/if}} of your {{#if clientIndustry}}{{clientIndustry}} content{{/if}} – it really stands out." (Adapt this using available info).
 
 B. Who You Are (Without Saying "I'm New"):
    - Introduce "${SENDER_STUDIO_NAME}".
    - Position the studio as focused, curated, and mission-driven.
    - Explain the current initiative: "${SENDER_STUDIO_NAME}" is working with a few hand-picked brands admired for their potential, offering personalized audits/makeovers as part of a growth mission. This builds exclusivity.
-   - Example phrasing: "I run ${SENDER_STUDIO_NAME} – we help brands like yours sharpen their visual presence and turn scrolls into clicks through content makeovers and subtle branding upgrades. We're currently working with a few hand-picked brands we admire to offer personalized insights – part of our mission to elevate standout {{#if clientIndustry_lc}}{{clientIndustry_lc_pluralized}}{{else}}businesses{{/if}}." (lowercase and pluralize industry if possible for natural language)
+   - Example phrasing: "I run ${SENDER_STUDIO_NAME} – we help brands like yours sharpen their visual presence and turn scrolls into clicks through content makeovers and subtle branding upgrades. We're currently working with a few hand-picked brands we admire to offer personalized insights – part of our mission to elevate standout {{#if clientIndustry_lc_pluralized}}{{clientIndustry_lc_pluralized}}{{else}}businesses{{/if}}."
 
 C. The Offer:
    - Clearly state the value of the "{{offerType}}". Make it tangible and no-pressure.
    - Briefly list 2-3 key deliverables or benefits.
-   - Example for "{{offerType}}": "It includes: what’s working in your feed, where you might be losing engagement or conversions, and a couple of fresh design ideas to upgrade your visual identity." (Tailor this to the specific offerType if it changes).
+   - Example for a "Free 3-point audit + visual tips": "It includes: what’s working in your feed, where you might be losing engagement or conversions, and a couple of fresh design ideas to upgrade your visual identity." (Tailor this to the specific offerType if it changes).
 
 D. Soft Close (Low-Pressure CTA):
    - End with a short, frictionless question to get permission.
@@ -128,11 +128,11 @@ E. Things to AVOID:
    - Keep the intro punchy and the overall message concise for Instagram DMs.
 
 Psychology Reminders:
-- Specificity: Use details from the prospect's profile.
-- Exclusivity: Frame the offer as selective.
-- Reciprocity: The free value.
-- Clarity: Be clear about the offer.
-- Low Commitment CTA.
+- Specificity: Use details from the prospect's profile like {{#if visualStyle}}their {{visualStyle}} style{{/if}}{{#if clientIndustry}} or {{clientIndustry}} focus{{/if}}.
+- Exclusivity: Frame the offer as selective for "hand-picked brands."
+- Reciprocity: The free value of the "{{offerType}}".
+- Clarity: Be clear about what the "{{offerType}}" includes.
+- Low Commitment CTA: Just ask for permission.
 
 Critique Directive: After drafting the script based on ALL the above, review it for emotional impact, clarity, alignment with "${SENDER_STUDIO_NAME}"'s mission-driven positioning (even with 0 followers), and conciseness. Ensure it directly addresses the prospect based on the provided context. Then, output ONLY the perfected script.
 
@@ -152,11 +152,11 @@ const generateContextualScriptFlow = ai.defineFlow(
     let clientIndustry_lc_pluralized: string | undefined = undefined;
     if (input.clientIndustry) {
         clientIndustry_lc = input.clientIndustry.toLowerCase();
-        if (clientIndustry_lc.endsWith('y')) {
+        if (clientIndustry_lc.endsWith('y') && !['day', 'key', 'guy', 'way', 'toy', 'boy', 'play'].some(s => clientIndustry_lc.endsWith(s))) { // simple y -> ies
             clientIndustry_lc_pluralized = clientIndustry_lc.slice(0, -1) + 'ies';
-        } else if (clientIndustry_lc.endsWith('s') || clientIndustry_lc.endsWith('sh') || clientIndustry_lc.endsWith('ch') || clientIndustry_lc.endsWith('x') || clientIndustry_lc.endsWith('z')) {
+        } else if (['s', 'sh', 'ch', 'x', 'z'].some(suffix => clientIndustry_lc.endsWith(suffix))) { // s, sh, ch, x, z -> es
             clientIndustry_lc_pluralized = clientIndustry_lc + 'es';
-        } else {
+        } else { // default -> s
             clientIndustry_lc_pluralized = clientIndustry_lc + 's';
         }
     }
