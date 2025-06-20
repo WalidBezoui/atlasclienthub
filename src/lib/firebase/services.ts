@@ -43,6 +43,7 @@ export const addClient = async (clientData: Omit<Client, 'id' | 'userId'>): Prom
   if (clientData.contactPhone) dataForFirestore.contactPhone = clientData.contactPhone;
   if (clientData.instagramHandle) dataForFirestore.instagramHandle = clientData.instagramHandle;
   if (clientData.notes) dataForFirestore.notes = clientData.notes;
+  if (clientData.industry) dataForFirestore.industry = clientData.industry;
   
   const docRef = await addDoc(clientsCollection, dataForFirestore);
   return docRef.id;
@@ -94,34 +95,39 @@ export const addProspect = async (prospectData: Omit<OutreachProspect, 'id' | 'u
   const userId = getCurrentUserId();
   if (!userId) throw new Error('User not authenticated');
   
-  const dataForFirestore: any = { 
-    userId,
-    name: prospectData.name,
-    email: prospectData.email, // Email is not optional in the DB schema based on current type
-    status: prospectData.status,
-    // Ensure arrays are initialized if not provided
-    painPoints: prospectData.painPoints || [],
-    goals: prospectData.goals || [],
-    offerInterest: prospectData.offerInterest || [],
-  };
+  const dataForFirestore: any = { userId, ...prospectData };
 
-  // Add optional fields only if they have a value
-  if (prospectData.instagramHandle) dataForFirestore.instagramHandle = prospectData.instagramHandle;
-  if (prospectData.businessName) dataForFirestore.businessName = prospectData.businessName;
-  if (prospectData.website) dataForFirestore.website = prospectData.website;
-  if (prospectData.prospectLocation) dataForFirestore.prospectLocation = prospectData.prospectLocation;
-  if (prospectData.businessType) dataForFirestore.businessType = prospectData.businessType;
-  if (prospectData.businessTypeOther) dataForFirestore.businessTypeOther = prospectData.businessTypeOther;
-  if (prospectData.source) dataForFirestore.source = prospectData.source;
-  if (prospectData.uniqueNote) dataForFirestore.uniqueNote = prospectData.uniqueNote;
-  if (prospectData.helpStatement) dataForFirestore.helpStatement = prospectData.helpStatement;
-  if (prospectData.tonePreference) dataForFirestore.tonePreference = prospectData.tonePreference;
-  if (prospectData.notes) dataForFirestore.notes = prospectData.notes;
-  if (prospectData.industry) dataForFirestore.industry = prospectData.industry;
-  
+  // Convert dates to Timestamps
   if (prospectData.lastContacted) dataForFirestore.lastContacted = Timestamp.fromDate(new Date(prospectData.lastContacted));
   if (prospectData.followUpDate) dataForFirestore.followUpDate = Timestamp.fromDate(new Date(prospectData.followUpDate));
 
+  // Ensure numeric fields are numbers or undefined
+  const numericFields: (keyof OutreachProspect)[] = ['followerCount', 'postCount', 'avgLikes', 'avgComments'];
+  numericFields.forEach(field => {
+    if (prospectData[field] !== undefined && prospectData[field] !== null && !isNaN(Number(prospectData[field]))) {
+      dataForFirestore[field] = Number(prospectData[field]);
+    } else {
+      dataForFirestore[field] = undefined; // Or null, depending on how you want to store empty numbers
+    }
+  });
+  
+  // Ensure boolean fields are booleans
+  if (prospectData.followUpNeeded === undefined) dataForFirestore.followUpNeeded = false;
+
+
+  // Remove undefined fields to avoid Firestore errors, unless they are meant to be explicitly null
+  for (const key in dataForFirestore) {
+    if (dataForFirestore[key] === undefined) {
+      // For array fields, store empty array if undefined
+      if (key === 'painPoints' || key === 'goals' || key === 'offerInterest') {
+          dataForFirestore[key] = [];
+      } else if (key !== 'lastContacted' && key !== 'followUpDate' && !numericFields.includes(key as keyof OutreachProspect)) { 
+          // Keep undefined for dates and numeric fields if they were intentionally set as such to be cleared
+          delete dataForFirestore[key];
+      }
+    }
+  }
+  
   const docRef = await addDoc(prospectsCollection, dataForFirestore);
   return docRef.id;
 };
@@ -133,16 +139,45 @@ export const getProspects = async (): Promise<OutreachProspect[]> => {
   const snapshot = await getDocs(q);
   return snapshot.docs.map(docSnap => {
     const data = docSnap.data();
-    return {
+    const prospect: OutreachProspect = {
       id: docSnap.id,
-      ...data,
-      // Ensure array fields are returned as arrays, even if Firestore stores them as undefined/null initially
+      userId: data.userId,
+      name: data.name,
+      status: data.status || 'Cold', // Default status if not set
+      // Basic Info
+      instagramHandle: data.instagramHandle,
+      businessName: data.businessName,
+      website: data.website,
+      prospectLocation: data.prospectLocation,
+      industry: data.industry,
+      email: data.email,
+      // Business Type
+      businessType: data.businessType,
+      businessTypeOther: data.businessTypeOther,
+      // Engagement Metrics
+      accountStage: data.accountStage,
+      followerCount: data.followerCount,
+      postCount: data.postCount,
+      avgLikes: data.avgLikes,
+      avgComments: data.avgComments,
+      // Pain Points & Goals
       painPoints: data.painPoints || [],
       goals: data.goals || [],
-      offerInterest: data.offerInterest || [],
+      // Lead Warmth
+      source: data.source,
       lastContacted: data.lastContacted ? (data.lastContacted as Timestamp).toDate().toISOString().split('T')[0] : undefined,
       followUpDate: data.followUpDate ? (data.followUpDate as Timestamp).toDate().toISOString().split('T')[0] : undefined,
-    } as OutreachProspect;
+      followUpNeeded: data.followUpNeeded || false,
+      // Offer Interest
+      offerInterest: data.offerInterest || [],
+      // Smart Questions
+      uniqueNote: data.uniqueNote,
+      helpStatement: data.helpStatement,
+      tonePreference: data.tonePreference,
+      // Notes
+      notes: data.notes,
+    };
+    return prospect;
   });
 };
 
@@ -153,29 +188,55 @@ export const updateProspect = async (id: string, prospectData: Partial<Omit<Outr
   
   const dataToUpdate: any = { ...prospectData };
   
-  if (prospectData.lastContacted) dataToUpdate.lastContacted = Timestamp.fromDate(new Date(prospectData.lastContacted));
-  else if (prospectData.hasOwnProperty('lastContacted') && prospectData.lastContacted === undefined) dataToUpdate.lastContacted = null; // Allow clearing date
-
-  if (prospectData.followUpDate) dataToUpdate.followUpDate = Timestamp.fromDate(new Date(prospectData.followUpDate));
-  else if (prospectData.hasOwnProperty('followUpDate') && prospectData.followUpDate === undefined) dataToUpdate.followUpDate = null; // Allow clearing date
-  
-  // Ensure array fields are updated correctly (e.g., can be set to empty array)
-  if (prospectData.hasOwnProperty('painPoints')) dataToUpdate.painPoints = prospectData.painPoints || [];
-  if (prospectData.hasOwnProperty('goals')) dataToUpdate.goals = prospectData.goals || [];
-  if (prospectData.hasOwnProperty('offerInterest')) dataToUpdate.offerInterest = prospectData.offerInterest || [];
-
-  // Remove any other fields that might be undefined from the partial update
-  for (const key in dataToUpdate) {
-    if (dataToUpdate[key] === undefined) {
-       // Check if it's an array field that should default to empty array instead of being deleted
-      if (key === 'painPoints' || key === 'goals' || key === 'offerInterest') {
-        dataToUpdate[key] = [];
-      } else {
-        delete dataToUpdate[key];
-      }
-    }
+  if (prospectData.lastContacted) {
+    dataToUpdate.lastContacted = Timestamp.fromDate(new Date(prospectData.lastContacted));
+  } else if (prospectData.hasOwnProperty('lastContacted') && prospectData.lastContacted === undefined) {
+    dataToUpdate.lastContacted = null; 
   }
 
+  if (prospectData.followUpDate) {
+    dataToUpdate.followUpDate = Timestamp.fromDate(new Date(prospectData.followUpDate));
+  } else if (prospectData.hasOwnProperty('followUpDate') && prospectData.followUpDate === undefined) {
+    dataToUpdate.followUpDate = null;
+  }
+  
+  const numericFields: (keyof OutreachProspect)[] = ['followerCount', 'postCount', 'avgLikes', 'avgComments'];
+  numericFields.forEach(field => {
+    if (prospectData.hasOwnProperty(field)) { // Check if field is explicitly in the update
+      const value = prospectData[field];
+      if (value === undefined || value === null || value === '' || isNaN(Number(value))) {
+        dataToUpdate[field] = null; // Set to null to clear in Firestore
+      } else {
+        dataToUpdate[field] = Number(value);
+      }
+    }
+  });
+
+  if (prospectData.hasOwnProperty('followUpNeeded')) {
+    dataToUpdate.followUpNeeded = prospectData.followUpNeeded || false;
+  }
+  
+  // Ensure array fields are handled correctly (can be set to empty array or updated)
+  const arrayFields: (keyof OutreachProspect)[] = ['painPoints', 'goals', 'offerInterest'];
+  arrayFields.forEach(field => {
+    if (prospectData.hasOwnProperty(field)) {
+      dataToUpdate[field] = prospectData[field] || [];
+    }
+  });
+
+  // Remove any other fields that are explicitly undefined from the partial update
+  // unless they are dates or numbers being cleared (handled above by setting to null)
+  for (const key in dataToUpdate) {
+    if (dataToUpdate[key] === undefined && 
+        key !== 'lastContacted' && 
+        key !== 'followUpDate' && 
+        !numericFields.includes(key as keyof OutreachProspect) &&
+        !arrayFields.includes(key as keyof OutreachProspect) &&
+        key !== 'followUpNeeded'
+        ) {
+      delete dataToUpdate[key];
+    }
+  }
   await updateDoc(prospectDoc, dataToUpdate);
 };
 
@@ -263,11 +324,16 @@ export const updateAudit = async (id: string, auditData: Partial<Omit<InstagramA
   }
 
   for (const key in dataToUpdate) {
-    if (dataToUpdate[key] === undefined && key !== 'completedDate') { 
+    if (dataToUpdate[key] === undefined && key !== 'completedDate' && key !== 'auditReport' && key !== 'entityName' && key !== 'entityType') { 
       delete dataToUpdate[key];
+    } else if (key === 'auditReport' && auditData.auditReport === undefined) {
+        dataToUpdate.auditReport = null; // Allow clearing audit report
+    } else if (key === 'entityName' && auditData.entityName === undefined) {
+        dataToUpdate.entityName = null;
+    } else if (key === 'entityType' && auditData.entityType === undefined) {
+        dataToUpdate.entityType = null;
     }
   }
-
   await updateDoc(auditDoc, dataToUpdate);
 };
 
@@ -302,11 +368,15 @@ export const getDashboardOverview = async (): Promise<{
     where('userId', '==', userId), 
     where('lastContacted', '>=', currentMonthStartTimestamp),
     where('lastContacted', '<=', currentMonthEndTimestamp)
+    // This counts any contact, not just "Sent" status. Consider refining if needed.
   );
   
   const newLeadsQuery = query(prospectsCollection, 
     where('userId', '==', userId), 
-    where('status', '==', 'Interested'),
+    where('status', '==', 'Interested'), // From old status type
+    // Consider if "Replied" or other new OutreachLeadStage values count as new leads
+    // For now, aligning with previous logic.
+    // This query needs to be updated if "Interested" is not the primary signal for a new lead.
     where('lastContacted', '>=', currentMonthStartTimestamp), 
     where('lastContacted', '<=', currentMonthEndTimestamp)
   );
@@ -360,7 +430,8 @@ export const getMonthlyActivityData = async (): Promise<MonthlyActivity[]> => {
   const outreachQuery = query(prospectsCollection, 
     where('userId', '==', userId), 
     where('lastContacted', '>=', sixMonthsAgoTimestamp),
-    where('lastContacted', '<=', nowTimestamp)
+    where('lastContacted', '<=', nowTimestamp) 
+    // Counts any interaction in the month as "outreach activity" for the chart
   );
   const auditsQuery = query(auditsCollection, 
     where('userId', '==', userId), 

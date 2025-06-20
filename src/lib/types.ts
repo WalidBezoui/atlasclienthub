@@ -11,10 +11,14 @@ export type Client = {
   joinedDate: string; // ISO date string
   instagramHandle?: string;
   notes?: string;
+  industry?: string; // Added for context
 };
 
 export const BUSINESS_TYPES = ["Creator / Influencer", "Personal Brand (coach, consultant)", "Local Business (salon, café, dentist)", "Online Business (ecom, services)", "Product Brand (fashion, cosmetics, etc.)", "Other"] as const;
 export type BusinessType = typeof BUSINESS_TYPES[number];
+
+export const ACCOUNT_STAGES = ["New (0–100 followers)", "Growing (100–1k followers)", "Established (>1k followers)"] as const;
+export type AccountStage = typeof ACCOUNT_STAGES[number];
 
 export const PAIN_POINTS = ["Low engagement", "Inconsistent grid", "No clear CTA / no DMs", "Weak branding or visuals", "Outdated profile or bio", "Posting with no result", "Not converting followers to clients", "New account / just starting"] as const;
 export type PainPoint = typeof PAIN_POINTS[number];
@@ -22,33 +26,46 @@ export type PainPoint = typeof PAIN_POINTS[number];
 export const GOALS = ["Grow followers", "Attract ideal clients", "Boost engagement", "Clean up design / grid", "Build credibility", "Sell more / monetize IG"] as const;
 export type Goal = typeof GOALS[number];
 
-export const LEAD_SOURCES = ["IG comment", "Hashtag", "Explore", "DM", "Referral", "Website", "LinkedIn", "Other"] as const;
+export const PROSPECT_LOCATIONS = ["Morocco", "Global", "Other"] as const;
+export type ProspectLocation = typeof PROSPECT_LOCATIONS[number];
+
+export const LEAD_SOURCES = ["IG comment", "Hashtag", "Explore", "DM Reply", "Referral", "Website", "LinkedIn", "Other"] as const;
 export type LeadSource = typeof LEAD_SOURCES[number];
 
-export const OFFER_INTERESTS = ["Interested in free audit", "Asked for pricing", "Wants branding/post creation", "Wants IG strategy", "Didn’t reply"] as const;
+export const OFFER_INTERESTS = ["Requested Audit", "Asked for Pricing", "Wants Branding/Post Creation", "Wants IG Strategy", "No Reply"] as const;
 export type OfferInterest = typeof OFFER_INTERESTS[number];
 
 export const TONE_PREFERENCES = ["Friendly & casual", "Confident & professional", "Creative & bold"] as const;
 export type TonePreference = typeof TONE_PREFERENCES[number];
 
-export type OutreachStatus = "To Contact" | "Contacted" | "Replied" | "Interested" | "Not Interested" | "Follow-up";
-export const OUTREACH_STATUS_OPTIONS: OutreachStatus[] = ["To Contact", "Contacted", "Replied", "Interested", "Not Interested", "Follow-up"];
+// Refined Lead Stages for Outreach
+export type OutreachLeadStage = "Cold" | "Warm" | "Replied" | "Audit Sent" | "Closed - Won" | "Closed - Lost" | "Not Interested";
+export const OUTREACH_LEAD_STAGE_OPTIONS: OutreachLeadStage[] = ["Cold", "Warm", "Replied", "Audit Sent", "Closed - Won", "Closed - Lost", "Not Interested"];
+
 
 export type OutreachProspect = {
   id: string;
   userId: string; 
-  name: string; // Prospect Name
-  email: string; // Still keep email as an option
-  instagramHandle?: string; // IG Handle
-
-  // Section 1: Basic Prospect Info
-  businessName?: string; // Business Name
-  website?: string; // Website (optional)
-  prospectLocation?: string; // Prospect Location (e.g., "Morocco", "Global", "Casablanca")
   
+  // Section 1: Basic Prospect Info
+  name: string; 
+  instagramHandle?: string;
+  businessName?: string;
+  website?: string; 
+  prospectLocation?: ProspectLocation;
+  industry?: string; // General industry text input
+  email?: string; // Kept email as optional
+
   // Section 2: Business Type
   businessType?: BusinessType;
-  businessTypeOther?: string; // If businessType is "Other"
+  businessTypeOther?: string;
+
+  // Engagement Metrics (manual or fetched)
+  accountStage?: AccountStage;
+  followerCount?: number;
+  postCount?: number;
+  avgLikes?: number;
+  avgComments?: number;
 
   // Section 3: Current Problems / Pain Points
   painPoints?: PainPoint[];
@@ -56,22 +73,22 @@ export type OutreachProspect = {
   // Section 4: Goals They Might Want
   goals?: Goal[];
 
-  // Section 5: Lead Warmth (existing status field covers "Lead Stage" concept, lastContacted for "Contacted?")
-  status: OutreachStatus; // Existing field, covers "Lead Stage" like Cold/Warm/Replied
-  source?: LeadSource; // New field for lead source
+  // Section 5: Lead Warmth / Status
+  status: OutreachLeadStage; // Using the refined lead stages
+  source?: LeadSource;
   lastContacted?: string; // ISO date string
   followUpDate?: string; // ISO date string
-  
-  // Section 6: Offer Interest (If they’ve replied)
+  followUpNeeded?: boolean;
+
+  // Section 6: Offer Interest
   offerInterest?: OfferInterest[];
 
   // Section 7: Smart Question Prompts
-  uniqueNote?: string; // What’s unique or interesting about this brand?
-  helpStatement?: string; // If you had to help them in 1 sentence...
+  uniqueNote?: string;
+  helpStatement?: string; // This was in the old model, keeping for consistency with prompt
   tonePreference?: TonePreference;
   
-  notes?: string; // General notes (existing field)
-  industry?: string; // Existing field, can be supplementary
+  notes?: string;
 };
 
 
