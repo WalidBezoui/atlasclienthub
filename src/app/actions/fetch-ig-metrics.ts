@@ -75,7 +75,7 @@ export async function fetchInstagramMetrics(
     'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
     'Accept': 'application/json',
     'Accept-Language': 'en-US,en;q=0.9',
-    // 'x-ig-app-id': '936619743392459', // Common app ID, might need to be present
+    'x-ig-app-id': '936619743392459', // Common app ID, often required
     // Some recommend adding sec-fetch-* headers too, but keep it simple first
   };
 
@@ -92,7 +92,7 @@ export async function fetchInstagramMetrics(
         errorBody = await response.text();
       } catch (e) { /* ignore if can't read body */ }
       console.error(`Error fetching Instagram data for @${igHandle}: ${response.status} ${response.statusText}. Body: ${errorBody.substring(0,500)}`);
-      return { error: `Failed to fetch. IG Server responded with Status: ${response.status}. The profile might be private, or access is restricted.` };
+      return { error: `Failed to fetch. IG Server responded with Status: ${response.status}. The profile might be private, or access is restricted. Please check the handle or try again later.` };
     }
 
     const rawJson = await response.json();
