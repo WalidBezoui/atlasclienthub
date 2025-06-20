@@ -330,41 +330,43 @@ export default function ClientsPage() {
                 </TableBody>
               </Table>
           ) : filteredClients.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead className="hidden md:table-cell">Email</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="hidden sm:table-cell">Joined Date</TableHead>
-                  <TableHead className="hidden lg:table-cell">IG Handle</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                  {filteredClients.map((client) => (
-                    <TableRow key={client.id}>
-                      <TableCell className="font-medium">{client.name}</TableCell>
-                      <TableCell className="hidden md:table-cell text-muted-foreground">{client.contactEmail}</TableCell>
-                      <TableCell>
-                        <Badge variant={getStatusBadgeVariant(client.status)}>{client.status}</Badge>
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell text-muted-foreground">{new Date(client.joinedDate).toLocaleDateString()}</TableCell>
-                      <TableCell className="hidden lg:table-cell text-muted-foreground">{client.instagramHandle || '-'}</TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" onClick={() => { setEditingClient(client); setIsFormOpen(true); }} className="mr-2" aria-label={`Edit client ${client.name}`}>
-                          <Edit className="h-4 w-4" />
-                           <span className="sr-only">Edit Client</span>
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDeleteClient(client.id, client.name)} className="text-destructive hover:text-destructive" aria-label={`Delete client ${client.name}`}>
-                          <Trash2 className="h-4 w-4" />
-                          <span className="sr-only">Delete Client</span>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-              </TableBody>
-            </Table>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead className="hidden md:table-cell">Email</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="hidden sm:table-cell">Joined Date</TableHead>
+                    <TableHead className="hidden lg:table-cell">IG Handle</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {filteredClients.map((client) => (
+                      <TableRow key={client.id}>
+                        <TableCell className="font-medium">{client.name}</TableCell>
+                        <TableCell className="hidden md:table-cell text-muted-foreground">{client.contactEmail}</TableCell>
+                        <TableCell>
+                          <Badge variant={getStatusBadgeVariant(client.status)}>{client.status}</Badge>
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell text-muted-foreground">{new Date(client.joinedDate).toLocaleDateString()}</TableCell>
+                        <TableCell className="hidden lg:table-cell text-muted-foreground">{client.instagramHandle || '-'}</TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="icon" onClick={() => { setEditingClient(client); setIsFormOpen(true); }} className="mr-2" aria-label={`Edit client ${client.name}`}>
+                            <Edit className="h-4 w-4" />
+                             <span className="sr-only">Edit Client</span>
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleDeleteClient(client.id, client.name)} className="text-destructive hover:text-destructive" aria-label={`Delete client ${client.name}`}>
+                            <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">Delete Client</span>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+            </div>
           ) : (
               <Table>
                 <TableBody>
@@ -394,3 +396,4 @@ export default function ClientsPage() {
     </div>
   );
 }
+

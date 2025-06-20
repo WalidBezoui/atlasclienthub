@@ -164,72 +164,74 @@ export default function AuditsPage() {
          {isLoading && audits.length === 0 ? (
              <div className="py-10"><LoadingSpinner text="Fetching audits..." /></div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>IG Handle</TableHead>
-                  <TableHead className="hidden md:table-cell">Client/Prospect</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="hidden sm:table-cell">Requested</TableHead>
-                  <TableHead className="hidden lg:table-cell">Completed</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredAudits.length > 0 ? (
-                  filteredAudits.map((audit) => (
-                    <TableRow key={audit.id}>
-                      <TableCell className="font-medium">{audit.instagramHandle}</TableCell>
-                      <TableCell className="hidden md:table-cell text-muted-foreground">{audit.entityName || 'N/A'}</TableCell>
-                      <TableCell>
-                        <Badge variant={getStatusBadgeVariant(audit.status)}>{audit.status}</Badge>
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell text-muted-foreground">{new Date(audit.requestedDate).toLocaleDateString()}</TableCell>
-                      <TableCell className="hidden lg:table-cell text-muted-foreground">
-                        {audit.completedDate ? new Date(audit.completedDate).toLocaleDateString() : '-'}
-                      </TableCell>
-                      <TableCell className="text-right space-x-1">
-                        <Link href={`/audits/${audit.id}`} passHref>
-                          <Button variant="ghost" size="icon" aria-label={`View audit for ${audit.instagramHandle}`}>
-                            <Eye className="h-4 w-4" />
-                             <span className="sr-only">View Audit</span>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>IG Handle</TableHead>
+                    <TableHead className="hidden md:table-cell">Client/Prospect</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="hidden sm:table-cell">Requested</TableHead>
+                    <TableHead className="hidden lg:table-cell">Completed</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredAudits.length > 0 ? (
+                    filteredAudits.map((audit) => (
+                      <TableRow key={audit.id}>
+                        <TableCell className="font-medium">{audit.instagramHandle}</TableCell>
+                        <TableCell className="hidden md:table-cell text-muted-foreground">{audit.entityName || 'N/A'}</TableCell>
+                        <TableCell>
+                          <Badge variant={getStatusBadgeVariant(audit.status)}>{audit.status}</Badge>
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell text-muted-foreground">{new Date(audit.requestedDate).toLocaleDateString()}</TableCell>
+                        <TableCell className="hidden lg:table-cell text-muted-foreground">
+                          {audit.completedDate ? new Date(audit.completedDate).toLocaleDateString() : '-'}
+                        </TableCell>
+                        <TableCell className="text-right space-x-1">
+                          <Link href={`/audits/${audit.id}`} passHref>
+                            <Button variant="ghost" size="icon" aria-label={`View audit for ${audit.instagramHandle}`}>
+                              <Eye className="h-4 w-4" />
+                               <span className="sr-only">View Audit</span>
+                            </Button>
+                          </Link>
+                           <Link href={`/audits/${audit.id}/edit`} passHref>
+                             <Button variant="ghost" size="icon" aria-label={`Edit audit for ${audit.instagramHandle}`}> 
+                               <Edit className="h-4 w-4" />
+                               <span className="sr-only">Edit Audit</span>
+                             </Button>
+                           </Link>
+                          <Button variant="ghost" size="icon" onClick={() => handleDeleteAudit(audit.id, audit.instagramHandle)} className="text-destructive hover:text-destructive" aria-label={`Delete audit for ${audit.instagramHandle}`}>
+                            <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">Delete Audit</span>
                           </Button>
-                        </Link>
-                         <Link href={`/audits/${audit.id}/edit`} passHref>
-                           <Button variant="ghost" size="icon" aria-label={`Edit audit for ${audit.instagramHandle}`}> 
-                             <Edit className="h-4 w-4" />
-                             <span className="sr-only">Edit Audit</span>
-                           </Button>
-                         </Link>
-                        <Button variant="ghost" size="icon" onClick={() => handleDeleteAudit(audit.id, audit.instagramHandle)} className="text-destructive hover:text-destructive" aria-label={`Delete audit for ${audit.instagramHandle}`}>
-                          <Trash2 className="h-4 w-4" />
-                          <span className="sr-only">Delete Audit</span>
-                        </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                   <TableRow>
+                      <TableCell colSpan={6} className="h-24 text-center">
+                          <div className="flex flex-col items-center justify-center">
+                              <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
+                              <p className="font-semibold">
+                                {audits.length === 0 && searchTerm === '' && (statusFilters.size === AUDIT_STATUS_OPTIONS.length || statusFilters.size === 0)
+                                  ? "No audits found."
+                                  : "No audits found matching your criteria."
+                                }
+                              </p>
+                              {audits.length === 0 && searchTerm === '' && (statusFilters.size === AUDIT_STATUS_OPTIONS.length || statusFilters.size === 0) && (
+                                   <p className="text-sm text-muted-foreground">
+                                      Get started by <Link href="/audits/new" className="text-primary hover:underline">creating your first audit</Link>!
+                                   </p>
+                              )}
+                          </div>
                       </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                 <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
-                        <div className="flex flex-col items-center justify-center">
-                            <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
-                            <p className="font-semibold">
-                              {audits.length === 0 && searchTerm === '' && (statusFilters.size === AUDIT_STATUS_OPTIONS.length || statusFilters.size === 0)
-                                ? "No audits found."
-                                : "No audits found matching your criteria."
-                              }
-                            </p>
-                            {audits.length === 0 && searchTerm === '' && (statusFilters.size === AUDIT_STATUS_OPTIONS.length || statusFilters.size === 0) && (
-                                 <p className="text-sm text-muted-foreground">
-                                    Get started by <Link href="/audits/new" className="text-primary hover:underline">creating your first audit</Link>!
-                                 </p>
-                            )}
-                        </div>
-                    </TableCell>
-                 </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                   </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

@@ -336,47 +336,49 @@ export default function OutreachPage() {
                 </TableBody>
               </Table>
           ) : filteredProspects.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead className="hidden md:table-cell">Email</TableHead>
-                  <TableHead className="hidden sm:table-cell">Company</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="hidden lg:table-cell">Last Contacted</TableHead>
-                  <TableHead className="hidden lg:table-cell">Follow-up</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                  {filteredProspects.map((prospect) => (
-                    <TableRow key={prospect.id}>
-                      <TableCell className="font-medium">{prospect.name}</TableCell>
-                      <TableCell className="hidden md:table-cell text-muted-foreground">{prospect.email}</TableCell>
-                      <TableCell className="hidden sm:table-cell text-muted-foreground">{prospect.company || '-'}</TableCell>
-                      <TableCell>
-                        <Badge variant={getStatusBadgeVariant(prospect.status)}>{prospect.status}</Badge>
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell text-muted-foreground">
-                        {prospect.lastContacted ? new Date(prospect.lastContacted).toLocaleDateString() : '-'}
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell text-muted-foreground">
-                        {prospect.followUpDate ? new Date(prospect.followUpDate).toLocaleDateString() : '-'}
-                      </TableCell>
-                      <TableCell className="text-right">
-                         <Button variant="ghost" size="icon" onClick={() => { setEditingProspect(prospect); setIsFormOpen(true); }} className="mr-2" aria-label={`Edit prospect ${prospect.name}`}>
-                          <Edit className="h-4 w-4" />
-                           <span className="sr-only">Edit Prospect</span>
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDeleteProspect(prospect.id, prospect.name)} className="text-destructive hover:text-destructive" aria-label={`Delete prospect ${prospect.name}`}>
-                          <Trash2 className="h-4 w-4" />
-                          <span className="sr-only">Delete Prospect</span>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-              </TableBody>
-            </Table>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead className="hidden md:table-cell">Email</TableHead>
+                    <TableHead className="hidden sm:table-cell">Company</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="hidden lg:table-cell">Last Contacted</TableHead>
+                    <TableHead className="hidden lg:table-cell">Follow-up</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {filteredProspects.map((prospect) => (
+                      <TableRow key={prospect.id}>
+                        <TableCell className="font-medium">{prospect.name}</TableCell>
+                        <TableCell className="hidden md:table-cell text-muted-foreground">{prospect.email}</TableCell>
+                        <TableCell className="hidden sm:table-cell text-muted-foreground">{prospect.company || '-'}</TableCell>
+                        <TableCell>
+                          <Badge variant={getStatusBadgeVariant(prospect.status)}>{prospect.status}</Badge>
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell text-muted-foreground">
+                          {prospect.lastContacted ? new Date(prospect.lastContacted).toLocaleDateString() : '-'}
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell text-muted-foreground">
+                          {prospect.followUpDate ? new Date(prospect.followUpDate).toLocaleDateString() : '-'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                           <Button variant="ghost" size="icon" onClick={() => { setEditingProspect(prospect); setIsFormOpen(true); }} className="mr-2" aria-label={`Edit prospect ${prospect.name}`}>
+                            <Edit className="h-4 w-4" />
+                             <span className="sr-only">Edit Prospect</span>
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleDeleteProspect(prospect.id, prospect.name)} className="text-destructive hover:text-destructive" aria-label={`Delete prospect ${prospect.name}`}>
+                            <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">Delete Prospect</span>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+            </div>
           ) : (
               <Table>
                 <TableBody>
@@ -406,3 +408,4 @@ export default function OutreachPage() {
     </div>
   );
 }
+
