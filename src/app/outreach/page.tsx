@@ -55,8 +55,8 @@ const initialFormData: Omit<OutreachProspect, 'id' | 'userId'> = {
     website: null,
     prospectLocation: null,
     industry: null,
-    visualStyle: null, // New field
-    bioSummary: null, // New field
+    visualStyle: null, 
+    bioSummary: null, 
     businessType: null,
     businessTypeOther: null,
     accountStage: null,
@@ -98,8 +98,8 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
             lastContacted: prospect.lastContacted ? new Date(prospect.lastContacted).toISOString().split('T')[0] : undefined,
             followUpDate: prospect.followUpDate ? new Date(prospect.followUpDate).toISOString().split('T')[0] : undefined,
             followUpNeeded: prospect.followUpNeeded || false,
-            visualStyle: prospect.visualStyle || null, // Ensure new field is handled
-            bioSummary: prospect.bioSummary || null, // Ensure new field is handled
+            visualStyle: prospect.visualStyle || null, 
+            bioSummary: prospect.bioSummary || null, 
         };
       setFormData(formattedProspect);
     } else {
@@ -151,7 +151,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
           postCount: result.data!.postCount,
           avgLikes: result.data!.avgLikes,
           avgComments: result.data!.avgComments,
-           accountStage: result.data!.followerCount < 100 ? "New (0–100 followers)" : result.data!.followerCount < 1000 ? "Growing (100–1k followers)" : "Established (>1k followers)",
+           accountStage: result.data!.followerCount < 1000 ? "New (0–1k followers)" : result.data!.followerCount < 10000 ? "Growing (1k–10k followers)" : "Established (>10k followers)", // Example logic
         }));
         toast({ title: "Metrics Fetched!", description: `Data for @${formData.instagramHandle} updated.` });
       }
@@ -516,7 +516,6 @@ export default function OutreachPage() {
         (Object.keys(dataToSave) as Array<keyof OutreachProspect>).forEach(key => {
             if (dataToSave[key] === '' && 
                 key !== 'name' && 
-                // Allow empty strings for fields that are string | null
                 key !== 'email' && 
                 key !== 'instagramHandle' && 
                 key !== 'businessName' &&
@@ -611,7 +610,7 @@ export default function OutreachPage() {
     setIsScriptModalOpen(true);
     setGeneratedScript('');
     setScriptModalTitle(`Generating ${scriptType} for ${prospect.name || 'Prospect'}...`);
-    setCurrentProspectForScript(prospect); // Store prospect for saving snippet
+    setCurrentProspectForScript(prospect); 
 
     setClientContext({ 
         clientHandle: prospect.instagramHandle || undefined,
@@ -621,17 +620,17 @@ export default function OutreachPage() {
     
     const input: GenerateContextualScriptInput = {
         scriptType,
-        clientName: prospect.name || null,
-        clientHandle: prospect.instagramHandle || null,
-        businessName: prospect.businessName || null,
-        website: prospect.website || null,
+        clientName: prospect.name?.trim() || null,
+        clientHandle: prospect.instagramHandle?.trim() || null,
+        businessName: prospect.businessName?.trim() || null,
+        website: prospect.website?.trim() || null,
         prospectLocation: prospect.prospectLocation || null,
-        clientIndustry: prospect.industry || null,
-        visualStyle: prospect.visualStyle || null, // New field
-        bioSummary: prospect.bioSummary || null, // New field
+        clientIndustry: prospect.industry?.trim() || null,
+        visualStyle: prospect.visualStyle?.trim() || null, 
+        bioSummary: prospect.bioSummary?.trim() || null, 
         
         businessType: prospect.businessType || null,
-        businessTypeOther: prospect.businessTypeOther || null,
+        businessTypeOther: prospect.businessTypeOther?.trim() || null,
         
         accountStage: prospect.accountStage || null,
         followerCount: prospect.followerCount === null ? undefined : prospect.followerCount,
@@ -648,11 +647,10 @@ export default function OutreachPage() {
         followUpNeeded: prospect.followUpNeeded || false,
         
         offerInterest: prospect.offerInterest || [],
-        // uniqueNote: prospect.uniqueNote || null, // This field seems to be removed from the schema, check if it should be added back to schema or removed from here
-        // helpStatement: prospect.helpStatement || null, // Same as above
+        uniqueNote: prospect.uniqueNote?.trim() || null,
+        helpStatement: prospect.helpStatement?.trim() || null,
         tonePreference: prospect.tonePreference || null,
-        additionalNotes: prospect.notes || null,
-        // offerType: "Free 3-point audit + visual tips" // Defaulted in Zod schema now
+        additionalNotes: prospect.notes?.trim() || null,
     };
     setCurrentScriptGenerationInput(input);
 
@@ -909,7 +907,7 @@ export default function OutreachPage() {
         isOpen={isScriptModalOpen}
         onClose={() => {
           setIsScriptModalOpen(false);
-          setCurrentProspectForScript(null); // Clear prospect context when closing
+          setCurrentProspectForScript(null); 
         }}
         scriptContent={generatedScript}
         title={scriptModalTitle}
