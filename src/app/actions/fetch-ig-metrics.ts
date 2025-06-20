@@ -59,8 +59,9 @@ export async function fetchInstagramMetrics(
   username: string
 ): Promise<{ data?: InstagramMetrics; error?: string }> {
   const APIFY_TOKEN = process.env.APIFY_API_KEY;
+  const formattedActorId = ACTOR_ID.replace('/', '~');
 
-  console.log(`[SERVER ACTION ENTRY] fetchInstagramMetrics called for username: "${username}" using Apify.`);
+  console.log(`[SERVER ACTION ENTRY] fetchInstagramMetrics called for username: "${username}" using Apify actor ${formattedActorId}.`);
 
   if (!APIFY_TOKEN) {
     console.error("[SERVER ACTION ERROR] Apify API key (APIFY_API_KEY) is not configured in .env.");
@@ -85,11 +86,11 @@ export async function fetchInstagramMetrics(
     // e.g., resultsLimit: 1, proxyConfiguration: { useApifyProxy: true }
   };
 
-  console.log(`[APIFY ACTION] Starting actor run for ${igHandle} with actor ID ${ACTOR_ID}. Input:`, JSON.stringify(actorInput));
+  console.log(`[APIFY ACTION] Starting actor run for ${igHandle} with actor ID ${formattedActorId}. Input:`, JSON.stringify(actorInput));
 
   try {
     // 1. Start the actor run
-    const runResponse = await fetch(`${APIFY_BASE_URL}/acts/${ACTOR_ID}/runs?token=${APIFY_TOKEN}`, {
+    const runResponse = await fetch(`${APIFY_BASE_URL}/acts/${formattedActorId}/runs?token=${APIFY_TOKEN}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(actorInput),
@@ -126,7 +127,7 @@ export async function fetchInstagramMetrics(
       retries++;
       console.log(`[APIFY ACTION] Polling run status for ${runId} (Attempt ${retries}/${MAX_POLL_RETRIES})`);
 
-      const statusFetchResponse = await fetch(`${APIFY_BASE_URL}/acts/${ACTOR_ID}/runs/${runId}?token=${APIFY_TOKEN}`, { cache: 'no-store' });
+      const statusFetchResponse = await fetch(`${APIFY_BASE_URL}/acts/${formattedActorId}/runs/${runId}?token=${APIFY_TOKEN}`, { cache: 'no-store' });
       if (!statusFetchResponse.ok) {
         console.warn(`[APIFY ACTION WARNING] Failed to fetch run status for ${runId}. Status: ${statusFetchResponse.status}. Will continue polling.`);
         // Optionally, break if status fetching fails multiple times
@@ -223,3 +224,5 @@ export async function fetchInstagramMetrics(
     return { error: `Apify: An unexpected error occurred while fetching metrics for @${igHandle}: ${error.message || 'Unknown error'}` };
   }
 }
+
+    
