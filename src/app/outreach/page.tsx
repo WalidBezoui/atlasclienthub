@@ -2,9 +2,9 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, BotMessageSquare, Loader2 } from 'lucide-react';
+import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, BotMessageSquare, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardDescription as CardFormDescription } from '@/components/ui/card'; // Renamed CardDescription to avoid conflict
 import { PageHeader } from '@/components/shared/page-header';
 import { Input } from '@/components/ui/input';
 import { 
@@ -18,11 +18,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import type { OutreachProspect, OutreachStatus } from '@/lib/types';
+import type { OutreachProspect, OutreachStatus, BusinessType, PainPoint, Goal, LeadSource, OfferInterest, TonePreference } from '@/lib/types';
+import { OUTREACH_STATUS_OPTIONS, BUSINESS_TYPES, PAIN_POINTS, GOALS, LEAD_SOURCES, OFFER_INTERESTS, TONE_PREFERENCES } from '@/lib/types';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
+  DialogDescription, // This is Radix's DialogDescription
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -35,28 +36,39 @@ import { useAuth } from '@/hooks/useAuth';
 import { addProspect, getProspects, updateProspect, deleteProspect as fbDeleteProspect } from '@/lib/firebase/services';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useScriptContext } from '@/contexts/ScriptContext';
 import { generateContextualScript, type GenerateContextualScriptInput, type GenerateContextualScriptOutput } from '@/ai/flows/generate-contextual-script';
 import { ScriptModal } from '@/components/scripts/script-modal';
+import { Checkbox } from '@/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Separator } from '@/components/ui/separator';
 
 
-const OUTREACH_STATUS_OPTIONS: OutreachStatus[] = ["To Contact", "Contacted", "Replied", "Interested", "Not Interested", "Follow-up"];
-
-const initialFormData = {
+const initialFormData: Omit<OutreachProspect, 'id' | 'userId'> = {
     name: '',
     email: '',
-    company: '',
-    industry: '',
-    status: 'To Contact' as OutreachStatus,
     instagramHandle: '',
+    businessName: '',
+    website: '',
+    prospectLocation: '',
+    businessType: undefined,
+    businessTypeOther: '',
+    painPoints: [],
+    goals: [],
+    status: 'To Contact',
+    source: undefined,
+    offerInterest: [],
+    uniqueNote: '',
+    helpStatement: '',
+    tonePreference: undefined,
     notes: '',
-    lastContacted: undefined as string | undefined,
-    followUpDate: undefined as string | undefined,
+    lastContacted: undefined,
+    followUpDate: undefined,
+    industry: '', // Kept existing industry field
 };
 
-function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProspect, onSave: (prospect: Omit<OutreachProspect, 'id' | 'userId'> | OutreachProspect) => void, onCancel: () => void }) {
+function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProspect, onSave: (prospectData: Omit<OutreachProspect, 'id' | 'userId'> | OutreachProspect) => void, onCancel: () => void }) {
   const [formData, setFormData] = useState<Omit<OutreachProspect, 'id' | 'userId'> | OutreachProspect>(initialFormData);
   const { toast } = useToast();
 
@@ -65,6 +77,9 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
         const formattedProspect = {
             ...initialFormData, 
             ...prospect,
+            painPoints: prospect.painPoints || [],
+            goals: prospect.goals || [],
+            offerInterest: prospect.offerInterest || [],
             lastContacted: prospect.lastContacted ? new Date(prospect.lastContacted).toISOString().split('T')[0] : undefined,
             followUpDate: prospect.followUpDate ? new Date(prospect.followUpDate).toISOString().split('T')[0] : undefined,
         };
@@ -79,72 +94,239 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleStatusChange = (value: OutreachStatus) => {
-    setFormData(prev => ({ ...prev, status: value }));
+  const handleSelectChange = (name: keyof OutreachProspect, value: string) => {
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+  
+  const handleCheckboxChange = (field: 'painPoints' | 'goals' | 'offerInterest', value: string) => {
+    setFormData(prev => {
+      const currentValues = prev[field] || [];
+      const newValues = currentValues.includes(value as never) 
+        ? currentValues.filter(item => item !== value)
+        : [...currentValues, value as never];
+      return { ...prev, [field]: newValues };
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.email.trim()) { 
-      if (!formData.name.trim() || !formData.instagramHandle?.trim()) {
-        toast({ title: "Error", description: "If no email is provided, Name and Instagram Handle are required.", variant: "destructive" });
-        return;
-      }
-    } else { 
-      if (!formData.name.trim()) {
+    if (!formData.name.trim()) {
         toast({ title: "Error", description: "Prospect Name is required.", variant: "destructive" });
         return;
-      }
+    }
+    if (!formData.email.trim() && !formData.instagramHandle?.trim()) {
+        toast({ title: "Error", description: "Either Email or Instagram Handle is required.", variant: "destructive" });
+        return;
     }
     onSave(formData);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto max-h-[65vh] pr-5">
-      <div>
-        <Label htmlFor="name">Prospect Name *</Label>
-        <Input id="name" name="name" value={formData.name} onChange={handleChange} required />
-      </div>
-      <div>
-        <Label htmlFor="email">Email (Optional, IG Handle & Name required if blank)</Label>
-        <Input id="email" name="email" type="email" value={formData.email} onChange={handleChange} />
-      </div>
-      <div>
-        <Label htmlFor="company">Company (Optional)</Label>
-        <Input id="company" name="company" value={formData.company || ''} onChange={handleChange} />
-      </div>
-       <div>
-        <Label htmlFor="industry">Industry (Optional)</Label>
-        <Input id="industry" name="industry" placeholder="e.g., Beauty, SaaS, Coaching" value={formData.industry || ''} onChange={handleChange} />
-      </div>
-      <div>
-        <Label htmlFor="instagramHandle">Instagram Handle (Optional, Name required if blank email)</Label>
-        <Input id="instagramHandle" name="instagramHandle" placeholder="@username" value={formData.instagramHandle || ''} onChange={handleChange} />
-      </div>
-      <div>
-        <Label htmlFor="status">Status *</Label>
-        <Select value={formData.status} onValueChange={handleStatusChange} required>
-          <SelectTrigger id="status">
-            <SelectValue placeholder="Select status" />
-          </SelectTrigger>
-          <SelectContent>
-            {OUTREACH_STATUS_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <Label htmlFor="lastContacted">Last Contacted (Optional)</Label>
-        <Input id="lastContacted" name="lastContacted" type="date" value={formData.lastContacted || ''} onChange={handleChange} />
-      </div>
-      <div>
-        <Label htmlFor="followUpDate">Follow-up Date (Optional)</Label>
-        <Input id="followUpDate" name="followUpDate" type="date" value={formData.followUpDate || ''} onChange={handleChange} />
-      </div>
-      <div>
-        <Label htmlFor="notes">Notes (Optional)</Label>
+    <form onSubmit={handleSubmit} className="space-y-6 overflow-y-auto max-h-[75vh] pr-5">
+      
+      {/* Section 1: Basic Prospect Info */}
+      <Card className="pt-4">
+        <CardHeader className="py-2">
+          <DialogTitle className="text-lg font-semibold flex items-center"><Info className="mr-2 h-5 w-5 text-primary"/>Basic Prospect Info</DialogTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div>
+            <Label htmlFor="name">Prospect Name *</Label>
+            <Input id="name" name="name" value={formData.name} onChange={handleChange} required />
+          </div>
+          <div>
+            <Label htmlFor="instagramHandle">Instagram Handle (Optional, required if no Email)</Label>
+            <Input id="instagramHandle" name="instagramHandle" placeholder="@username" value={formData.instagramHandle || ''} onChange={handleChange} />
+          </div>
+           <div>
+            <Label htmlFor="email">Email (Optional, required if no IG Handle)</Label>
+            <Input id="email" name="email" type="email" value={formData.email} onChange={handleChange} />
+          </div>
+          <div>
+            <Label htmlFor="businessName">Business Name (Optional)</Label>
+            <Input id="businessName" name="businessName" value={formData.businessName || ''} onChange={handleChange} />
+          </div>
+          <div>
+            <Label htmlFor="website">Website (Optional)</Label>
+            <Input id="website" name="website" type="url" placeholder="https://example.com" value={formData.website || ''} onChange={handleChange} />
+          </div>
+          <div>
+            <Label htmlFor="prospectLocation">Prospect Location (Optional)</Label>
+            <Input id="prospectLocation" name="prospectLocation" placeholder="e.g., Morocco, Global, Casablanca" value={formData.prospectLocation || ''} onChange={handleChange} />
+          </div>
+          <div>
+            <Label htmlFor="industry">Industry (Optional, for broader categorization)</Label>
+            <Input id="industry" name="industry" placeholder="e.g., Beauty, SaaS, Coaching" value={formData.industry || ''} onChange={handleChange} />
+          </div>
+        </CardContent>
+      </Card>
+      <Separator />
+
+      {/* Section 2: Business Type */}
+      <Card className="pt-4">
+        <CardHeader className="py-2">
+          <DialogTitle className="text-lg font-semibold flex items-center"><Briefcase className="mr-2 h-5 w-5 text-primary"/>Business Type</DialogTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <RadioGroup
+            value={formData.businessType}
+            onValueChange={(value) => handleSelectChange('businessType', value as BusinessType)}
+          >
+            {BUSINESS_TYPES.map(type => (
+              <div key={type} className="flex items-center space-x-2">
+                <RadioGroupItem value={type} id={`businessType-${type}`} />
+                <Label htmlFor={`businessType-${type}`}>{type}</Label>
+              </div>
+            ))}
+          </RadioGroup>
+          {formData.businessType === "Other" && (
+            <div>
+              <Label htmlFor="businessTypeOther">Specify Other Business Type</Label>
+              <Input id="businessTypeOther" name="businessTypeOther" value={formData.businessTypeOther || ''} onChange={handleChange} />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      <Separator />
+      
+      {/* Section 3: Current Problems / Pain Points */}
+      <Card className="pt-4">
+        <CardHeader className="py-2">
+            <DialogTitle className="text-lg font-semibold flex items-center"><AlertCircle className="mr-2 h-5 w-5 text-primary"/>Current Problems / Pain Points</DialogTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+            {PAIN_POINTS.map(point => (
+                <div key={point} className="flex items-center space-x-2">
+                    <Checkbox
+                        id={`pain-${point}`}
+                        checked={(formData.painPoints || []).includes(point)}
+                        onCheckedChange={() => handleCheckboxChange('painPoints', point)}
+                    />
+                    <Label htmlFor={`pain-${point}`} className="font-normal">{point}</Label>
+                </div>
+            ))}
+        </CardContent>
+      </Card>
+      <Separator />
+
+      {/* Section 4: Goals They Might Want */}
+      <Card className="pt-4">
+        <CardHeader className="py-2">
+            <DialogTitle className="text-lg font-semibold flex items-center"><Target className="mr-2 h-5 w-5 text-primary"/>Goals They Might Want</DialogTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+            {GOALS.map(goal => (
+                <div key={goal} className="flex items-center space-x-2">
+                    <Checkbox
+                        id={`goal-${goal}`}
+                        checked={(formData.goals || []).includes(goal)}
+                        onCheckedChange={() => handleCheckboxChange('goals', goal)}
+                    />
+                    <Label htmlFor={`goal-${goal}`} className="font-normal">{goal}</Label>
+                </div>
+            ))}
+        </CardContent>
+      </Card>
+      <Separator />
+
+      {/* Section 5: Lead Warmth */}
+      <Card className="pt-4">
+        <CardHeader className="py-2">
+             <DialogTitle className="text-lg font-semibold flex items-center"><Sparkles className="mr-2 h-5 w-5 text-primary"/>Lead Warmth & Status</DialogTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+            <div>
+                <Label htmlFor="status">Lead Stage (Status) *</Label>
+                <Select value={formData.status} onValueChange={(value: OutreachStatus) => handleSelectChange('status', value)} required>
+                  <SelectTrigger id="status">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {OUTREACH_STATUS_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+            </div>
+            <div>
+                <Label htmlFor="source">Source (Optional)</Label>
+                 <Select value={formData.source} onValueChange={(value: LeadSource) => handleSelectChange('source', value)}>
+                  <SelectTrigger id="source">
+                    <SelectValue placeholder="Select source" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LEAD_SOURCES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+            </div>
+            <div>
+                <Label htmlFor="lastContacted">Last Contacted (Optional)</Label>
+                <Input id="lastContacted" name="lastContacted" type="date" value={formData.lastContacted || ''} onChange={handleChange} />
+            </div>
+            <div>
+                <Label htmlFor="followUpDate">Follow-up Date (Optional)</Label>
+                <Input id="followUpDate" name="followUpDate" type="date" value={formData.followUpDate || ''} onChange={handleChange} />
+            </div>
+        </CardContent>
+      </Card>
+      <Separator />
+      
+      {/* Section 6: Offer Interest */}
+      <Card className="pt-4">
+        <CardHeader className="py-2">
+            <DialogTitle className="text-lg font-semibold flex items-center"><MessageSquare className="mr-2 h-5 w-5 text-primary"/>Offer Interest (If replied/interested)</DialogTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+            {OFFER_INTERESTS.map(interest => (
+                <div key={interest} className="flex items-center space-x-2">
+                    <Checkbox
+                        id={`interest-${interest}`}
+                        checked={(formData.offerInterest || []).includes(interest)}
+                        onCheckedChange={() => handleCheckboxChange('offerInterest', interest)}
+                    />
+                    <Label htmlFor={`interest-${interest}`} className="font-normal">{interest}</Label>
+                </div>
+            ))}
+        </CardContent>
+      </Card>
+      <Separator />
+
+      {/* Section 7: Smart Question Prompts */}
+      <Card className="pt-4">
+        <CardHeader className="py-2">
+            <DialogTitle className="text-lg font-semibold flex items-center"><Settings2 className="mr-2 h-5 w-5 text-primary"/>Smart Insights (Optional)</DialogTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+            <div>
+                <Label htmlFor="uniqueNote">What’s unique or interesting about this brand? (1 sentence)</Label>
+                <Textarea id="uniqueNote" name="uniqueNote" value={formData.uniqueNote || ''} onChange={handleChange} rows={2}/>
+            </div>
+            <div>
+                <Label htmlFor="helpStatement">If you had to help them in 1 sentence, what would it be?</Label>
+                <Textarea id="helpStatement" name="helpStatement" value={formData.helpStatement || ''} onChange={handleChange} rows={2}/>
+            </div>
+            <div>
+                <Label>Tone Preference?</Label>
+                 <RadioGroup
+                    value={formData.tonePreference}
+                    onValueChange={(value) => handleSelectChange('tonePreference', value as TonePreference)}
+                    className="mt-1"
+                  >
+                    {TONE_PREFERENCES.map(tone => (
+                      <div key={tone} className="flex items-center space-x-2">
+                        <RadioGroupItem value={tone} id={`tone-${tone}`} />
+                        <Label htmlFor={`tone-${tone}`} className="font-normal">{tone}</Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+            </div>
+        </CardContent>
+      </Card>
+
+      <div className="pt-2">
+        <Label htmlFor="notes">General Notes (Optional)</Label>
         <Textarea id="notes" name="notes" value={formData.notes || ''} onChange={handleChange} />
       </div>
-      <DialogFooter className="pt-2">
+
+      <DialogFooter className="pt-6 sticky bottom-0 bg-background py-4 z-10">
         <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
         <Button type="submit">{prospect ? 'Update Prospect' : 'Add Prospect'}</Button>
       </DialogFooter>
@@ -175,7 +357,6 @@ export default function OutreachPage() {
   const scriptMenuItems: Array<{label: string, type: GenerateContextualScriptInput['scriptType']}> = [
     { label: "Cold Outreach DM", type: "Cold Outreach DM" },
     { label: "Warm Follow-Up DM", type: "Warm Follow-Up DM" },
-    // { label: "Audit Delivery Message", type: "Audit Delivery Message" }, // Keep if relevant for prospects
   ];
 
   const fetchProspects = useCallback(async () => {
@@ -208,13 +389,19 @@ export default function OutreachPage() {
         return;
     }
     try {
-        const dataToSave = { ...prospectData };
-        dataToSave.company = dataToSave.company || undefined;
-        dataToSave.industry = dataToSave.industry || undefined;
-        dataToSave.instagramHandle = dataToSave.instagramHandle || undefined;
-        dataToSave.notes = dataToSave.notes || undefined;
-        dataToSave.lastContacted = dataToSave.lastContacted || undefined;
-        dataToSave.followUpDate = dataToSave.followUpDate || undefined;
+        const dataToSave = { ...initialFormData, ...prospectData }; // Ensure all fields are present
+
+        // Ensure optional fields are undefined if empty, not empty strings
+        (Object.keys(dataToSave) as Array<keyof typeof dataToSave>).forEach(key => {
+            if (dataToSave[key] === '' && key !== 'name' && key !== 'email') { // name and email can be empty based on logic, but others become undefined
+                (dataToSave as any)[key] = undefined;
+            }
+        });
+        // Ensure array fields are arrays, even if empty
+        dataToSave.painPoints = dataToSave.painPoints || [];
+        dataToSave.goals = dataToSave.goals || [];
+        dataToSave.offerInterest = dataToSave.offerInterest || [];
+
 
         if ('id' in dataToSave && dataToSave.id) { 
             const { id, userId, ...updateData } = dataToSave as OutreachProspect;
@@ -282,21 +469,33 @@ export default function OutreachPage() {
     setGeneratedScript('');
     setScriptModalTitle(`Generating ${scriptType} for ${prospect.name}...`);
 
-    setClientContext({ // Set context for this specific prospect. Navbar actions will overwrite this if used.
+    setClientContext({ 
         clientHandle: prospect.instagramHandle,
         clientName: prospect.name,
-        clientIndustry: prospect.industry || "Not Specified",
-        // Potentially add lastTouch/desiredAction based on prospect status or form
+        clientIndustry: prospect.industry || prospect.businessType || "Not Specified",
     });
     
     const input: GenerateContextualScriptInput = {
         scriptType,
         clientHandle: prospect.instagramHandle,
         clientName: prospect.name,
-        clientIndustry: prospect.industry || "Not Specified",
-        // lastTouch: ..., desiredAction: ... (can be derived or be static for these actions)
+        clientIndustry: prospect.industry || prospect.businessType,
+        businessName: prospect.businessName,
+        website: prospect.website,
+        prospectLocation: prospect.prospectLocation,
+        businessType: prospect.businessType,
+        businessTypeOther: prospect.businessTypeOther,
+        painPoints: prospect.painPoints,
+        goals: prospect.goals,
+        leadStatus: prospect.status, // Changed from leadStage to leadStatus
+        source: prospect.source,
+        offerInterest: prospect.offerInterest,
+        uniqueNote: prospect.uniqueNote,
+        helpStatement: prospect.helpStatement,
+        tonePreference: prospect.tonePreference,
+        additionalNotes: prospect.notes, // Using general notes as additional context
     };
-    setCurrentScriptGenerationInput(input); // For regeneration
+    setCurrentScriptGenerationInput(input);
 
     try {
         const result: GenerateContextualScriptOutput = await generateContextualScript(input);
@@ -333,11 +532,10 @@ export default function OutreachPage() {
     }
   };
 
-
   const filteredProspects = prospects.filter(prospect => 
     (prospect.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
      prospect.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-     (prospect.company && prospect.company.toLowerCase().includes(searchTerm.toLowerCase())) ||
+     (prospect.businessName && prospect.businessName.toLowerCase().includes(searchTerm.toLowerCase())) ||
      (prospect.industry && prospect.industry.toLowerCase().includes(searchTerm.toLowerCase())) ||
      (prospect.instagramHandle && prospect.instagramHandle.toLowerCase().includes(searchTerm.toLowerCase()))
     ) &&
@@ -368,7 +566,7 @@ export default function OutreachPage() {
     <div className="space-y-6">
       <PageHeader
         title="Outreach Manager"
-        description="Track and manage your cold outreach efforts."
+        description="Track and manage your cold outreach efforts with detailed prospect information."
         icon={Send}
         actions={
           <Button onClick={() => { setEditingProspect(undefined); setIsFormOpen(true); }}>
@@ -383,11 +581,11 @@ export default function OutreachPage() {
             setEditingProspect(undefined);
           }
       }}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="font-headline">{editingProspect ? 'Edit Prospect' : 'Add New Prospect'}</DialogTitle>
-            <DialogDescription>
-              {editingProspect ? 'Update prospect details.' : 'Add a new prospect to your outreach list.'}
+        <DialogContent className="sm:max-w-lg md:max-w-2xl"> {/* Increased width for more fields */}
+          <DialogHeader className="mb-2">
+            <DialogTitle className="font-headline text-2xl">{editingProspect ? 'Edit Prospect Details' : 'Add New Prospect'}</DialogTitle>
+            <DialogDescription> 
+              {editingProspect ? 'Update the comprehensive details for this prospect.' : 'Fill in the form to add a new prospect with detailed information.'}
             </DialogDescription>
           </DialogHeader>
           <ProspectForm 
@@ -405,8 +603,8 @@ export default function OutreachPage() {
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input 
                 type="search" 
-                placeholder="Search prospects..." 
-                className="pl-8 sm:w-[300px]" 
+                placeholder="Search prospects by name, email, IG..." 
+                className="pl-8 sm:w-[300px] md:w-[400px]" 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -446,34 +644,34 @@ export default function OutreachPage() {
                   </TableBody>
                 </Table>
              </div>
-          ) : filteredProspects.length > 0 ? (
-            <div className="overflow-x-auto">
+          ) : (
+             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
-                    <TableHead className="hidden md:table-cell">Email</TableHead>
-                    <TableHead className="hidden sm:table-cell">Industry</TableHead>
+                    <TableHead className="hidden md:table-cell">IG Handle</TableHead>
+                    <TableHead className="hidden sm:table-cell">Business Type</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead className="hidden lg:table-cell">Source</TableHead>
                     <TableHead className="hidden lg:table-cell">Last Contacted</TableHead>
-                    <TableHead className="hidden lg:table-cell">Follow-up</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {filteredProspects.map((prospect) => (
+                    {filteredProspects.length > 0 ? filteredProspects.map((prospect) => (
                       <TableRow key={prospect.id}>
                         <TableCell className="font-medium">{prospect.name}</TableCell>
-                        <TableCell className="hidden md:table-cell text-muted-foreground">{prospect.email}</TableCell>
-                        <TableCell className="hidden sm:table-cell text-muted-foreground">{prospect.industry || '-'}</TableCell>
+                        <TableCell className="hidden md:table-cell text-muted-foreground">{prospect.instagramHandle || '-'}</TableCell>
+                        <TableCell className="hidden sm:table-cell text-muted-foreground">{prospect.businessType === "Other" ? prospect.businessTypeOther : prospect.businessType || '-'}</TableCell>
                         <TableCell>
                           <Select 
                             value={prospect.status} 
                             onValueChange={(newStatus: OutreachStatus) => handleStatusChange(prospect.id, newStatus)}
                           >
-                            <SelectTrigger className="h-auto py-0.5 px-2.5 border-none shadow-none [&>span]:flex [&>span]:items-center text-xs">
+                            <SelectTrigger className="h-auto py-0.5 px-2.5 border-none shadow-none [&>span]:flex [&>span]:items-center text-xs w-auto min-w-[100px]">
                               <SelectValue asChild>
-                                <Badge variant={getStatusBadgeVariant(prospect.status)} className="cursor-pointer text-xs">
+                                <Badge variant={getStatusBadgeVariant(prospect.status)} className="cursor-pointer text-xs whitespace-nowrap">
                                   {prospect.status}
                                 </Badge>
                               </SelectValue>
@@ -483,11 +681,9 @@ export default function OutreachPage() {
                             </SelectContent>
                           </Select>
                         </TableCell>
+                        <TableCell className="hidden lg:table-cell text-muted-foreground">{prospect.source || '-'}</TableCell>
                         <TableCell className="hidden lg:table-cell text-muted-foreground">
                           {prospect.lastContacted ? new Date(prospect.lastContacted).toLocaleDateString() : '-'}
-                        </TableCell>
-                        <TableCell className="hidden lg:table-cell text-muted-foreground">
-                          {prospect.followUpDate ? new Date(prospect.followUpDate).toLocaleDateString() : '-'}
                         </TableCell>
                         <TableCell className="text-right space-x-0.5">
                            <DropdownMenu>
@@ -520,15 +716,8 @@ export default function OutreachPage() {
                           </Button>
                         </TableCell>
                       </TableRow>
-                    ))}
-                </TableBody>
-              </Table>
-            </div>
-          ) : (
-               <div className="overflow-x-auto">
-                <Table>
-                  <TableBody>
-                    <TableRow>
+                    )) : (
+                       <TableRow>
                         <TableCell colSpan={7} className="text-center h-24">
                             <div className="flex flex-col items-center justify-center">
                                 <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
@@ -546,9 +735,10 @@ export default function OutreachPage() {
                             </div>
                         </TableCell>
                     </TableRow>
-                  </TableBody>
-                </Table>
-              </div>
+                    )}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -556,10 +746,6 @@ export default function OutreachPage() {
         isOpen={isScriptModalOpen}
         onClose={() => {
           setIsScriptModalOpen(false);
-          // Optionally clear specific context if it was only for this page's modal
-          // However, the AppHeader's script button also uses clientContext.
-          // It's safer if AppHeader always re-sets its context if no client is *globally* selected.
-          // For now, we don't clear it here to allow AppHeader to potentially use last set prospect context.
         }}
         scriptContent={generatedScript}
         title={scriptModalTitle}
@@ -569,6 +755,3 @@ export default function OutreachPage() {
     </div>
   );
 }
-    
-
-    
