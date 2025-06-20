@@ -29,6 +29,7 @@ import { LoadingSpinner } from '@/components/shared/loading-spinner';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { useScriptContext } from '@/contexts/ScriptContext'; // Import script context
 
 
 const CLIENT_STATUS_OPTIONS: ClientStatus[] = ["Active", "On Hold", "Past"];
@@ -133,6 +134,7 @@ function ClientForm({ client, onSave, onCancel }: { client?: Client, onSave: (cl
 
 export default function ClientsPage() {
   const { user, loading: authLoading } = useAuth();
+  const { setClientContext, clearContext: clearScriptContext } = useScriptContext(); // Use script context
   const router = useRouter();
   const [clients, setClients] = useState<Client[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -174,7 +176,6 @@ export default function ClientsPage() {
     }
     try {
         const dataToSave = { ...clientData };
-        // Ensure optional fields are either present or explicitly undefined for Firestore
         dataToSave.contactPhone = dataToSave.contactPhone || undefined;
         dataToSave.instagramHandle = dataToSave.instagramHandle || undefined;
         dataToSave.notes = dataToSave.notes || undefined;
@@ -190,6 +191,7 @@ export default function ClientsPage() {
         fetchClients(); 
         setIsFormOpen(false);
         setEditingClient(undefined);
+        clearScriptContext(); // Clear script context after saving/closing
     } catch (error: any) {
         console.error("Error saving client:", error);
         toast({ title: "Error", description: error.message || "Could not save client.", variant: "destructive"});
@@ -201,7 +203,11 @@ export default function ClientsPage() {
       try {
         await fbDeleteClient(clientId);
         toast({ title: "Client Deleted", description: `Client ${clientName} has been removed.` });
-        fetchClients(); 
+        fetchClients();
+        if (editingClient?.id === clientId) { // If deleted client was in script context
+            clearScriptContext();
+            setEditingClient(undefined);
+        }
       } catch (error: any) {
         console.error("Error deleting client:", error);
         toast({ title: "Error", description: error.message || "Could not delete client.", variant: "destructive"});
@@ -248,6 +254,24 @@ export default function ClientsPage() {
     return <div className="flex justify-center items-center h-screen"><p>Redirecting to login...</p></div>;
   }
 
+  const handleOpenNewClientForm = () => {
+    setEditingClient(undefined);
+    clearScriptContext(); // Clear any existing client context
+    setIsFormOpen(true);
+  };
+
+  const handleOpenEditClientForm = (client: Client) => {
+    setEditingClient(client);
+    // Set script context for the client being edited
+    setClientContext({
+      clientHandle: client.instagramHandle,
+      clientName: client.name,
+      // industry is not in Client type, add a placeholder or consider adding it to the type
+      clientIndustry: "Not Specified", // Placeholder for industry
+    });
+    setIsFormOpen(true);
+  };
+
 
   return (
     <div className="space-y-6">
@@ -256,7 +280,7 @@ export default function ClientsPage() {
         description="Manage your client relationships and information."
         icon={Users}
         actions={
-          <Button onClick={() => { setEditingClient(undefined); setIsFormOpen(true); }}>
+          <Button onClick={handleOpenNewClientForm}>
             <PlusCircle className="mr-2 h-4 w-4" /> Add Client
           </Button>
         }
@@ -266,6 +290,7 @@ export default function ClientsPage() {
           setIsFormOpen(isOpen);
           if (!isOpen) {
             setEditingClient(undefined);
+            clearScriptContext(); // Clear script context when dialog closes
           }
       }}>
         <DialogContent className="sm:max-w-lg">
@@ -278,7 +303,7 @@ export default function ClientsPage() {
           <ClientForm 
             client={editingClient} 
             onSave={handleSaveClient} 
-            onCancel={() => { setIsFormOpen(false); setEditingClient(undefined); }} 
+            onCancel={() => { setIsFormOpen(false); setEditingClient(undefined); clearScriptContext(); }} 
           />
         </DialogContent>
       </Dialog>
@@ -320,15 +345,17 @@ export default function ClientsPage() {
         </CardHeader>
         <CardContent>
           {isLoading && clients.length === 0 ? (
-             <Table>
-                <TableBody>
-                  <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
-                      <LoadingSpinner text="Fetching clients..." />
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+             <div className="overflow-x-auto">
+              <Table>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell colSpan={6} className="h-24 text-center">
+                        <LoadingSpinner text="Fetching clients..." />
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+             </div>
           ) : filteredClients.length > 0 ? (
             <div className="overflow-x-auto">
               <Table>
@@ -353,7 +380,7 @@ export default function ClientsPage() {
                         <TableCell className="hidden sm:table-cell text-muted-foreground">{new Date(client.joinedDate).toLocaleDateString()}</TableCell>
                         <TableCell className="hidden lg:table-cell text-muted-foreground">{client.instagramHandle || '-'}</TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" onClick={() => { setEditingClient(client); setIsFormOpen(true); }} className="mr-2" aria-label={`Edit client ${client.name}`}>
+                          <Button variant="ghost" size="icon" onClick={() => handleOpenEditClientForm(client)} className="mr-2" aria-label={`Edit client ${client.name}`}>
                             <Edit className="h-4 w-4" />
                              <span className="sr-only">Edit Client</span>
                           </Button>
@@ -368,32 +395,33 @@ export default function ClientsPage() {
               </Table>
             </div>
           ) : (
-              <Table>
-                <TableBody>
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center h-24">
-                        <div className="flex flex-col items-center justify-center">
-                            <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
-                            <p className="font-semibold">
-                              {clients.length === 0 && searchTerm === '' && (statusFilters.size === CLIENT_STATUS_OPTIONS.length || statusFilters.size === 0)
-                                ? "No clients found."
-                                : "No clients found matching your criteria."
-                              }
-                            </p>
-                            {clients.length === 0 && searchTerm === '' && (statusFilters.size === CLIENT_STATUS_OPTIONS.length || statusFilters.size === 0) && (
-                                 <p className="text-sm text-muted-foreground">
-                                   Get started by <Button variant="link" className="p-0 h-auto" onClick={() => { setEditingClient(undefined); setIsFormOpen(true); }}>adding your first client</Button>!
-                                 </p>
-                            )}
-                        </div>
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center h-24">
+                          <div className="flex flex-col items-center justify-center">
+                              <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
+                              <p className="font-semibold">
+                                {clients.length === 0 && searchTerm === '' && (statusFilters.size === CLIENT_STATUS_OPTIONS.length || statusFilters.size === 0)
+                                  ? "No clients found."
+                                  : "No clients found matching your criteria."
+                                }
+                              </p>
+                              {clients.length === 0 && searchTerm === '' && (statusFilters.size === CLIENT_STATUS_OPTIONS.length || statusFilters.size === 0) && (
+                                  <p className="text-sm text-muted-foreground">
+                                    Get started by <Button variant="link" className="p-0 h-auto" onClick={handleOpenNewClientForm}>adding your first client</Button>!
+                                  </p>
+                              )}
+                          </div>
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
           )}
         </CardContent>
       </Card>
     </div>
   );
 }
-
