@@ -39,8 +39,8 @@ export const TONE_PREFERENCES = ["Friendly & casual", "Confident & professional"
 export type TonePreference = typeof TONE_PREFERENCES[number];
 
 // Refined Lead Stages for Outreach
-export type OutreachLeadStage = "Cold" | "Warm" | "Replied" | "Audit Sent" | "Closed - Won" | "Closed - Lost" | "Not Interested";
-export const OUTREACH_LEAD_STAGE_OPTIONS: OutreachLeadStage[] = ["Cold", "Warm", "Replied", "Audit Sent", "Closed - Won", "Closed - Lost", "Not Interested"];
+export type OutreachLeadStage = "To Contact" | "Cold" | "Warm" | "Replied" | "Audit Sent" | "Closed - Won" | "Closed - Lost" | "Not Interested";
+export const OUTREACH_LEAD_STAGE_OPTIONS: OutreachLeadStage[] = ["To Contact", "Cold", "Warm", "Replied", "Audit Sent", "Closed - Won", "Closed - Lost", "Not Interested"];
 
 
 export type OutreachProspect = {
