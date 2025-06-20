@@ -74,24 +74,26 @@ export async function fetchInstagramMetrics(
   const headers = {
     'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
     'Accept': 'application/json',
-    'Accept-Language': 'en-US,en;q=0.9',
-    'x-ig-app-id': '936619743392459', // Common app ID, often required
-    // Some recommend adding sec-fetch-* headers too, but keep it simple first
+    'Accept-Language': 'en-US,en;q=0.9', // Added Accept-Language
+    'x-ig-app-id': '1217981644879628', // Changed to an iOS app ID
   };
 
   try {
     const response = await fetch(url, { headers, cache: 'no-store' });
 
     if (!response.ok) {
+      let errorBodyText = '';
+      try {
+        errorBodyText = await response.text();
+      } catch (e) { /* ignore if can't read body */ }
+      console.error(`Error fetching Instagram data for @${igHandle}: ${response.status} ${response.statusText}. Body: ${errorBodyText.substring(0,500)}`);
+
       if (response.status === 404) {
         return { error: `Instagram profile @${igHandle} not found or is private.` };
       }
-      // Attempt to read error body for more details
-      let errorBody = '';
-      try {
-        errorBody = await response.text();
-      } catch (e) { /* ignore if can't read body */ }
-      console.error(`Error fetching Instagram data for @${igHandle}: ${response.status} ${response.statusText}. Body: ${errorBody.substring(0,500)}`);
+      if (response.status === 400) {
+        return { error: `Instagram rejected the request (Status 400 - Bad Request). This could be due to API changes, request limits, or invalid headers. Details: ${errorBodyText.substring(0,100)}` };
+      }
       return { error: `Failed to fetch. IG Server responded with Status: ${response.status}. The profile might be private, or access is restricted. Please check the handle or try again later.` };
     }
 
