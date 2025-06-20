@@ -127,7 +127,7 @@ export const addProspect = async (prospectData: Omit<OutreachProspect, 'id' | 'u
     goals: prospectData.goals || [],
     
     source: prospectData.source || null,
-    lastContacted: prospectData.lastContacted ? Timestamp.fromDate(new Date(prospectData.lastContacted)) : null,
+    lastContacted: prospectData.lastContacted ? Timestamp.fromDate(new Date(prospectData.lastContacted)) : serverTimestamp(), // Default to now if not provided
     followUpDate: prospectData.followUpDate ? Timestamp.fromDate(new Date(prospectData.followUpDate)) : null,
     followUpNeeded: prospectData.followUpNeeded || false,
     
@@ -139,7 +139,7 @@ export const addProspect = async (prospectData: Omit<OutreachProspect, 'id' | 'u
     notes: prospectData.notes || null,
   };
   
-  const docRef = await addDoc(prospectsCollection, dataForFirestore as any); // Cast to any to bypass strict Omit checks temporarily
+  const docRef = await addDoc(prospectsCollection, dataForFirestore as any);
   return docRef.id;
 };
 
@@ -263,7 +263,7 @@ export const addAudit = async (auditData: Omit<InstagramAudit, 'id' | 'userId' |
     instagramHandle: auditData.instagramHandle,
     status: auditData.status,
     questionnaireResponses: auditData.questionnaireResponses,
-    requestedDate: auditData.requestedDate ? Timestamp.fromDate(new Date(auditData.requestedDate)) : serverTimestamp(),
+    requestedDate: auditData.requestedDate ? Timestamp.fromDate(new Date(auditData.requestedDate)) : serverTimestamp(), // Default to now if not provided
     entityName: auditData.entityName || null,
     entityType: auditData.entityType || null,
     auditReport: auditData.auditReport || null,
@@ -358,7 +358,7 @@ export const addSnippet = async (snippetData: Omit<ScriptSnippet, 'id' | 'userId
     prospectId: snippetData.prospectId || null,
     prospectName: snippetData.prospectName || null,
     tags: snippetData.tags || [],
-    createdAt: serverTimestamp(), // Use serverTimestamp for creation
+    createdAt: serverTimestamp(), 
   };
 
   const docRef = await addDoc(snippetsCollection, dataForFirestore);
@@ -417,9 +417,6 @@ export const getDashboardOverview = async (): Promise<{
   const newLeadsQuery = query(prospectsCollection, 
     where('userId', '==', userId), 
     where('status', '==', 'Interested'), 
-    // Assuming 'Interested' status is set when they reply or show interest.
-    // If 'dateMarkedAsInterested' field exists, use that instead of lastContacted for more accuracy.
-    // For now, using lastContacted within the month as a proxy.
     where('lastContacted', '>=', currentMonthStartTimestamp), 
     where('lastContacted', '<=', currentMonthEndTimestamp)
   );
@@ -516,5 +513,3 @@ export const getMonthlyActivityData = async (): Promise<MonthlyActivity[]> => {
 
   return correctlyOrderedActivityData;
 };
-
-
