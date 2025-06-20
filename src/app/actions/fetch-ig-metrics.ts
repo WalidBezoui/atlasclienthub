@@ -86,10 +86,9 @@ export async function fetchInstagramMetrics(
     if (!response.ok) {
       let errorBodyText = `Status: ${response.status} ${response.statusText}. No response body readable.`;
       try {
-        // Attempt to read the response body as text
         const rawBody = await response.text();
-        errorBodyText = rawBody; // Store the raw body
-        console.error(`[SERVER ACTION ERROR-BODY @${igHandle}] RAW Response Text (Status ${response.status}):\n${rawBody}`);
+        errorBodyText = rawBody;
+        console.error(`[SERVER ACTION ERROR-BODY @${igHandle}] RAW Response Text (Status ${response.status}):\n${rawBody.substring(0, 1000)}...`);
       } catch (e: any) {
         console.error(`[SERVER ACTION ERROR @${igHandle}] Failed to read error response body (Status ${response.status}): ${e.message}`);
       }
@@ -98,13 +97,42 @@ export async function fetchInstagramMetrics(
         return { error: `Instagram profile @${igHandle} not found or is private.` };
       }
       if (response.status === 400) {
-        return { error: `Instagram rejected the request for @${igHandle} (Status 400 - Bad Request). Details: ${errorBodyText.substring(0,200)}...` };
+        let detail = `Instagram rejected the request for @${igHandle} (Status 400 - Bad Request).`;
+        if (errorBodyText.toLowerCase().includes('secfetch') || errorBodyText.toLowerCase().includes('policy violation')) {
+            detail += ` This often indicates Instagram's security policies are blocking non-browser requests. Automatic fetching may not be possible. Consider manual entry. Raw details: ${errorBodyText.substring(0,100)}...`;
+        } else if (errorBodyText.length < 200 && errorBodyText.length > 5 && !errorBodyText.toLowerCase().includes('<html')) {
+            detail += ` IG Message: ${errorBodyText}`;
+        } else {
+            detail += ` Ensure the Instagram handle is correct. Details: ${errorBodyText.substring(0,100)}...`;
+        }
+        return { error: detail };
       }
       return { error: `Failed to fetch. IG Server responded with Status: ${response.status} for @${igHandle}. Details: ${errorBodyText.substring(0,200)}...` };
     }
 
     // If response.ok is true
-    const rawJson = await response.json();
+    let rawJson;
+    try {
+        rawJson = await response.json();
+    } catch (e: any) {
+        console.error(`[SERVER ACTION JSON-PARSE-ERROR @${igHandle}] Failed to parse JSON response even though status was OK. Error: ${e.message}`);
+        // Attempt to read the response body as text again, though it might have been consumed or response object is not reusable this way after .json() fails.
+        // Better to have captured it as text first if this is a common failure path.
+        // For now, this is a best-effort log.
+        let responseBodyForText = '';
+        try {
+            // Re-fetch or clone response if text is needed after .json() fails. Simpler: get text first if anticipating non-JSON.
+            // Since response.text() consumes the body, this might not work as expected if .json() already tried.
+            // The log from the !response.ok block is more reliable for raw error bodies.
+            // This catch block is for when status IS ok, but body ISN'T JSON.
+            const tempResponse = await fetch(url, { headers, cache: 'no-store' }); // Re-fetch to get body again, not ideal
+            responseBodyForText = await tempResponse.text();
+            console.error(`[SERVER ACTION RAW-TEXT-ON-JSON-ERROR @${igHandle}] Raw text: ${responseBodyForText.substring(0,1000)}`);
+        } catch (textError: any) {
+             console.error(`[SERVER ACTION RAW-TEXT-FETCH-ERROR @${igHandle}] Error fetching raw text after JSON parse fail: ${textError.message}`);
+        }
+        return { error: `Instagram returned an unexpected non-JSON response for @${igHandle}. Profile might be private or require login. Content snippet: ${responseBodyForText.substring(0,100)}...`};
+    }
     // console.log(`[SERVER ACTION SUCCESS-RAW-JSON @${igHandle}]:`, JSON.stringify(rawJson, null, 2)); 
 
     const parsedResponse = InstagramMainResponseSchema.safeParse(rawJson);
@@ -125,7 +153,7 @@ export async function fetchInstagramMetrics(
     }
     
     if (!data.graphql || !data.graphql.user) {
-        if (data.message) { // If there's a message at the top level
+        if (data.message) { 
              console.warn(`[SERVER ACTION NO-USER-DATA @${igHandle}] Instagram API message: ${data.message}`);
              return { error: data.message.includes("login") ? `Profile @${igHandle} may require login or is private.` : `Could not fetch data for @${igHandle}. IG message: ${data.message}` };
         }
@@ -166,9 +194,10 @@ export async function fetchInstagramMetrics(
   } catch (error: any) {
     console.error(`[SERVER ACTION CRITICAL-ERROR @${igHandle}] Unexpected error during fetchInstagramMetrics:`, error.message);
     console.error(`[SERVER ACTION CRITICAL-ERROR @${igHandle}] Error stack:`, error.stack);
-    if (error instanceof SyntaxError) { // Specifically catch JSON parsing errors (e.g. if IG returns HTML)
+    if (error instanceof SyntaxError) { 
         return { error: `Received invalid JSON response from Instagram for @${igHandle}. Endpoint might be down or request blocked.` };
     }
     return { error: `An unexpected error occurred while fetching metrics for @${igHandle}: ${error.message || 'Unknown error'}` };
   }
 }
+

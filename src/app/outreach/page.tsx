@@ -139,7 +139,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
     try {
       const result = await fetchInstagramMetrics(formData.instagramHandle);
       if (result.error) {
-        toast({ title: "Metrics Fetch Failed", description: result.error, variant: "destructive" });
+        toast({ title: "Metrics Fetch Failed", description: result.error, variant: "destructive", duration: 8000 });
       } else if (result.data) {
         setFormData(prev => ({
           ...prev,
@@ -147,7 +147,6 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
           postCount: result.data!.postCount,
           avgLikes: result.data!.avgLikes,
           avgComments: result.data!.avgComments,
-          // Optionally update accountStage based on followerCount here
            accountStage: result.data!.followerCount < 100 ? "New (0–100 followers)" : result.data!.followerCount < 1000 ? "Growing (100–1k followers)" : "Established (>1k followers)",
         }));
         toast({ title: "Metrics Fetched!", description: `Data for @${formData.instagramHandle} updated.` });
@@ -246,8 +245,20 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
       <Separator />
       
       <Card className="pt-4">
-        <CardHeader className="py-2">
-          <DialogTitle className="text-lg font-semibold flex items-center"><BarChart3 className="mr-2 h-5 w-5 text-primary"/>Section 3: Engagement Metrics</DialogTitle>
+         <CardHeader className="py-2">
+            <div className="flex items-center justify-between">
+                 <DialogTitle className="text-lg font-semibold flex items-center"><BarChart3 className="mr-2 h-5 w-5 text-primary"/>Section 3: Engagement Metrics</DialogTitle>
+                 <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs p-2 text-xs">
+                            <p>Attempt to automatically fetch public metrics from Instagram. This is experimental and may fail due to Instagram's restrictions. Manual entry is always available if fetching doesn't work.</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            </div>
         </CardHeader>
         <CardContent className="space-y-3">
             <Button type="button" variant="outline" onClick={handleFetchMetrics} disabled={isFetchingMetrics || !formData.instagramHandle} className="mb-3 text-xs">
@@ -614,7 +625,6 @@ export default function OutreachPage() {
 
         leadStatus: prospect.status,
         source: prospect.source,
-        // Use lastContacted from prospect directly, or a default if not available
         lastTouch: prospect.lastContacted ? `Last contacted on ${new Date(prospect.lastContacted).toLocaleDateString()}` : 'No prior contact recorded',
         followUpNeeded: prospect.followUpNeeded,
         
@@ -679,7 +689,7 @@ export default function OutreachPage() {
       case 'Interested': return 'default';
       case 'Warm': return 'secondary';
       case 'Cold':
-      case 'Follow-up': return 'outline'; // 'Follow-up' was missing in your type but seems implied
+      case 'Follow-up': return 'outline'; 
       case 'Closed - Lost':
       case 'Not Interested': return 'destructive';
       default: return 'default';
@@ -887,3 +897,4 @@ export default function OutreachPage() {
     </div>
   );
 }
+
