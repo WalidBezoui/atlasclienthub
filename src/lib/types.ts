@@ -49,46 +49,46 @@ export type OutreachProspect = {
   
   // Section 1: Basic Prospect Info
   name: string; 
-  instagramHandle?: string;
-  businessName?: string;
-  website?: string; 
-  prospectLocation?: ProspectLocation;
-  industry?: string; // General industry text input
-  email?: string; // Kept email as optional
+  instagramHandle?: string | null;
+  businessName?: string | null;
+  website?: string | null; 
+  prospectLocation?: ProspectLocation | null;
+  industry?: string | null; // General industry text input
+  email?: string | null; // Kept email as optional
 
   // Section 2: Business Type
-  businessType?: BusinessType;
-  businessTypeOther?: string;
+  businessType?: BusinessType | null;
+  businessTypeOther?: string | null;
 
   // Engagement Metrics (manual or fetched)
-  accountStage?: AccountStage;
-  followerCount?: number;
-  postCount?: number;
-  avgLikes?: number;
-  avgComments?: number;
+  accountStage?: AccountStage | null;
+  followerCount?: number | null;
+  postCount?: number | null;
+  avgLikes?: number | null;
+  avgComments?: number | null;
 
   // Section 3: Current Problems / Pain Points
-  painPoints?: PainPoint[];
+  painPoints?: PainPoint[] | null;
 
   // Section 4: Goals They Might Want
-  goals?: Goal[];
+  goals?: Goal[] | null;
 
   // Section 5: Lead Warmth / Status
   status: OutreachLeadStage; // Using the refined lead stages
-  source?: LeadSource;
-  lastContacted?: string; // ISO date string
-  followUpDate?: string; // ISO date string
-  followUpNeeded?: boolean;
+  source?: LeadSource | null;
+  lastContacted?: string | null; // ISO date string
+  followUpDate?: string | null; // ISO date string
+  followUpNeeded?: boolean | null;
 
   // Section 6: Offer Interest
-  offerInterest?: OfferInterest[];
+  offerInterest?: OfferInterest[] | null;
 
   // Section 7: Smart Question Prompts
-  uniqueNote?: string;
-  helpStatement?: string; // This was in the old model, keeping for consistency with prompt
-  tonePreference?: TonePreference;
+  uniqueNote?: string | null;
+  helpStatement?: string | null; // This was in the old model, keeping for consistency with prompt
+  tonePreference?: TonePreference | null;
   
-  notes?: string;
+  notes?: string | null;
 };
 
 
@@ -116,4 +116,19 @@ export type MonthlyActivity = {
   clients: number;
   outreach: number;
   audits: number;
+};
+
+// For Script Snippets
+export type ScriptSnippetType = "Cold Outreach DM" | "Warm Follow-Up DM" | "Audit Delivery Message" | "Closing Pitch" | "Caption Idea" | "Other";
+export const SCRIPT_SNIPPET_TYPES: ScriptSnippetType[] = ["Cold Outreach DM", "Warm Follow-Up DM", "Audit Delivery Message", "Closing Pitch", "Caption Idea", "Other"];
+
+export type ScriptSnippet = {
+  id: string;
+  userId: string;
+  prospectId?: string | null; // Optional: link to a specific prospect
+  prospectName?: string | null; // Optional: for display convenience
+  scriptType: ScriptSnippetType;
+  content: string;
+  tags?: string[] | null; // Optional: for categorization
+  createdAt: string; // ISO date string
 };

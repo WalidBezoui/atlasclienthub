@@ -17,7 +17,7 @@ import {
 } from 'firebase/firestore';
 import { subMonths, format, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 
-import type { Client, InstagramAudit, OutreachProspect, MonthlyActivity, OutreachLeadStage } from '@/lib/types';
+import type { Client, InstagramAudit, OutreachProspect, MonthlyActivity, OutreachLeadStage, ScriptSnippet, ScriptSnippetType } from '@/lib/types';
 
 // Generic function to get current user ID
 const getCurrentUserId = (): string | null => {
@@ -37,7 +37,7 @@ export const addClient = async (clientData: Omit<Client, 'id' | 'userId'>): Prom
     contactEmail: clientData.contactEmail,
     companyName: clientData.companyName,
     status: clientData.status,
-    joinedDate: Timestamp.fromDate(new Date(clientData.joinedDate)),
+    joinedDate: clientData.joinedDate ? Timestamp.fromDate(new Date(clientData.joinedDate)) : serverTimestamp(),
     contactPhone: clientData.contactPhone || null,
     instagramHandle: clientData.instagramHandle || null,
     notes: clientData.notes || null,
@@ -80,7 +80,7 @@ export const updateClient = async (id: string, clientData: Partial<Omit<Client, 
 
 
   for (const key in updateData) {
-    if (updateData[key] === undefined && !clientData.hasOwnProperty(key)) { // only delete if not explicitly set to undefined
+    if (updateData[key] === undefined && !clientData.hasOwnProperty(key)) { 
       delete updateData[key]; 
     }
   }
@@ -101,10 +101,10 @@ export const addProspect = async (prospectData: Omit<OutreachProspect, 'id' | 'u
   const userId = getCurrentUserId();
   if (!userId) throw new Error('User not authenticated');
   
-  const dataForFirestore = {
+  const dataForFirestore: Partial<OutreachProspect> & { userId: string } = {
     userId,
     name: prospectData.name,
-    status: prospectData.status || 'To Contact' as OutreachLeadStage, // Default status
+    status: prospectData.status || 'To Contact' as OutreachLeadStage,
 
     instagramHandle: prospectData.instagramHandle || null,
     businessName: prospectData.businessName || null,
@@ -137,7 +137,7 @@ export const addProspect = async (prospectData: Omit<OutreachProspect, 'id' | 'u
     notes: prospectData.notes || null,
   };
   
-  const docRef = await addDoc(prospectsCollection, dataForFirestore);
+  const docRef = await addDoc(prospectsCollection, dataForFirestore as any); // Cast to any to bypass strict Omit checks temporarily
   return docRef.id;
 };
 
@@ -189,7 +189,6 @@ export const updateProspect = async (id: string, prospectData: Partial<Omit<Outr
   
   const dataToUpdate: any = { ...prospectData };
   
-  // Handle date fields explicitly: convert to Timestamp if value exists, else set to null if explicitly passed
   if (prospectData.hasOwnProperty('lastContacted')) {
     dataToUpdate.lastContacted = prospectData.lastContacted ? Timestamp.fromDate(new Date(prospectData.lastContacted)) : null;
   }
@@ -197,7 +196,6 @@ export const updateProspect = async (id: string, prospectData: Partial<Omit<Outr
     dataToUpdate.followUpDate = prospectData.followUpDate ? Timestamp.fromDate(new Date(prospectData.followUpDate)) : null;
   }
   
-  // Handle numeric fields: convert to number, or null if invalid/empty/undefined and explicitly passed
   const numericFields: (keyof OutreachProspect)[] = ['followerCount', 'postCount', 'avgLikes', 'avgComments'];
   numericFields.forEach(field => {
     if (prospectData.hasOwnProperty(field)) {
@@ -210,12 +208,10 @@ export const updateProspect = async (id: string, prospectData: Partial<Omit<Outr
     }
   });
 
-  // Handle boolean: if explicitly passed, use its value or default to false
   if (prospectData.hasOwnProperty('followUpNeeded')) {
     dataToUpdate.followUpNeeded = prospectData.followUpNeeded || false;
   }
   
-  // Handle array fields: if explicitly passed, use its value or default to empty array
   const arrayFields: (keyof OutreachProspect)[] = ['painPoints', 'goals', 'offerInterest'];
   arrayFields.forEach(field => {
     if (prospectData.hasOwnProperty(field)) {
@@ -223,7 +219,6 @@ export const updateProspect = async (id: string, prospectData: Partial<Omit<Outr
     }
   });
 
-  // For other optional fields, if they are explicitly passed as undefined or empty string, set to null
   const optionalFieldsToNullify: (keyof OutreachProspect)[] = [
       'instagramHandle', 'businessName', 'website', 'prospectLocation', 'industry', 'email',
       'businessType', 'businessTypeOther', 'accountStage', 'source',
@@ -235,9 +230,6 @@ export const updateProspect = async (id: string, prospectData: Partial<Omit<Outr
       }
   });
 
-
-  // Remove any fields from dataToUpdate that were not in prospectData (i.e., not intended for update)
-  // This loop structure might be redundant if prospectData is already a strict partial
   for (const key in dataToUpdate) {
     if (!prospectData.hasOwnProperty(key as keyof OutreachProspect)) {
         delete dataToUpdate[key];
@@ -331,7 +323,6 @@ export const updateAudit = async (id: string, auditData: Partial<Omit<InstagramA
   if (auditData.hasOwnProperty('entityType')) dataToUpdate.entityType = auditData.entityType || null;
   if (auditData.hasOwnProperty('auditReport')) dataToUpdate.auditReport = auditData.auditReport || null;
   
-  // Remove fields not intended for update
    for (const key in dataToUpdate) {
     if (!auditData.hasOwnProperty(key as keyof InstagramAudit)) {
         delete dataToUpdate[key];
@@ -347,6 +338,50 @@ export const deleteAudit = async (id: string): Promise<void> => {
   if (!userId) throw new Error('User not authenticated');
   await deleteDoc(doc(db, 'audits', id));
 };
+
+
+// --- Script Snippet Services ---
+const snippetsCollection = collection(db, 'snippets');
+
+export const addSnippet = async (snippetData: Omit<ScriptSnippet, 'id' | 'userId' | 'createdAt'>): Promise<string> => {
+  const userId = getCurrentUserId();
+  if (!userId) throw new Error('User not authenticated');
+
+  const dataForFirestore = {
+    ...snippetData,
+    userId,
+    prospectId: snippetData.prospectId || null,
+    prospectName: snippetData.prospectName || null,
+    tags: snippetData.tags || [],
+    createdAt: serverTimestamp(), // Use serverTimestamp for creation
+  };
+
+  const docRef = await addDoc(snippetsCollection, dataForFirestore);
+  return docRef.id;
+};
+
+export const getSnippets = async (): Promise<ScriptSnippet[]> => {
+  const userId = getCurrentUserId();
+  if (!userId) return [];
+  const q = query(snippetsCollection, where('userId', '==', userId), orderBy('createdAt', 'desc'));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(docSnap => {
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      ...data,
+      createdAt: (data.createdAt as Timestamp).toDate().toISOString(),
+    } as ScriptSnippet;
+  });
+};
+
+export const deleteSnippet = async (id: string): Promise<void> => {
+  const userId = getCurrentUserId();
+  if (!userId) throw new Error('User not authenticated');
+  await deleteDoc(doc(db, 'snippets', id));
+};
+
+// (Future enhancement: getSnippetsByProspectId, updateSnippet)
 
 
 // --- Dashboard Services ---
@@ -377,6 +412,9 @@ export const getDashboardOverview = async (): Promise<{
   const newLeadsQuery = query(prospectsCollection, 
     where('userId', '==', userId), 
     where('status', '==', 'Interested'), 
+    // Assuming 'Interested' status is set when they reply or show interest.
+    // If 'dateMarkedAsInterested' field exists, use that instead of lastContacted for more accuracy.
+    // For now, using lastContacted within the month as a proxy.
     where('lastContacted', '>=', currentMonthStartTimestamp), 
     where('lastContacted', '<=', currentMonthEndTimestamp)
   );

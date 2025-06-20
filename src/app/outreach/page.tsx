@@ -49,31 +49,31 @@ import { fetchInstagramMetrics } from '@/app/actions/fetch-ig-metrics';
 
 const initialFormData: Omit<OutreachProspect, 'id' | 'userId'> = {
     name: '',
-    email: '',
-    instagramHandle: '',
-    businessName: '',
-    website: '',
-    prospectLocation: undefined,
-    industry: '',
-    businessType: undefined,
-    businessTypeOther: '',
-    accountStage: undefined,
-    followerCount: undefined,
-    postCount: undefined,
-    avgLikes: undefined,
-    avgComments: undefined,
+    email: null,
+    instagramHandle: null,
+    businessName: null,
+    website: null,
+    prospectLocation: null,
+    industry: null,
+    businessType: null,
+    businessTypeOther: null,
+    accountStage: null,
+    followerCount: null,
+    postCount: null,
+    avgLikes: null,
+    avgComments: null,
     painPoints: [],
     goals: [],
-    status: 'Cold',
-    source: undefined,
-    lastContacted: undefined,
-    followUpDate: undefined,
+    status: 'To Contact',
+    source: null,
+    lastContacted: null,
+    followUpDate: null,
     followUpNeeded: false,
     offerInterest: [],
-    uniqueNote: '',
-    helpStatement: '', 
-    tonePreference: undefined,
-    notes: '',
+    uniqueNote: null,
+    helpStatement: null, 
+    tonePreference: null,
+    notes: null,
 };
 
 function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProspect, onSave: (prospectData: Omit<OutreachProspect, 'id' | 'userId'> | OutreachProspect) => void, onCancel: () => void }) {
@@ -86,10 +86,10 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
         const formattedProspect = {
             ...initialFormData, 
             ...prospect,
-            followerCount: prospect.followerCount === undefined ? undefined : Number(prospect.followerCount),
-            postCount: prospect.postCount === undefined ? undefined : Number(prospect.postCount),
-            avgLikes: prospect.avgLikes === undefined ? undefined : Number(prospect.avgLikes),
-            avgComments: prospect.avgComments === undefined ? undefined : Number(prospect.avgComments),
+            followerCount: prospect.followerCount === undefined || prospect.followerCount === null ? undefined : Number(prospect.followerCount),
+            postCount: prospect.postCount === undefined || prospect.postCount === null ? undefined : Number(prospect.postCount),
+            avgLikes: prospect.avgLikes === undefined || prospect.avgLikes === null ? undefined : Number(prospect.avgLikes),
+            avgComments: prospect.avgComments === undefined || prospect.avgComments === null ? undefined : Number(prospect.avgComments),
             painPoints: prospect.painPoints || [],
             goals: prospect.goals || [],
             offerInterest: prospect.offerInterest || [],
@@ -106,9 +106,9 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
      if (type === 'number') {
-        setFormData(prev => ({ ...prev, [name]: value === '' ? undefined : Number(value) }));
+        setFormData(prev => ({ ...prev, [name]: value === '' ? null : Number(value) }));
     } else {
-        setFormData(prev => ({ ...prev, [name]: value }));
+        setFormData(prev => ({ ...prev, [name]: value === '' ? null : value }));
     }
   };
   
@@ -127,7 +127,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
   };
 
   const handleSelectChange = (name: keyof OutreachProspect, value: string | undefined) => {
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => ({ ...prev, [name]: value || null }));
   };
 
   const handleFetchMetrics = async () => {
@@ -197,7 +197,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
           </div>
           <div>
             <Label htmlFor="prospectLocation">Prospect Location (Optional)</Label>
-             <Select value={formData.prospectLocation} onValueChange={(value: ProspectLocation) => handleSelectChange('prospectLocation', value)}>
+             <Select value={formData.prospectLocation || undefined} onValueChange={(value: ProspectLocation) => handleSelectChange('prospectLocation', value)}>
               <SelectTrigger id="prospectLocation"><SelectValue placeholder="Select location" /></SelectTrigger>
               <SelectContent>
                 {PROSPECT_LOCATIONS.map(loc => <SelectItem key={loc} value={loc}>{loc}</SelectItem>)}
@@ -223,7 +223,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
         </CardHeader>
         <CardContent className="space-y-3">
           <RadioGroup
-            value={formData.businessType}
+            value={formData.businessType || undefined}
             onValueChange={(value) => handleSelectChange('businessType', value as BusinessType)}
             className="space-y-1"
           >
@@ -254,7 +254,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
                             <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
                         </TooltipTrigger>
                         <TooltipContent className="max-w-xs p-2 text-xs">
-                            <p>Attempt to automatically fetch public metrics from Instagram. This is experimental and may fail due to Instagram's restrictions. Manual entry is always available if fetching doesn't work.</p>
+                            <p>Attempt to automatically fetch public metrics from Instagram using Apify. This relies on an external service and may take a moment. Manual entry is always available if fetching doesn't work or for adjustments.</p>
                         </TooltipContent>
                     </Tooltip>
                 </TooltipProvider>
@@ -263,12 +263,12 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
         <CardContent className="space-y-3">
             <Button type="button" variant="outline" onClick={handleFetchMetrics} disabled={isFetchingMetrics || !formData.instagramHandle} className="mb-3 text-xs">
                 {isFetchingMetrics ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <RefreshCw className="mr-2 h-3 w-3" />}
-                Fetch Metrics
+                Fetch Metrics (via Apify)
             </Button>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                     <Label htmlFor="accountStage">Account Stage</Label>
-                    <Select value={formData.accountStage} onValueChange={(value: AccountStage) => handleSelectChange('accountStage', value)}>
+                    <Select value={formData.accountStage || undefined} onValueChange={(value: AccountStage) => handleSelectChange('accountStage', value)}>
                     <SelectTrigger id="accountStage"><SelectValue placeholder="Select account stage" /></SelectTrigger>
                     <SelectContent>
                         {ACCOUNT_STAGES.map(stage => <SelectItem key={stage} value={stage}>{stage}</SelectItem>)}
@@ -277,19 +277,19 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
                 </div>
                 <div>
                     <Label htmlFor="followerCount">Follower Count</Label>
-                    <Input id="followerCount" name="followerCount" type="number" value={formData.followerCount === undefined ? '' : formData.followerCount} onChange={handleChange} />
+                    <Input id="followerCount" name="followerCount" type="number" value={formData.followerCount === undefined || formData.followerCount === null ? '' : formData.followerCount} onChange={handleChange} />
                 </div>
                 <div>
                     <Label htmlFor="postCount">Post Count</Label>
-                    <Input id="postCount" name="postCount" type="number" value={formData.postCount === undefined ? '' : formData.postCount} onChange={handleChange} />
+                    <Input id="postCount" name="postCount" type="number" value={formData.postCount === undefined || formData.postCount === null ? '' : formData.postCount} onChange={handleChange} />
                 </div>
                 <div>
                     <Label htmlFor="avgLikes">Avg Likes (last 3 posts)</Label>
-                    <Input id="avgLikes" name="avgLikes" type="number" step="0.1" value={formData.avgLikes === undefined ? '' : formData.avgLikes} onChange={handleChange} />
+                    <Input id="avgLikes" name="avgLikes" type="number" step="0.1" value={formData.avgLikes === undefined || formData.avgLikes === null ? '' : formData.avgLikes} onChange={handleChange} />
                 </div>
                 <div>
                     <Label htmlFor="avgComments">Avg Comments (last 3 posts)</Label>
-                    <Input id="avgComments" name="avgComments" type="number" step="0.1" value={formData.avgComments === undefined ? '' : formData.avgComments} onChange={handleChange} />
+                    <Input id="avgComments" name="avgComments" type="number" step="0.1" value={formData.avgComments === undefined || formData.avgComments === null ? '' : formData.avgComments} onChange={handleChange} />
                 </div>
             </div>
         </CardContent>
@@ -352,7 +352,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
             </div>
             <div>
                 <Label htmlFor="source">Source</Label>
-                 <Select value={formData.source} onValueChange={(value: LeadSource) => handleSelectChange('source', value)}>
+                 <Select value={formData.source || undefined} onValueChange={(value: LeadSource) => handleSelectChange('source', value)}>
                   <SelectTrigger id="source"><SelectValue placeholder="Select source" /></SelectTrigger>
                   <SelectContent>
                     {LEAD_SOURCES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
@@ -414,7 +414,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
             <div>
                 <Label>Tone Preference?</Label>
                  <RadioGroup
-                    value={formData.tonePreference}
+                    value={formData.tonePreference || undefined}
                     onValueChange={(value) => handleSelectChange('tonePreference', value as TonePreference)}
                     className="mt-1 space-y-1"
                   >
@@ -459,6 +459,7 @@ export default function OutreachPage() {
   const [scriptModalTitle, setScriptModalTitle] = useState("Generated Script");
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   const [currentScriptGenerationInput, setCurrentScriptGenerationInput] = useState<GenerateContextualScriptInput | null>(null);
+  const [currentProspectForScript, setCurrentProspectForScript] = useState<OutreachProspect | null>(null);
   
   const { toast } = useToast();
 
@@ -513,11 +514,11 @@ export default function OutreachPage() {
                 key !== 'notes' &&
                 key !== 'industry'
              ) {
-                (dataToSave as any)[key] = undefined;
+                (dataToSave as any)[key] = null;
             }
              if (key === 'followerCount' || key === 'postCount' || key === 'avgLikes' || key === 'avgComments') {
                 if (dataToSave[key] === '' || dataToSave[key] === null || isNaN(Number(dataToSave[key]))) {
-                    (dataToSave as any)[key] = undefined;
+                    (dataToSave as any)[key] = null;
                 } else {
                     (dataToSave as any)[key] = Number(dataToSave[key]);
                 }
@@ -595,44 +596,45 @@ export default function OutreachPage() {
     setIsScriptModalOpen(true);
     setGeneratedScript('');
     setScriptModalTitle(`Generating ${scriptType} for ${prospect.name || 'Prospect'}...`);
+    setCurrentProspectForScript(prospect); // Store prospect for saving snippet
 
     setClientContext({ 
-        clientHandle: prospect.instagramHandle,
+        clientHandle: prospect.instagramHandle || undefined,
         clientName: prospect.name,
         clientIndustry: prospect.industry || prospect.businessType || "Not Specified",
     });
     
     const input: GenerateContextualScriptInput = {
         scriptType,
-        clientName: prospect.name,
-        clientHandle: prospect.instagramHandle,
-        businessName: prospect.businessName,
-        website: prospect.website,
-        prospectLocation: prospect.prospectLocation,
-        clientIndustry: prospect.industry,
+        clientName: prospect.name || null,
+        clientHandle: prospect.instagramHandle || null,
+        businessName: prospect.businessName || null,
+        website: prospect.website || null,
+        prospectLocation: prospect.prospectLocation || null,
+        clientIndustry: prospect.industry || null,
         
-        businessType: prospect.businessType,
-        businessTypeOther: prospect.businessTypeOther,
+        businessType: prospect.businessType || null,
+        businessTypeOther: prospect.businessTypeOther || null,
         
-        accountStage: prospect.accountStage,
-        followerCount: prospect.followerCount,
-        postCount: prospect.postCount,
-        avgLikes: prospect.avgLikes,
-        avgComments: prospect.avgComments,
+        accountStage: prospect.accountStage || null,
+        followerCount: prospect.followerCount === null ? undefined : prospect.followerCount,
+        postCount: prospect.postCount === null ? undefined : prospect.postCount,
+        avgLikes: prospect.avgLikes === null ? undefined : prospect.avgLikes,
+        avgComments: prospect.avgComments === null ? undefined : prospect.avgComments,
 
-        painPoints: prospect.painPoints,
-        goals: prospect.goals,
+        painPoints: prospect.painPoints || [],
+        goals: prospect.goals || [],
 
         leadStatus: prospect.status,
-        source: prospect.source,
+        source: prospect.source || null,
         lastTouch: prospect.lastContacted ? `Last contacted on ${new Date(prospect.lastContacted).toLocaleDateString()}` : 'No prior contact recorded',
-        followUpNeeded: prospect.followUpNeeded,
+        followUpNeeded: prospect.followUpNeeded || false,
         
-        offerInterest: prospect.offerInterest,
-        uniqueNote: prospect.uniqueNote,
-        helpStatement: prospect.helpStatement,
-        tonePreference: prospect.tonePreference,
-        additionalNotes: prospect.notes,
+        offerInterest: prospect.offerInterest || [],
+        uniqueNote: prospect.uniqueNote || null,
+        helpStatement: prospect.helpStatement || null,
+        tonePreference: prospect.tonePreference || null,
+        additionalNotes: prospect.notes || null,
     };
     setCurrentScriptGenerationInput(input);
 
@@ -689,7 +691,8 @@ export default function OutreachPage() {
       case 'Interested': return 'default';
       case 'Warm': return 'secondary';
       case 'Cold':
-      case 'Follow-up': return 'outline'; 
+      case 'Follow-up': 
+      case 'To Contact': return 'outline'; 
       case 'Closed - Lost':
       case 'Not Interested': return 'destructive';
       default: return 'default';
@@ -888,13 +891,19 @@ export default function OutreachPage() {
         isOpen={isScriptModalOpen}
         onClose={() => {
           setIsScriptModalOpen(false);
+          setCurrentProspectForScript(null); // Clear prospect context when closing
         }}
         scriptContent={generatedScript}
         title={scriptModalTitle}
         onRegenerate={handleRegenerateProspectScript}
         isLoadingInitially={isGeneratingScript && !generatedScript}
+        scriptTypeToSave={currentScriptGenerationInput?.scriptType}
+        prospectContextToSave={
+            currentProspectForScript 
+            ? { prospectId: currentProspectForScript.id, prospectName: currentProspectForScript.name } 
+            : undefined
+        }
       />
     </div>
   );
 }
-
