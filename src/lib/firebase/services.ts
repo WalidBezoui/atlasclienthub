@@ -37,7 +37,7 @@ export const addClient = async (clientData: Omit<Client, 'id' | 'userId'>): Prom
     contactEmail: clientData.contactEmail,
     companyName: clientData.companyName,
     status: clientData.status,
-    joinedDate: clientData.joinedDate ? Timestamp.fromDate(new Date(clientData.joinedDate)) : serverTimestamp(),
+    joinedDate: clientData.joinedDate && clientData.joinedDate.trim() !== '' ? Timestamp.fromDate(new Date(clientData.joinedDate)) : serverTimestamp(),
     contactPhone: clientData.contactPhone || null,
     instagramHandle: clientData.instagramHandle || null,
     notes: clientData.notes || null,
@@ -70,9 +70,11 @@ export const updateClient = async (id: string, clientData: Partial<Omit<Client, 
   
   const updateData:any = { ...clientData };
   if (clientData.joinedDate) {
-    updateData.joinedDate = Timestamp.fromDate(new Date(clientData.joinedDate));
+    updateData.joinedDate = (clientData.joinedDate && clientData.joinedDate.trim() !== '') 
+                            ? Timestamp.fromDate(new Date(clientData.joinedDate))
+                            : null;
   }
-  // Ensure optional fields that might be cleared are set to null
+  
   if (clientData.hasOwnProperty('contactPhone')) updateData.contactPhone = clientData.contactPhone || null;
   if (clientData.hasOwnProperty('instagramHandle')) updateData.instagramHandle = clientData.instagramHandle || null;
   if (clientData.hasOwnProperty('notes')) updateData.notes = clientData.notes || null;
@@ -80,7 +82,7 @@ export const updateClient = async (id: string, clientData: Partial<Omit<Client, 
 
 
   for (const key in updateData) {
-    if (updateData[key] === undefined && !clientData.hasOwnProperty(key)) { 
+    if (updateData[key] === undefined && !clientData.hasOwnProperty(key as keyof Client)) { 
       delete updateData[key]; 
     }
   }
@@ -105,7 +107,6 @@ export const addProspect = async (prospectData: Omit<OutreachProspect, 'id' | 'u
     userId,
     name: prospectData.name,
     status: prospectData.status || 'To Contact' as OutreachLeadStage,
-
     instagramHandle: prospectData.instagramHandle || null,
     businessName: prospectData.businessName || null,
     website: prospectData.website || null,
@@ -127,8 +128,14 @@ export const addProspect = async (prospectData: Omit<OutreachProspect, 'id' | 'u
     goals: prospectData.goals || [],
     
     source: prospectData.source || null,
-    lastContacted: prospectData.lastContacted ? Timestamp.fromDate(new Date(prospectData.lastContacted)) : serverTimestamp(), // Default to now if not provided
-    followUpDate: prospectData.followUpDate ? Timestamp.fromDate(new Date(prospectData.followUpDate)) : null,
+    // Explicitly default lastContacted to serverTimestamp if not a valid provided date string
+    lastContacted: (prospectData.lastContacted && prospectData.lastContacted.trim() !== '')
+                   ? Timestamp.fromDate(new Date(prospectData.lastContacted))
+                   : serverTimestamp(),
+    // Explicitly default followUpDate to null if not a valid provided date string
+    followUpDate: (prospectData.followUpDate && prospectData.followUpDate.trim() !== '')
+                  ? Timestamp.fromDate(new Date(prospectData.followUpDate))
+                  : null,
     followUpNeeded: prospectData.followUpNeeded || false,
     
     offerInterest: prospectData.offerInterest || [],
@@ -191,13 +198,18 @@ export const updateProspect = async (id: string, prospectData: Partial<Omit<Outr
   if (!userId) throw new Error('User not authenticated');
   const prospectDoc = doc(db, 'prospects', id);
   
-  const dataToUpdate: any = { ...prospectData };
+  const dataToUpdate: any = { ...prospectData }; // Start with all provided data
   
+  // Handle date fields: convert valid strings to Timestamps, or set to null if cleared/invalid
   if (prospectData.hasOwnProperty('lastContacted')) {
-    dataToUpdate.lastContacted = prospectData.lastContacted ? Timestamp.fromDate(new Date(prospectData.lastContacted)) : null;
+    dataToUpdate.lastContacted = (prospectData.lastContacted && prospectData.lastContacted.trim() !== '')
+                                 ? Timestamp.fromDate(new Date(prospectData.lastContacted))
+                                 : null;
   }
   if (prospectData.hasOwnProperty('followUpDate')) {
-    dataToUpdate.followUpDate = prospectData.followUpDate ? Timestamp.fromDate(new Date(prospectData.followUpDate)) : null;
+    dataToUpdate.followUpDate = (prospectData.followUpDate && prospectData.followUpDate.trim() !== '')
+                                ? Timestamp.fromDate(new Date(prospectData.followUpDate))
+                                : null;
   }
   
   const numericFields: (keyof OutreachProspect)[] = ['followerCount', 'postCount', 'avgLikes', 'avgComments'];
@@ -223,25 +235,44 @@ export const updateProspect = async (id: string, prospectData: Partial<Omit<Outr
     }
   });
 
-  const optionalFieldsToNullify: (keyof OutreachProspect)[] = [
+  // Ensure other optional fields are set to null if explicitly cleared or empty,
+  // but only if they were part of the prospectData payload.
+  const optionalFieldsToNullifyIfPresent: (keyof OutreachProspect)[] = [
       'instagramHandle', 'businessName', 'website', 'prospectLocation', 'industry', 'email',
       'visualStyle', 'bioSummary', 
       'businessType', 'businessTypeOther', 'accountStage', 'source',
       'uniqueNote', 'helpStatement', 'tonePreference', 'notes'
   ];
-  optionalFieldsToNullify.forEach(field => {
-      if (prospectData.hasOwnProperty(field) && (prospectData[field] === undefined || prospectData[field] === '')) {
+  optionalFieldsToNullifyIfPresent.forEach(field => {
+      if (prospectData.hasOwnProperty(field) && (prospectData[field] === undefined || prospectData[field] === '' || prospectData[field] === null) ) {
           dataToUpdate[field] = null;
       }
   });
 
+  // Clean up any fields that were in prospectData but became undefined through processing
+  // (This step might be redundant if the above handling is comprehensive)
   for (const key in dataToUpdate) {
-    if (!prospectData.hasOwnProperty(key as keyof OutreachProspect)) {
-        delete dataToUpdate[key];
+    if (dataToUpdate[key] === undefined && prospectData.hasOwnProperty(key as keyof OutreachProspect) ) {
+        // If a field was provided in prospectData but resulted in undefined in dataToUpdate, set to null
+        // Example: if a numeric field was an invalid string, it might become NaN then null.
+        // Or if a date was invalid and didn't convert.
+        // This ensures we don't send undefined to Firestore.
+         dataToUpdate[key] = null;
     }
   }
+  // Remove fields from dataToUpdate that were not in prospectData (unless they are special like userId)
+  // This is to ensure we only update what was intended.
+  const finalUpdateData: Partial<OutreachProspect> = {};
+  for (const key of Object.keys(dataToUpdate) as Array<keyof OutreachProspect>) {
+      if(prospectData.hasOwnProperty(key)) {
+          finalUpdateData[key] = dataToUpdate[key];
+      }
+  }
 
-  await updateDoc(prospectDoc, dataToUpdate);
+
+  if (Object.keys(finalUpdateData).length > 0) {
+    await updateDoc(prospectDoc, finalUpdateData);
+  }
 };
 
 export const deleteProspect = async (id: string): Promise<void> => {
@@ -263,11 +294,15 @@ export const addAudit = async (auditData: Omit<InstagramAudit, 'id' | 'userId' |
     instagramHandle: auditData.instagramHandle,
     status: auditData.status,
     questionnaireResponses: auditData.questionnaireResponses,
-    requestedDate: auditData.requestedDate ? Timestamp.fromDate(new Date(auditData.requestedDate)) : serverTimestamp(), // Default to now if not provided
+    requestedDate: (auditData.requestedDate && auditData.requestedDate.trim() !== '') 
+                   ? Timestamp.fromDate(new Date(auditData.requestedDate)) 
+                   : serverTimestamp(),
     entityName: auditData.entityName || null,
     entityType: auditData.entityType || null,
     auditReport: auditData.auditReport || null,
-    completedDate: auditData.completedDate ? Timestamp.fromDate(new Date(auditData.completedDate)) : null,
+    completedDate: (auditData.completedDate && auditData.completedDate.trim() !== '') 
+                   ? Timestamp.fromDate(new Date(auditData.completedDate)) 
+                   : null,
   };
   
   const docRef = await addDoc(auditsCollection, dataForFirestore);
@@ -314,27 +349,34 @@ export const updateAudit = async (id: string, auditData: Partial<Omit<InstagramA
   if (!userId) throw new Error('User not authenticated');
   const auditDoc = doc(db, 'audits', id);
   
-  const dataToUpdate: any = { ...auditData };
+  const dataToUpdate: any = {};
 
-  if (auditData.hasOwnProperty('requestedDate') && auditData.requestedDate) {
-     dataToUpdate.requestedDate = Timestamp.fromDate(new Date(auditData.requestedDate));
-  }
-  
-  if (auditData.hasOwnProperty('completedDate')) { 
-    dataToUpdate.completedDate = auditData.completedDate ? Timestamp.fromDate(new Date(auditData.completedDate)) : null;
-  }
-  
-  if (auditData.hasOwnProperty('entityName')) dataToUpdate.entityName = auditData.entityName || null;
-  if (auditData.hasOwnProperty('entityType')) dataToUpdate.entityType = auditData.entityType || null;
-  if (auditData.hasOwnProperty('auditReport')) dataToUpdate.auditReport = auditData.auditReport || null;
-  
-   for (const key in dataToUpdate) {
-    if (!auditData.hasOwnProperty(key as keyof InstagramAudit)) {
-        delete dataToUpdate[key];
+  // Only include fields that are actually present in auditData
+  for (const key in auditData) {
+    if (auditData.hasOwnProperty(key as keyof InstagramAudit)) {
+      (dataToUpdate as any)[key] = (auditData as any)[key];
     }
   }
 
-  await updateDoc(auditDoc, dataToUpdate);
+  if (dataToUpdate.hasOwnProperty('requestedDate')) {
+     dataToUpdate.requestedDate = (dataToUpdate.requestedDate && dataToUpdate.requestedDate.trim() !== '')
+                                  ? Timestamp.fromDate(new Date(dataToUpdate.requestedDate))
+                                  : null; // Or serverTimestamp() if update should set a new request date
+  }
+  
+  if (dataToUpdate.hasOwnProperty('completedDate')) { 
+    dataToUpdate.completedDate = (dataToUpdate.completedDate && dataToUpdate.completedDate.trim() !== '')
+                                 ? Timestamp.fromDate(new Date(dataToUpdate.completedDate)) 
+                                 : null;
+  }
+  
+  if (dataToUpdate.hasOwnProperty('entityName')) dataToUpdate.entityName = dataToUpdate.entityName || null;
+  if (dataToUpdate.hasOwnProperty('entityType')) dataToUpdate.entityType = dataToUpdate.entityType || null;
+  if (dataToUpdate.hasOwnProperty('auditReport')) dataToUpdate.auditReport = dataToUpdate.auditReport || null;
+  
+  if (Object.keys(dataToUpdate).length > 0) {
+    await updateDoc(auditDoc, dataToUpdate);
+  }
 };
 
 
@@ -353,8 +395,9 @@ export const addSnippet = async (snippetData: Omit<ScriptSnippet, 'id' | 'userId
   if (!userId) throw new Error('User not authenticated');
 
   const dataForFirestore = {
-    ...snippetData,
     userId,
+    scriptType: snippetData.scriptType,
+    content: snippetData.content,
     prospectId: snippetData.prospectId || null,
     prospectName: snippetData.prospectName || null,
     tags: snippetData.tags || [],
@@ -386,8 +429,6 @@ export const deleteSnippet = async (id: string): Promise<void> => {
   await deleteDoc(doc(db, 'snippets', id));
 };
 
-// (Future enhancement: getSnippetsByProspectId, updateSnippet)
-
 
 // --- Dashboard Services ---
 export const getDashboardOverview = async (): Promise<{
@@ -400,10 +441,12 @@ export const getDashboardOverview = async (): Promise<{
   if (!userId) return { activeClients: 0, auditsInProgress: 0, outreachSentThisMonth: 0, newLeadsThisMonth: 0 };
 
   const now = new Date();
-  const currentMonthStart = startOfMonth(now);
-  const currentMonthEnd = endOfMonth(now);
-  const currentMonthStartTimestamp = Timestamp.fromDate(currentMonthStart);
-  const currentMonthEndTimestamp = Timestamp.fromDate(currentMonthEnd);
+  // Use startOfDay and endOfDay for more precise boundaries
+  const currentMonthStartBoundary = startOfDay(startOfMonth(now));
+  const currentMonthEndBoundary = endOfDay(endOfMonth(now));
+  
+  const currentMonthStartTimestamp = Timestamp.fromDate(currentMonthStartBoundary);
+  const currentMonthEndTimestamp = Timestamp.fromDate(currentMonthEndBoundary);
 
   const clientsQuery = query(clientsCollection, where('userId', '==', userId), where('status', '==', 'Active'));
   const auditsQuery = query(auditsCollection, where('userId', '==', userId), where('status', '==', 'In Progress'));
@@ -416,7 +459,7 @@ export const getDashboardOverview = async (): Promise<{
   
   const newLeadsQuery = query(prospectsCollection, 
     where('userId', '==', userId), 
-    where('status', '==', 'Interested'), 
+    where('status', '==', 'Interested'), // Assuming 'Interested' is a valid OutreachLeadStage for new leads
     where('lastContacted', '>=', currentMonthStartTimestamp), 
     where('lastContacted', '<=', currentMonthEndTimestamp)
   );
@@ -426,7 +469,7 @@ export const getDashboardOverview = async (): Promise<{
     clientsSnapshot, 
     auditsSnapshot, 
     outreachSentSnapshot, 
-    newLeadsSnapshot
+    newLeadsSnapshotResults // Renamed to avoid conflict with its use as argument
   ] = await Promise.all([
     getCountFromServer(clientsQuery),
     getCountFromServer(auditsQuery),
@@ -438,7 +481,7 @@ export const getDashboardOverview = async (): Promise<{
     activeClients: clientsSnapshot.data().count,
     auditsInProgress: auditsSnapshot.data().count,
     outreachSentThisMonth: outreachSentSnapshot.data().count,
-    newLeadsThisMonth: newLeadsSnapshot.data().count,
+    newLeadsThisMonth: newLeadsSnapshotResults.data().count,
   };
 };
 
@@ -458,9 +501,11 @@ export const getMonthlyActivityData = async (): Promise<MonthlyActivity[]> => {
     activityData.push({ month: monthName, clients: 0, outreach: 0, audits: 0 });
   }
 
-  const sixMonthsAgo = startOfMonth(subMonths(today, 5));
-  const sixMonthsAgoTimestamp = Timestamp.fromDate(sixMonthsAgo);
-  const nowTimestamp = Timestamp.fromDate(endOfMonth(today)); 
+  const sixMonthsAgoBoundary = startOfDay(startOfMonth(subMonths(today, 5)));
+  const nowBoundary = endOfDay(endOfMonth(today)); 
+
+  const sixMonthsAgoTimestamp = Timestamp.fromDate(sixMonthsAgoBoundary);
+  const nowTimestamp = Timestamp.fromDate(nowBoundary); 
 
   const clientsQuery = query(clientsCollection, 
     where('userId', '==', userId), 
@@ -485,10 +530,12 @@ export const getMonthlyActivityData = async (): Promise<MonthlyActivity[]> => {
   ]);
 
   clientsDocs.forEach(doc => {
-    const joinedDate = (doc.data().joinedDate as Timestamp).toDate();
-    const monthName = format(joinedDate, 'MMM');
-    const monthData = activityData.find(m => m.month === monthName);
-    if (monthData) monthData.clients++;
+    const joinedDate = (doc.data().joinedDate as Timestamp)?.toDate();
+    if (joinedDate) {
+      const monthName = format(joinedDate, 'MMM');
+      const monthData = activityData.find(m => m.month === monthName);
+      if (monthData) monthData.clients++;
+    }
   });
 
   outreachDocs.forEach(doc => {
@@ -501,10 +548,12 @@ export const getMonthlyActivityData = async (): Promise<MonthlyActivity[]> => {
   });
 
   auditsDocs.forEach(doc => {
-    const requestedDate = (doc.data().requestedDate as Timestamp).toDate();
-    const monthName = format(requestedDate, 'MMM');
-    const monthData = activityData.find(m => m.month === monthName);
-    if (monthData) monthData.audits++;
+    const requestedDate = (doc.data().requestedDate as Timestamp)?.toDate();
+    if (requestedDate) {
+      const monthName = format(requestedDate, 'MMM');
+      const monthData = activityData.find(m => m.month === monthName);
+      if (monthData) monthData.audits++;
+    }
   });
   
   const correctlyOrderedActivityData = monthLabels.map(label => {
@@ -513,3 +562,4 @@ export const getMonthlyActivityData = async (): Promise<MonthlyActivity[]> => {
 
   return correctlyOrderedActivityData;
 };
+
