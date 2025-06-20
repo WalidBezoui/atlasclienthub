@@ -19,7 +19,7 @@ const InstagramMediaEdgeSchema = z.object({
 
 const InstagramUserMediaSchema = z.object({
   count: z.number(),
-  edges: z.array(InstagramMediaEdgeSchema).optional(),
+  edges: z.array(InstagramMediaEdgeSchema).optional(), // Made edges optional
 });
 
 const InstagramUserSchema = z.object({
@@ -29,15 +29,18 @@ const InstagramUserSchema = z.object({
   edge_owner_to_timeline_media: InstagramUserMediaSchema,
 });
 
+// More flexible GraphQL response schema
 const InstagramGraphQLResponseSchema = z.object({
-  user: InstagramUserSchema.nullable().optional(), 
+  user: InstagramUserSchema.nullable().optional(), // User can be null or missing
 });
 
+// Main response schema, now more flexible for error cases
 const InstagramMainResponseSchema = z.object({
-  graphql: InstagramGraphQLResponseSchema.optional(),
-  error_type: z.string().optional(), 
-  message: z.string().optional(), 
-  status: z.string().optional(), 
+  graphql: InstagramGraphQLResponseSchema.optional(), // GraphQL part is optional
+  // Fields often present in Instagram error responses
+  status: z.string().optional(),
+  error_type: z.string().optional(),
+  message: z.string().optional(),
 });
 
 
@@ -95,14 +98,14 @@ export async function fetchInstagramMetrics(
         return { error: `Instagram profile @${igHandle} not found or is private.` };
       }
       if (response.status === 400) {
-        return { error: `Instagram rejected the request for @${igHandle} (Status 400 - Bad Request). Details: ${errorBodyText.substring(0,150)}...` };
+        return { error: `Instagram rejected the request for @${igHandle} (Status 400 - Bad Request). Details: ${errorBodyText.substring(0,200)}...` };
       }
-      return { error: `Failed to fetch. IG Server responded with Status: ${response.status} for @${igHandle}. Details: ${errorBodyText.substring(0,150)}...` };
+      return { error: `Failed to fetch. IG Server responded with Status: ${response.status} for @${igHandle}. Details: ${errorBodyText.substring(0,200)}...` };
     }
 
     // If response.ok is true
     const rawJson = await response.json();
-    // console.log(`[SERVER ACTION SUCCESS-RAW-JSON @${igHandle}]:`, JSON.stringify(rawJson, null, 2)); // Optional: log full raw JSON if needed for debugging successful but malformed responses
+    // console.log(`[SERVER ACTION SUCCESS-RAW-JSON @${igHandle}]:`, JSON.stringify(rawJson, null, 2)); 
 
     const parsedResponse = InstagramMainResponseSchema.safeParse(rawJson);
 
@@ -114,6 +117,7 @@ export async function fetchInstagramMetrics(
     
     const data = parsedResponse.data;
 
+    // Check for Instagram's own error indicators even in a 200 OK response
     if (data.status === 'fail' || data.error_type) {
         const igErrorMessage = data.message || data.error_type || 'Unknown Instagram error after 200 OK';
         console.warn(`[SERVER ACTION IG-ERROR @${igHandle}] Instagram API indicated an issue: ${igErrorMessage}. Raw data: ${JSON.stringify(data).substring(0,500)}`);
@@ -121,7 +125,7 @@ export async function fetchInstagramMetrics(
     }
     
     if (!data.graphql || !data.graphql.user) {
-        if (data.message) { 
+        if (data.message) { // If there's a message at the top level
              console.warn(`[SERVER ACTION NO-USER-DATA @${igHandle}] Instagram API message: ${data.message}`);
              return { error: data.message.includes("login") ? `Profile @${igHandle} may require login or is private.` : `Could not fetch data for @${igHandle}. IG message: ${data.message}` };
         }
@@ -162,7 +166,7 @@ export async function fetchInstagramMetrics(
   } catch (error: any) {
     console.error(`[SERVER ACTION CRITICAL-ERROR @${igHandle}] Unexpected error during fetchInstagramMetrics:`, error.message);
     console.error(`[SERVER ACTION CRITICAL-ERROR @${igHandle}] Error stack:`, error.stack);
-    if (error instanceof SyntaxError) { 
+    if (error instanceof SyntaxError) { // Specifically catch JSON parsing errors (e.g. if IG returns HTML)
         return { error: `Received invalid JSON response from Instagram for @${igHandle}. Endpoint might be down or request blocked.` };
     }
     return { error: `An unexpected error occurred while fetching metrics for @${igHandle}: ${error.message || 'Unknown error'}` };
