@@ -3,44 +3,40 @@
 
 import { z } from 'zod';
 
-// Define Zod schemas for the parts of the Instagram response we care about
-const InstagramMediaNodeSchema = z.object({
-  edge_liked_by: z.object({
-    count: z.number(),
-  }),
-  edge_media_to_comment: z.object({
-    count: z.number(),
-  }),
+// Zod schema for the expected output of an Instagram profile item from Apify
+const ApifyInstagramPostSchema = z.object({
+  likesCount: z.number().optional().nullable(),
+  commentsCount: z.number().optional().nullable(),
+  // Add other post fields if needed, like timestamp or mediaUrl
 });
 
-const InstagramMediaEdgeSchema = z.object({
-  node: InstagramMediaNodeSchema,
+const ApifyInstagramProfileSchema = z.object({
+  username: z.string(),
+  followersCount: z.number().optional().nullable(),
+  postsCount: z.number().optional().nullable(),
+  latestPosts: z.array(ApifyInstagramPostSchema).optional().nullable(),
+  // Add other profile fields if available and needed, e.g., biography, fullName, isPrivate
 });
 
-const InstagramUserMediaSchema = z.object({
-  count: z.number(),
-  edges: z.array(InstagramMediaEdgeSchema).optional(), // Made edges optional
+// Zod schema for Apify actor run start response
+const ApifyRunStartResponseDataSchema = z.object({
+  id: z.string(),
+  actId: z.string(),
+  userId: z.string(),
+  startedAt: z.string().datetime({ offset: true }),
+  status: z.string(), // e.g., "READY", "RUNNING"
+  defaultDatasetId: z.string(),
+});
+const ApifyRunStartResponseSchema = z.object({
+  data: ApifyRunStartResponseDataSchema,
 });
 
-const InstagramUserSchema = z.object({
-  edge_followed_by: z.object({
-    count: z.number(),
-  }),
-  edge_owner_to_timeline_media: InstagramUserMediaSchema,
+// Zod schema for Apify actor run status response
+const ApifyRunStatusResponseDataSchema = z.object({
+  status: z.string(), // e.g., "SUCCEEDED", "FAILED", "RUNNING"
 });
-
-// More flexible GraphQL response schema
-const InstagramGraphQLResponseSchema = z.object({
-  user: InstagramUserSchema.nullable().optional(), // User can be null or missing
-});
-
-// Main response schema, now more flexible for error cases
-const InstagramMainResponseSchema = z.object({
-  graphql: InstagramGraphQLResponseSchema.optional(), // GraphQL part is optional
-  // Fields often present in Instagram error responses
-  status: z.string().optional(),
-  error_type: z.string().optional(),
-  message: z.string().optional(),
+const ApifyRunStatusResponseSchema = z.object({
+  data: ApifyRunStatusResponseDataSchema,
 });
 
 
@@ -51,11 +47,25 @@ export type InstagramMetrics = {
   avgComments: number;
 };
 
+// --- Apify Configuration ---
+// IMPORTANT: Replace with the actual Apify actor ID you want to use.
+// This could be something like 'apify/instagram-profile-scraper' or a custom actor.
+const ACTOR_ID = 'apify/instagram-profile-scraper'; // Example: 'username/actor-name'
+const APIFY_BASE_URL = 'https://api.apify.com/v2';
+const MAX_POLL_RETRIES = 20; // Max number of times to poll for status (e.g., 20 * 6s = 120s timeout)
+const POLL_INTERVAL_MS = 6000; // 6 seconds
+
 export async function fetchInstagramMetrics(
   username: string
 ): Promise<{ data?: InstagramMetrics; error?: string }> {
-  console.log(`[SERVER ACTION ENTRY] fetchInstagramMetrics called for username: "${username}"`);
+  const APIFY_TOKEN = process.env.APIFY_API_KEY;
 
+  console.log(`[SERVER ACTION ENTRY] fetchInstagramMetrics called for username: "${username}" using Apify.`);
+
+  if (!APIFY_TOKEN) {
+    console.error("[SERVER ACTION ERROR] Apify API key (APIFY_API_KEY) is not configured in .env.");
+    return { error: 'Apify API key is not configured. Please set APIFY_API_KEY in your environment variables.' };
+  }
   if (!username || typeof username !== 'string' || username.trim() === '') {
     console.error("[SERVER ACTION VALIDATION FAIL] Instagram username is required.");
     return { error: 'Instagram username is required.' };
@@ -63,108 +73,116 @@ export async function fetchInstagramMetrics(
 
   const igHandle = username.replace('@', '').trim();
   if (!igHandle) {
-    console.error("[SERVER ACTION VALIDATION FAIL] Valid Instagram username is required (after trim/replace).");
-    return { error: 'Valid Instagram username is required.'}
+    console.error("[SERVER ACTION VALIDATION FAIL] Valid Instagram username is required.");
+    return { error: 'Valid Instagram username is required.' };
   }
 
-  const url = `https://www.instagram.com/${igHandle}/?__a=1&__d=dis`;
-  const headers = {
-    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
-    'Accept': 'application/json',
-    'Accept-Language': 'en-US,en;q=0.9',
-    'x-ig-app-id': '1217981644879628', 
+  // Actor input might vary based on the specific actor.
+  // This example assumes the actor accepts an array of usernames.
+  const actorInput = {
+    usernames: [igHandle],
+    // Add other actor-specific input fields here if needed
+    // e.g., resultsLimit: 1, proxyConfiguration: { useApifyProxy: true }
   };
 
-  console.log(`[SERVER ACTION PRE-FETCH] Fetching Instagram metrics for @${igHandle} from URL: ${url}`);
-  console.log(`[SERVER ACTION PRE-FETCH] Headers: ${JSON.stringify(headers)}`);
+  console.log(`[APIFY ACTION] Starting actor run for ${igHandle} with actor ID ${ACTOR_ID}. Input:`, JSON.stringify(actorInput));
 
   try {
-    const response = await fetch(url, { headers, cache: 'no-store' });
+    // 1. Start the actor run
+    const runResponse = await fetch(`${APIFY_BASE_URL}/acts/${ACTOR_ID}/runs?token=${APIFY_TOKEN}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(actorInput),
+      cache: 'no-store',
+    });
 
-    console.log(`[SERVER ACTION POST-FETCH] Response status for @${igHandle}: ${response.status}`);
-
-    if (!response.ok) {
-      let errorBodyText = `Status: ${response.status} ${response.statusText}. No response body readable.`;
+    if (!runResponse.ok) {
+      let errorBodyText = `Status: ${runResponse.status} ${runResponse.statusText}.`;
       try {
-        const rawBody = await response.text();
-        errorBodyText = rawBody;
-        console.error(`[SERVER ACTION ERROR-BODY @${igHandle}] RAW Response Text (Status ${response.status}):\n${rawBody.substring(0, 1000)}...`);
-      } catch (e: any) {
-        console.error(`[SERVER ACTION ERROR @${igHandle}] Failed to read error response body (Status ${response.status}): ${e.message}`);
+        const errorData = await runResponse.json();
+        errorBodyText = `Apify: Failed to start actor run - ${errorData?.error?.message || runResponse.statusText}. Full error: ${JSON.stringify(errorData)}`;
+        console.error(`[APIFY ACTION ERROR] Failed to start actor. Status: ${runResponse.status}. Body:`, errorData);
+      } catch (e) {
+        console.error(`[APIFY ACTION ERROR] Failed to start actor and parse error body. Status: ${runResponse.status}.`);
       }
-
-      if (response.status === 404) {
-        return { error: `Instagram profile @${igHandle} not found or is private.` };
-      }
-      if (response.status === 400) {
-        let detail = `Instagram rejected the request for @${igHandle} (Status 400 - Bad Request).`;
-        if (errorBodyText.toLowerCase().includes('secfetch') || errorBodyText.toLowerCase().includes('policy violation')) {
-            detail += ` This often indicates Instagram's security policies are blocking non-browser requests. Automatic fetching may not be possible. Consider manual entry. Raw details: ${errorBodyText.substring(0,100)}...`;
-        } else if (errorBodyText.length < 200 && errorBodyText.length > 5 && !errorBodyText.toLowerCase().includes('<html')) {
-            detail += ` IG Message: ${errorBodyText}`;
-        } else {
-            detail += ` Ensure the Instagram handle is correct. Details: ${errorBodyText.substring(0,100)}...`;
-        }
-        return { error: detail };
-      }
-      return { error: `Failed to fetch. IG Server responded with Status: ${response.status} for @${igHandle}. Details: ${errorBodyText.substring(0,200)}...` };
+      return { error: errorBodyText };
     }
 
-    // If response.ok is true
-    let rawJson;
-    try {
-        rawJson = await response.json();
-    } catch (e: any) {
-        console.error(`[SERVER ACTION JSON-PARSE-ERROR @${igHandle}] Failed to parse JSON response even though status was OK. Error: ${e.message}`);
-        // Attempt to read the response body as text again, though it might have been consumed or response object is not reusable this way after .json() fails.
-        // Better to have captured it as text first if this is a common failure path.
-        // For now, this is a best-effort log.
-        let responseBodyForText = '';
-        try {
-            // Re-fetch or clone response if text is needed after .json() fails. Simpler: get text first if anticipating non-JSON.
-            // Since response.text() consumes the body, this might not work as expected if .json() already tried.
-            // The log from the !response.ok block is more reliable for raw error bodies.
-            // This catch block is for when status IS ok, but body ISN'T JSON.
-            const tempResponse = await fetch(url, { headers, cache: 'no-store' }); // Re-fetch to get body again, not ideal
-            responseBodyForText = await tempResponse.text();
-            console.error(`[SERVER ACTION RAW-TEXT-ON-JSON-ERROR @${igHandle}] Raw text: ${responseBodyForText.substring(0,1000)}`);
-        } catch (textError: any) {
-             console.error(`[SERVER ACTION RAW-TEXT-FETCH-ERROR @${igHandle}] Error fetching raw text after JSON parse fail: ${textError.message}`);
-        }
-        return { error: `Instagram returned an unexpected non-JSON response for @${igHandle}. Profile might be private or require login. Content snippet: ${responseBodyForText.substring(0,100)}...`};
+    const parsedRunStart = ApifyRunStartResponseSchema.safeParse(await runResponse.json());
+    if (!parsedRunStart.success) {
+        console.error("[APIFY ACTION ERROR] Failed to parse Apify run start response:", parsedRunStart.error.errors);
+        return { error: "Apify: Unexpected response format when starting actor run." };
     }
-    // console.log(`[SERVER ACTION SUCCESS-RAW-JSON @${igHandle}]:`, JSON.stringify(rawJson, null, 2)); 
+    const runId = parsedRunStart.data.data.id;
+    const datasetId = parsedRunStart.data.data.defaultDatasetId;
+    console.log(`[APIFY ACTION] Actor run started. Run ID: ${runId}, Dataset ID: ${datasetId}`);
 
-    const parsedResponse = InstagramMainResponseSchema.safeParse(rawJson);
+    // 2. Poll for actor run completion
+    let actorStatus = parsedRunStart.data.data.status;
+    let retries = 0;
 
-    if (!parsedResponse.success) {
-      console.error(`[SERVER ACTION PARSE-ERROR @${igHandle}] Error parsing Instagram JSON structure:`, parsedResponse.error.errors);
-      console.error(`[SERVER ACTION PARSE-ERROR @${igHandle}] Raw JSON received that failed parsing:`, JSON.stringify(rawJson, null, 2).substring(0, 1000));
-      return { error: 'Failed to parse Instagram data. The API structure might have changed, or the profile is inaccessible.' };
+    while (['READY', 'RUNNING'].includes(actorStatus) && retries < MAX_POLL_RETRIES) {
+      await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
+      retries++;
+      console.log(`[APIFY ACTION] Polling run status for ${runId} (Attempt ${retries}/${MAX_POLL_RETRIES})`);
+
+      const statusFetchResponse = await fetch(`${APIFY_BASE_URL}/acts/${ACTOR_ID}/runs/${runId}?token=${APIFY_TOKEN}`, { cache: 'no-store' });
+      if (!statusFetchResponse.ok) {
+        console.warn(`[APIFY ACTION WARNING] Failed to fetch run status for ${runId}. Status: ${statusFetchResponse.status}. Will continue polling.`);
+        // Optionally, break if status fetching fails multiple times
+        continue; 
+      }
+      
+      const parsedStatus = ApifyRunStatusResponseSchema.safeParse(await statusFetchResponse.json());
+      if (!parsedStatus.success) {
+        console.warn(`[APIFY ACTION WARNING] Failed to parse run status for ${runId}. Will continue polling. Error:`, parsedStatus.error.errors);
+        continue;
+      }
+      actorStatus = parsedStatus.data.data.status;
+      console.log(`[APIFY ACTION] Run ${runId} status: ${actorStatus}`);
+    }
+
+    if (actorStatus !== 'SUCCEEDED') {
+      console.error(`[APIFY ACTION ERROR] Actor run ${runId} for ${igHandle} did not succeed. Final status: ${actorStatus}.`);
+      return { error: `Apify: Actor run for ${igHandle} did not succeed. Status: ${actorStatus}. This could be due to an invalid username, private profile, or actor issue.` };
+    }
+
+    // 3. Get dataset items
+    console.log(`[APIFY ACTION] Fetching dataset items from ${datasetId} for run ${runId}.`);
+    const datasetItemsResponse = await fetch(`${APIFY_BASE_URL}/datasets/${datasetId}/items?token=${APIFY_TOKEN}&format=json&clean=1&limit=1`, { cache: 'no-store' });
+
+    if (!datasetItemsResponse.ok) {
+      let errorBodyText = `Status: ${datasetItemsResponse.status} ${datasetItemsResponse.statusText}.`;
+      try {
+        const errorData = await datasetItemsResponse.json();
+        errorBodyText = `Apify: Failed to fetch dataset items - ${errorData?.error?.message || datasetItemsResponse.statusText}`;
+        console.error(`[APIFY ACTION ERROR] Failed to fetch dataset items. Status: ${datasetItemsResponse.status}. Body:`, errorData);
+      } catch (e) {
+         console.error(`[APIFY ACTION ERROR] Failed to fetch dataset items and parse error body. Status: ${datasetItemsResponse.status}.`);
+      }
+      return { error: errorBodyText };
+    }
+
+    const results: unknown[] = await datasetItemsResponse.json();
+
+    if (!Array.isArray(results) || results.length === 0) {
+      console.warn(`[APIFY ACTION WARNING] No data returned from Apify actor for ${igHandle}. Actor might have found no public data or profile is private/non-existent.`);
+      return { error: `Apify: No data returned from actor for @${igHandle}. The profile might be private, non-existent, or the actor found no public information.` };
+    }
+
+    const parsedProfile = ApifyInstagramProfileSchema.safeParse(results[0]);
+
+    if (!parsedProfile.success) {
+      console.error(`[APIFY ACTION ERROR] Failed to parse profile data from Apify for ${igHandle}:`, parsedProfile.error.errors);
+      console.error(`[APIFY ACTION ERROR] Raw data received:`, JSON.stringify(results[0]).substring(0,1000));
+      return { error: `Apify: Failed to parse profile data for @${igHandle}. Actor output structure might have changed.` };
     }
     
-    const data = parsedResponse.data;
+    const profileData = parsedProfile.data;
 
-    // Check for Instagram's own error indicators even in a 200 OK response
-    if (data.status === 'fail' || data.error_type) {
-        const igErrorMessage = data.message || data.error_type || 'Unknown Instagram error after 200 OK';
-        console.warn(`[SERVER ACTION IG-ERROR @${igHandle}] Instagram API indicated an issue: ${igErrorMessage}. Raw data: ${JSON.stringify(data).substring(0,500)}`);
-        return { error: `Could not fetch data for @${igHandle}. Instagram message: ${igErrorMessage}` };
-    }
-    
-    if (!data.graphql || !data.graphql.user) {
-        if (data.message) { 
-             console.warn(`[SERVER ACTION NO-USER-DATA @${igHandle}] Instagram API message: ${data.message}`);
-             return { error: data.message.includes("login") ? `Profile @${igHandle} may require login or is private.` : `Could not fetch data for @${igHandle}. IG message: ${data.message}` };
-        }
-        console.warn(`[SERVER ACTION NO-USER-DATA @${igHandle}] No user data found in GraphQL response. Raw: ${JSON.stringify(data, null, 2).substring(0,500)}`);
-        return { error: `No user data found for @${igHandle}. The profile may be private or inaccessible.` };
-    }
-
-    const userData = data.graphql.user;
-    const followerCount = userData.edge_followed_by.count;
-    const postCount = userData.edge_owner_to_timeline_media.count;
-    const recentPosts = userData.edge_owner_to_timeline_media.edges?.slice(0, 3) || [];
+    const followerCount = profileData.followersCount ?? 0;
+    const postCount = profileData.postsCount ?? 0;
+    const recentPosts = profileData.latestPosts?.slice(0, 3) || [];
 
     let totalLikes = 0;
     let totalComments = 0;
@@ -172,16 +190,24 @@ export async function fetchInstagramMetrics(
 
     if (recentPosts.length > 0) {
       for (const post of recentPosts) {
-        totalLikes += post.node.edge_liked_by.count;
-        totalComments += post.node.edge_media_to_comment.count;
-        validPostsCount++;
+        if (post.likesCount !== null && post.likesCount !== undefined) {
+          totalLikes += post.likesCount;
+        }
+        if (post.commentsCount !== null && post.commentsCount !== undefined) {
+          totalComments += post.commentsCount;
+        }
+        // Consider a post valid for averaging if it has either likes or comments data.
+        // Actor might return null for these if it couldn't fetch them.
+        if (post.likesCount !== null || post.commentsCount !== null) {
+             validPostsCount++;
+        }
       }
     }
     
     const avgLikes = validPostsCount > 0 ? parseFloat((totalLikes / validPostsCount).toFixed(1)) : 0;
     const avgComments = validPostsCount > 0 ? parseFloat((totalComments / validPostsCount).toFixed(1)) : 0;
 
-    console.log(`[SERVER ACTION SUCCESS @${igHandle}] Metrics: Followers ${followerCount}, Posts ${postCount}, AvgLikes ${avgLikes}, AvgComments ${avgComments}`);
+    console.log(`[APIFY ACTION SUCCESS @${igHandle}] Metrics: Followers ${followerCount}, Posts ${postCount}, AvgLikes ${avgLikes}, AvgComments ${avgComments}`);
     return {
       data: {
         followerCount,
@@ -192,12 +218,8 @@ export async function fetchInstagramMetrics(
     };
 
   } catch (error: any) {
-    console.error(`[SERVER ACTION CRITICAL-ERROR @${igHandle}] Unexpected error during fetchInstagramMetrics:`, error.message);
-    console.error(`[SERVER ACTION CRITICAL-ERROR @${igHandle}] Error stack:`, error.stack);
-    if (error instanceof SyntaxError) { 
-        return { error: `Received invalid JSON response from Instagram for @${igHandle}. Endpoint might be down or request blocked.` };
-    }
-    return { error: `An unexpected error occurred while fetching metrics for @${igHandle}: ${error.message || 'Unknown error'}` };
+    console.error(`[APIFY ACTION CRITICAL-ERROR @${igHandle}] Unexpected error during Apify fetchInstagramMetrics:`, error.message);
+    console.error(`[APIFY ACTION CRITICAL-ERROR @${igHandle}] Error stack:`, error.stack);
+    return { error: `Apify: An unexpected error occurred while fetching metrics for @${igHandle}: ${error.message || 'Unknown error'}` };
   }
 }
-
