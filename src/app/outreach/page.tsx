@@ -93,6 +93,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
         const formattedProspect = {
             ...initialFormData, 
             ...prospect,
+            status: prospect.status, // Explicitly set status to prevent reset
             followerCount: prospect.followerCount === undefined || prospect.followerCount === null ? undefined : Number(prospect.followerCount),
             postCount: prospect.postCount === undefined || prospect.postCount === null ? undefined : Number(prospect.postCount),
             avgLikes: prospect.avgLikes === undefined || prospect.avgLikes === null ? undefined : Number(prospect.avgLikes),
@@ -107,6 +108,9 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
             bioSummary: prospect.bioSummary || null, 
             linkSent: prospect.linkSent || false,
             carouselOffered: prospect.carouselOffered || false,
+            lastMessageSnippet: prospect.lastMessageSnippet || null,
+            lastScriptSent: prospect.lastScriptSent || null,
+            nextStep: prospect.nextStep || null,
         };
       setFormData(formattedProspect);
     } else {
@@ -148,7 +152,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
     }
     setIsFetchingMetrics(true);
     try {
-      const result = await fetchInstagramMetrics(formData.instagramHandle);
+      const result = await fetchInstagramMetrics(formData.instagramHandle.trim());
       if (result.error) {
         toast({ title: "Metrics Fetch Failed", description: result.error, variant: "destructive", duration: 8000 });
       } else if (result.data) {
@@ -507,6 +511,8 @@ export default function OutreachPage() {
     { label: "Cold Outreach DM", type: "Cold Outreach DM" },
     { label: "Warm Follow-Up DM", type: "Warm Follow-Up DM" },
     { label: "Audit Delivery Message", type: "Audit Delivery Message" },
+    { label: "Send Reminder", type: "Send Reminder" },
+    { label: "Soft Close", type: "Soft Close" },
   ];
 
   const fetchProspects = useCallback(async () => {
@@ -640,10 +646,10 @@ export default function OutreachPage() {
         businessTypeOther: prospect.businessTypeOther?.trim() || null,
         
         accountStage: prospect.accountStage || null,
-        followerCount: prospect.followerCount === null ? undefined : prospect.followerCount,
-        postCount: prospect.postCount === null ? undefined : prospect.postCount,
-        avgLikes: prospect.avgLikes === null ? undefined : prospect.avgLikes,
-        avgComments: prospect.avgComments === null ? undefined : prospect.avgComments,
+        followerCount: prospect.followerCount === null || prospect.followerCount === undefined ? null : prospect.followerCount,
+        postCount: prospect.postCount === null || prospect.postCount === undefined ? null : prospect.postCount,
+        avgLikes: prospect.avgLikes === null || prospect.avgLikes === undefined ? null : prospect.avgLikes,
+        avgComments: prospect.avgComments === null || prospect.avgComments === undefined ? null : prospect.avgComments,
 
         painPoints: prospect.painPoints || [],
         goals: prospect.goals || [],
@@ -752,6 +758,11 @@ export default function OutreachPage() {
   if (!user && !authLoading) {
     return <div className="flex justify-center items-center h-screen"><p>Redirecting to login...</p></div>;
   }
+
+  const handleOpenEditProspectForm = (prospect: OutreachProspect) => {
+    setEditingProspect(prospect);
+    setIsFormOpen(true);
+  };
 
   return (
     <div className="space-y-6">
@@ -919,7 +930,7 @@ export default function OutreachPage() {
                                 ))}
                             </DropdownMenuContent>
                           </DropdownMenu>
-                           <Button variant="ghost" size="icon" onClick={() => { setEditingProspect(prospect); setIsFormOpen(true); }} aria-label={`Edit prospect ${prospect.name}`}>
+                           <Button variant="ghost" size="icon" onClick={() => handleOpenEditProspectForm(prospect)} aria-label={`Edit prospect ${prospect.name}`}>
                             <Edit className="h-4 w-4" />
                              <span className="sr-only">Edit Prospect</span>
                           </Button>

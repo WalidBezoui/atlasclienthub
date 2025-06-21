@@ -19,6 +19,8 @@ const GenerateContextualScriptInputSchema = z.object({
     "Cold Outreach DM",
     "Warm Follow-Up DM",
     "Audit Delivery Message",
+    "Send Reminder",
+    "Soft Close",
   ]).describe("The type of script to generate."),
 
   // Section 1: Basic Prospect Info (from guide)
@@ -109,7 +111,7 @@ The message MUST build trust, show relevance, remove skepticism about the studio
 ---
 **SCRIPT GENERATION LOGIC**
 
-**IF the lead status is 'To Contact' or 'Cold' (this is a NEW lead), follow this structure:**
+**IF the script type is "Cold Outreach DM" OR the lead status is 'To Contact' or 'Cold' (this is a NEW lead), follow this structure:**
 
 **A. Personalized Opening:**
    - Start with a warm greeting (e.g., "Hey {{#if clientName}}{{clientName}}{{else if businessName}}{{businessName}}{{else}}{{clientHandle}}{{/if}}! 👋").
@@ -132,7 +134,7 @@ The message MUST build trust, show relevance, remove skepticism about the studio
 
 ---
 
-**IF the lead status is 'Warm', 'Replied', or 'Interested' (this is a FOLLOW-UP), adapt the structure:**
+**IF the script type is "Warm Follow-Up DM" OR the lead status is 'Warm', 'Replied', or 'Interested' (this is a FOLLOW-UP), adapt the structure:**
 
 **A. Re-engage Gently:**
    - Refer back to your last interaction.
@@ -149,6 +151,38 @@ The message MUST build trust, show relevance, remove skepticism about the studio
    - If they showed interest, make the next step easy.
    - Example: "If you're still interested, just give me the word and I'll get it to you this week!"
    - If it's a cold follow-up, repeat the soft CTA: "Would you be open to me sending it over?"
+
+---
+
+**IF the script type is "Send Reminder", follow this structure (for prospects who haven't replied after a few days):**
+
+**A. Gentle Re-engagement:**
+   - Start with a friendly, low-pressure opener.
+   - Example: "Hey {{clientName}}, just wanted to quickly resurface my message from last week..."
+
+**B. Reiterate the Offer Briefly:**
+   - Remind them of the value without being pushy.
+   - Example: "...about the free 3-point audit for {{businessName}}. No pressure at all, just thought it might be helpful!"
+
+**C. Soft CTA:**
+   - End with a simple, easy-to-answer question.
+   - Example: "Let me know if you'd be open to it! 🙂"
+
+---
+
+**IF the script type is "Soft Close", follow this structure (for prospects who are not interested or have ghosted):**
+
+**A. Acknowledge and Respect Their Position:**
+   - Start by acknowledging that it might not be the right time. Be graceful.
+   - Example: "Hey {{clientName}}, no worries at all if now isn't the right time for the audit."
+
+**B. Leave the Door Open (Future Value):**
+   - Offer future help without any immediate expectation. This maintains a positive relationship.
+   - Example: "I'll leave it with you! If you ever want a fresh pair of eyes on your IG strategy in the future, just give me a shout."
+
+**C. Wish Them Well:**
+   - End on a positive and genuine note.
+   - Example: "Wishing you all the best with {{businessName}}!"
 
 ---
 

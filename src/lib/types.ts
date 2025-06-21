@@ -128,8 +128,8 @@ export type MonthlyActivity = {
 };
 
 // For Script Snippets
-export type ScriptSnippetType = "Cold Outreach DM" | "Warm Follow-Up DM" | "Audit Delivery Message" | "Closing Pitch" | "Caption Idea" | "Other";
-export const SCRIPT_SNIPPET_TYPES: ScriptSnippetType[] = ["Cold Outreach DM", "Warm Follow-Up DM", "Audit Delivery Message", "Closing Pitch", "Caption Idea", "Other"];
+export type ScriptSnippetType = "Cold Outreach DM" | "Warm Follow-Up DM" | "Audit Delivery Message" | "Closing Pitch" | "Caption Idea" | "Other" | "Send Reminder" | "Soft Close";
+export const SCRIPT_SNIPPET_TYPES: ScriptSnippetType[] = ["Cold Outreach DM", "Warm Follow-Up DM", "Audit Delivery Message", "Closing Pitch", "Caption Idea", "Other", "Send Reminder", "Soft Close"];
 
 export type ScriptSnippet = {
   id: string;
@@ -141,4 +141,3 @@ export type ScriptSnippet = {
   tags?: string[] | null; // Optional: for categorization
   createdAt: string; // ISO date string
 };
-

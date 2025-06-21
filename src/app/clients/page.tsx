@@ -55,6 +55,7 @@ function ClientForm({ client, onSave, onCancel }: { client?: Client, onSave: (cl
         const formattedClient = {
             ...initialFormDataState, 
             ...client,
+            status: client.status, // Explicitly set status to prevent reset
             joinedDate: client.joinedDate ? new Date(client.joinedDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
         };
       setFormData(formattedClient);
