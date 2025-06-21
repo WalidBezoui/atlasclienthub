@@ -919,16 +919,18 @@ export default function OutreachPage() {
 
                              <Tooltip>
                                 <TooltipTrigger asChild>
-                                     <div className={cn(!canCreateAudit && "cursor-not-allowed w-full")}>
-                                        <Link href={canCreateAudit ? auditLink : '#'} passHref legacyBehavior>
-                                            <DropdownMenuItem
-                                                disabled={!canCreateAudit}
-                                                className={cn(!canCreateAudit && "cursor-not-allowed")}
-                                                onClick={(e) => !canCreateAudit && e.preventDefault()}
-                                            >
-                                                <GraduationCap className="mr-2 h-4 w-4" /> Create Audit
-                                            </DropdownMenuItem>
-                                        </Link>
+                                    <div className={cn(!canCreateAudit && "cursor-not-allowed w-full")}>
+                                        <DropdownMenuItem
+                                            disabled={!canCreateAudit}
+                                            className={cn("w-full", !canCreateAudit && "cursor-not-allowed")}
+                                            onClick={() => {
+                                                if (canCreateAudit) {
+                                                    router.push(auditLink);
+                                                }
+                                            }}
+                                        >
+                                            <GraduationCap className="mr-2 h-4 w-4" /> Create Audit
+                                        </DropdownMenuItem>
                                     </div>
                                 </TooltipTrigger>
                                 {!canCreateAudit && <TooltipContent><p>Status must be 'Ready for Audit'</p></TooltipContent>}
