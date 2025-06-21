@@ -92,18 +92,44 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
 
   useEffect(() => {
     if (prospect) {
-      // Create a new state object by merging the initial state with the prospect's data.
-      // This ensures all fields are present and prevents accidental resets.
-      const prospectDataWithDefaults = {
-        ...initialFormData,
-        ...prospect, // The prospect data will overwrite the initial defaults.
-      };
-      
-      // Now, set the final state, ensuring dates are formatted correctly for the input fields.
+      // Explicitly set each field from the prospect prop to avoid issues with spread overriding.
       setFormData({
-        ...prospectDataWithDefaults,
+        name: prospect.name || '',
+        email: prospect.email || null,
+        instagramHandle: prospect.instagramHandle || null,
+        businessName: prospect.businessName || null,
+        website: prospect.website || null,
+        prospectLocation: prospect.prospectLocation || null,
+        industry: prospect.industry || null,
+        visualStyle: prospect.visualStyle || null,
+        bioSummary: prospect.bioSummary || null,
+        businessType: prospect.businessType || null,
+        businessTypeOther: prospect.businessTypeOther || null,
+        accountStage: prospect.accountStage || null,
+        followerCount: prospect.followerCount === undefined ? null : prospect.followerCount,
+        postCount: prospect.postCount === undefined ? null : prospect.postCount,
+        avgLikes: prospect.avgLikes === undefined ? null : prospect.avgLikes,
+        avgComments: prospect.avgComments === undefined ? null : prospect.avgComments,
+        painPoints: prospect.painPoints || [],
+        goals: prospect.goals || [],
+        status: prospect.status || 'To Contact', // The crucial part
+        source: prospect.source || null,
         lastContacted: prospect.lastContacted ? new Date(prospect.lastContacted).toISOString().split('T')[0] : null,
         followUpDate: prospect.followUpDate ? new Date(prospect.followUpDate).toISOString().split('T')[0] : null,
+        followUpNeeded: prospect.followUpNeeded || false,
+        offerInterest: prospect.offerInterest || [],
+        uniqueNote: prospect.uniqueNote || null,
+        helpStatement: prospect.helpStatement || null,
+        tonePreference: prospect.tonePreference || null,
+        notes: prospect.notes || null,
+        lastMessageSnippet: prospect.lastMessageSnippet || null,
+        lastScriptSent: prospect.lastScriptSent || null,
+        linkSent: prospect.linkSent || false,
+        carouselOffered: prospect.carouselOffered || false,
+        nextStep: prospect.nextStep || null,
+        conversationHistory: prospect.conversationHistory || null,
+        id: 'id' in prospect ? prospect.id : undefined, // Keep id if it exists
+        userId: 'userId' in prospect ? prospect.userId : undefined, // Keep userId if it exists
       });
     } else {
       setFormData(initialFormData);

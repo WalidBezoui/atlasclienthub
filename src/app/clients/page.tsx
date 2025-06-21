@@ -53,12 +53,19 @@ function ClientForm({ client, onSave, onCancel }: { client?: Client, onSave: (cl
 
   useEffect(() => {
     if (client) {
-      const clientDataWithDefaults = {
-        ...initialFormDataState,
-        ...client,
+      setFormData({
+        name: client.name || '',
+        contactEmail: client.contactEmail || '',
+        companyName: client.companyName || '',
+        status: client.status || 'Active',
         joinedDate: client.joinedDate ? new Date(client.joinedDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-      };
-      setFormData(clientDataWithDefaults);
+        contactPhone: client.contactPhone || '',
+        instagramHandle: client.instagramHandle || '',
+        notes: client.notes || '',
+        industry: client.industry || '',
+        id: 'id' in client ? client.id : undefined,
+        userId: 'userId' in client ? client.userId : undefined,
+      });
     } else {
       setFormData(initialFormDataState);
     }
@@ -271,8 +278,7 @@ export default function ClientsPage() {
     setClientContext({
       clientHandle: client.instagramHandle,
       clientName: client.name,
-      // industry is not in Client type, add a placeholder or consider adding it to the type
-      clientIndustry: "Not Specified", // Placeholder for industry
+      clientIndustry: client.industry || "Not Specified",
     });
     setIsFormOpen(true);
   };
