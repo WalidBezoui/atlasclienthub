@@ -92,53 +92,49 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
 
   useEffect(() => {
     if (prospect) {
-      // Explicitly set each field to prevent state initialization issues and ensure data loads correctly.
+      // Explicitly populate every field from the prospect prop to avoid state inconsistencies.
+      // This is a more robust way to ensure the form is correctly initialized for editing.
       const populatedData = {
-        name: prospect.name || '',
-        email: prospect.email || null,
-        instagramHandle: prospect.instagramHandle || null,
-        businessName: prospect.businessName || null,
-        website: prospect.website || null,
-        prospectLocation: prospect.prospectLocation || null,
-        industry: prospect.industry || null,
-        visualStyle: prospect.visualStyle || null,
-        bioSummary: prospect.bioSummary || null,
-        businessType: prospect.businessType || null,
-        businessTypeOther: prospect.businessTypeOther || null,
-        accountStage: prospect.accountStage || null,
-        followerCount: prospect.followerCount === null || prospect.followerCount === undefined ? null : prospect.followerCount,
-        postCount: prospect.postCount === null || prospect.postCount === undefined ? null : prospect.postCount,
-        avgLikes: prospect.avgLikes === null || prospect.avgLikes === undefined ? null : prospect.avgLikes,
-        avgComments: prospect.avgComments === null || prospect.avgComments === undefined ? null : prospect.avgComments,
-        painPoints: prospect.painPoints || [],
-        goals: prospect.goals || [],
-        status: prospect.status || 'To Contact',
-        source: prospect.source || null,
+        id: prospect.id,
+        userId: prospect.userId,
+        name: prospect.name ?? '',
+        email: prospect.email ?? null,
+        instagramHandle: prospect.instagramHandle ?? null,
+        businessName: prospect.businessName ?? null,
+        website: prospect.website ?? null,
+        prospectLocation: prospect.prospectLocation ?? null,
+        industry: prospect.industry ?? null,
+        visualStyle: prospect.visualStyle ?? null,
+        bioSummary: prospect.bioSummary ?? null,
+        businessType: prospect.businessType ?? null,
+        businessTypeOther: prospect.businessTypeOther ?? null,
+        accountStage: prospect.accountStage ?? null,
+        followerCount: prospect.followerCount ?? null,
+        postCount: prospect.postCount ?? null,
+        avgLikes: prospect.avgLikes ?? null,
+        avgComments: prospect.avgComments ?? null,
+        painPoints: prospect.painPoints ?? [],
+        goals: prospect.goals ?? [],
+        status: prospect.status ?? 'To Contact',
+        source: prospect.source ?? null,
         lastContacted: prospect.lastContacted ? new Date(prospect.lastContacted).toISOString().split('T')[0] : null,
         followUpDate: prospect.followUpDate ? new Date(prospect.followUpDate).toISOString().split('T')[0] : null,
-        followUpNeeded: prospect.followUpNeeded || false,
-        offerInterest: prospect.offerInterest || [],
-        uniqueNote: prospect.uniqueNote || null,
-        helpStatement: prospect.helpStatement || null,
-        tonePreference: prospect.tonePreference || null,
-        notes: prospect.notes || null,
-        lastMessageSnippet: prospect.lastMessageSnippet || null,
-        lastScriptSent: prospect.lastScriptSent || null,
-        linkSent: prospect.linkSent || false,
-        carouselOffered: prospect.carouselOffered || false,
-        nextStep: prospect.nextStep || null,
-        conversationHistory: prospect.conversationHistory || null,
+        followUpNeeded: prospect.followUpNeeded ?? false,
+        offerInterest: prospect.offerInterest ?? [],
+        uniqueNote: prospect.uniqueNote ?? null,
+        helpStatement: prospect.helpStatement ?? null,
+        tonePreference: prospect.tonePreference ?? null,
+        notes: prospect.notes ?? null,
+        lastMessageSnippet: prospect.lastMessageSnippet ?? null,
+        lastScriptSent: prospect.lastScriptSent ?? null,
+        linkSent: prospect.linkSent ?? false,
+        carouselOffered: prospect.carouselOffered ?? false,
+        nextStep: prospect.nextStep ?? null,
+        conversationHistory: prospect.conversationHistory ?? null,
       };
-
-      // If prospect is a full prospect object (editing), add id and userId
-      if ('id' in prospect) {
-          (populatedData as OutreachProspect).id = prospect.id;
-          (populatedData as OutreachProspect).userId = prospect.userId;
-      }
-      
       setFormData(populatedData);
-
     } else {
+      // For new prospects, reset to the initial empty state.
       setFormData(initialFormData);
     }
   }, [prospect]);
@@ -204,7 +200,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
         toast({ title: "Error", description: "Prospect Name is required.", variant: "destructive" });
         return;
     }
-    if (!formData.email?.trim() && !formData.instagramHandle?.trim()) {
+    if (!('instagramHandle' in formData && formData.instagramHandle) && !('email' in formData && formData.email)) {
         toast({ title: "Error", description: "Either Email or Instagram Handle is required.", variant: "destructive" });
         return;
     }
@@ -1065,7 +1061,3 @@ export default function OutreachPage() {
     </div>
   );
 }
-
-    
-
-    
