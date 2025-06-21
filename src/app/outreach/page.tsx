@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, BotMessageSquare, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileTextIcon } from 'lucide-react';
+import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, BotMessageSquare, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileTextIcon, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardDescription as CardFormDescription } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
@@ -151,7 +151,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
           postCount: result.data!.postCount,
           avgLikes: result.data!.avgLikes,
           avgComments: result.data!.avgComments,
-           accountStage: result.data!.followerCount < 1000 ? "New (0–1k followers)" : result.data!.followerCount < 10000 ? "Growing (1k–10k followers)" : "Established (>10k followers)", // Example logic
+           accountStage: result.data!.followerCount < 1000 ? "Growing (100–1k followers)" : result.data!.followerCount < 10000 ? "Established (>1k followers)" : "Established (>1k followers)", // Corrected logic
         }));
         toast({ title: "Metrics Fetched!", description: `Data for @${formData.instagramHandle} updated.` });
       }
@@ -463,6 +463,7 @@ export default function OutreachPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilters, setStatusFilters] = useState<Set<OutreachLeadStage>>(new Set(OUTREACH_LEAD_STAGE_OPTIONS));
+  const [showOnlyNeedsFollowUp, setShowOnlyNeedsFollowUp] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProspect, setEditingProspect] = useState<OutreachProspect | undefined>(undefined);
   
@@ -511,48 +512,12 @@ export default function OutreachPage() {
         return;
     }
     try {
-        const dataToSave: Partial<OutreachProspect> & { userId?: string } = { ...initialFormData, ...prospectData };
+        await ('id' in prospectData && prospectData.id 
+          ? updateProspect(prospectData.id, prospectData as Partial<OutreachProspect>) 
+          : addProspect(prospectData as Omit<OutreachProspect, 'id'|'userId'>));
 
-        (Object.keys(dataToSave) as Array<keyof OutreachProspect>).forEach(key => {
-            if (dataToSave[key] === '' && 
-                key !== 'name' && 
-                key !== 'email' && 
-                key !== 'instagramHandle' && 
-                key !== 'businessName' &&
-                key !== 'website' &&
-                key !== 'businessTypeOther' &&
-                key !== 'uniqueNote' &&
-                key !== 'helpStatement' &&
-                key !== 'notes' &&
-                key !== 'industry' &&
-                key !== 'visualStyle' &&
-                key !== 'bioSummary'
-             ) {
-                (dataToSave as any)[key] = null;
-            }
-             if (key === 'followerCount' || key === 'postCount' || key === 'avgLikes' || key === 'avgComments') {
-                if (dataToSave[key] === '' || dataToSave[key] === null || isNaN(Number(dataToSave[key]))) {
-                    (dataToSave as any)[key] = null;
-                } else {
-                    (dataToSave as any)[key] = Number(dataToSave[key]);
-                }
-            }
-        });
+        toast({ title: "Success", description: `Prospect ${prospectData.name} saved.` });
         
-        dataToSave.painPoints = dataToSave.painPoints || [];
-        dataToSave.goals = dataToSave.goals || [];
-        dataToSave.offerInterest = dataToSave.offerInterest || [];
-        dataToSave.followUpNeeded = dataToSave.followUpNeeded || false;
-
-
-        if ('id' in dataToSave && dataToSave.id) { 
-            const { id, userId, ...updateData } = dataToSave as OutreachProspect;
-            await updateProspect(id, updateData);
-            toast({ title: "Success", description: `Prospect ${dataToSave.name} updated.` });
-        } else { 
-            await addProspect(dataToSave as Omit<OutreachProspect, 'id'|'userId'>);
-            toast({ title: "Success", description: `Prospect ${dataToSave.name} added.` });
-        }
         fetchProspects(); 
         setIsFormOpen(false);
         setEditingProspect(undefined);
@@ -589,6 +554,21 @@ export default function OutreachPage() {
       fetchProspects(); 
     }
   };
+
+  const handleFollowUpToggle = async (prospectId: string, currentFollowUpStatus: boolean) => {
+    if (!user) return;
+    const newFollowUpStatus = !currentFollowUpStatus;
+    setProspects(prev => prev.map(p => p.id === prospectId ? { ...p, followUpNeeded: newFollowUpStatus } : p));
+    try {
+        await updateProspect(prospectId, { followUpNeeded: newFollowUpStatus });
+        toast({ title: "Follow-up status updated." });
+    } catch (error) {
+        console.error("Error updating follow-up status:", error);
+        setProspects(prev => prev.map(p => p.id === prospectId ? { ...p, followUpNeeded: currentFollowUpStatus } : p));
+        toast({ title: "Error", description: "Failed to update status.", variant: "destructive" });
+    }
+  };
+
 
   const toggleStatusFilter = (status: OutreachLeadStage) => {
     setStatusFilters(prev => {
@@ -689,15 +669,18 @@ export default function OutreachPage() {
     }
   };
 
-  const filteredProspects = prospects.filter(prospect => 
-    (prospect.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+  const filteredProspects = prospects.filter(prospect => {
+    const searchTermMatch = (prospect.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
      (prospect.email && prospect.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
      (prospect.businessName && prospect.businessName.toLowerCase().includes(searchTerm.toLowerCase())) ||
      (prospect.industry && prospect.industry.toLowerCase().includes(searchTerm.toLowerCase())) ||
      (prospect.instagramHandle && prospect.instagramHandle.toLowerCase().includes(searchTerm.toLowerCase()))
-    ) &&
-    (statusFilters.size === OUTREACH_LEAD_STAGE_OPTIONS.length || statusFilters.has(prospect.status))
-  );
+    );
+    const statusMatch = (statusFilters.size === OUTREACH_LEAD_STAGE_OPTIONS.length || statusFilters.has(prospect.status));
+    const followUpMatch = !showOnlyNeedsFollowUp || !!prospect.followUpNeeded;
+
+    return searchTermMatch && statusMatch && followUpMatch;
+  });
 
   const getStatusBadgeVariant = (status: OutreachLeadStage): "default" | "secondary" | "outline" | "destructive" => {
     switch (status) {
@@ -707,8 +690,7 @@ export default function OutreachPage() {
       case 'Interested': return 'default';
       case 'Warm': return 'secondary';
       case 'Cold':
-      case 'Follow-up': 
-      case 'To Contact': return 'outline'; 
+      case 'To Contact': return 'outline';
       case 'Closed - Lost':
       case 'Not Interested': return 'destructive';
       default: return 'default';
@@ -788,6 +770,14 @@ export default function OutreachPage() {
                     {status}
                   </DropdownMenuCheckboxItem>
                 ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuCheckboxItem
+                    checked={showOnlyNeedsFollowUp}
+                    onCheckedChange={setShowOnlyNeedsFollowUp}
+                >
+                    <Star className="mr-2 h-4 w-4 text-yellow-500" />
+                    Needs Follow-up Only
+                </DropdownMenuCheckboxItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -810,18 +800,35 @@ export default function OutreachPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-[50px]">Follow</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead className="hidden md:table-cell">IG Handle</TableHead>
                     <TableHead className="hidden sm:table-cell">Business Type</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="hidden lg:table-cell">Source</TableHead>
                     <TableHead className="hidden lg:table-cell">Last Contacted</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                     {filteredProspects.length > 0 ? filteredProspects.map((prospect) => (
-                      <TableRow key={prospect.id}>
+                      <TableRow key={prospect.id} data-follow-up={!!prospect.followUpNeeded} className="data-[follow-up=true]:bg-primary/10">
+                        <TableCell>
+                          <TooltipProvider>
+                              <Tooltip>
+                                  <TooltipTrigger asChild>
+                                      <Checkbox
+                                          checked={!!prospect.followUpNeeded}
+                                          onCheckedChange={() => handleFollowUpToggle(prospect.id, !!prospect.followUpNeeded)}
+                                          aria-label={`Mark ${prospect.name} as needs follow-up`}
+                                          className="h-5 w-5"
+                                      />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                      <p>Mark for Follow-up</p>
+                                  </TooltipContent>
+                              </Tooltip>
+                          </TooltipProvider>
+                        </TableCell>
                         <TableCell className="font-medium">{prospect.name}</TableCell>
                         <TableCell className="hidden md:table-cell text-muted-foreground">{prospect.instagramHandle || '-'}</TableCell>
                         <TableCell className="hidden sm:table-cell text-muted-foreground">{prospect.businessType === "Other" && prospect.businessTypeOther ? prospect.businessTypeOther : prospect.businessType || '-'}</TableCell>
@@ -842,7 +849,6 @@ export default function OutreachPage() {
                             </SelectContent>
                           </Select>
                         </TableCell>
-                        <TableCell className="hidden lg:table-cell text-muted-foreground">{prospect.source || '-'}</TableCell>
                         <TableCell className="hidden lg:table-cell text-muted-foreground">
                           {prospect.lastContacted ? new Date(prospect.lastContacted).toLocaleDateString() : '-'}
                         </TableCell>
@@ -923,4 +929,3 @@ export default function OutreachPage() {
     </div>
   );
 }
-
