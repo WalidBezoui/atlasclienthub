@@ -96,6 +96,7 @@ export type OutreachProspect = {
   linkSent?: boolean | null; // e.g., a link to an audit was sent
   carouselOffered?: boolean | null; // e.g., a free sample was offered
   nextStep?: string | null; // Manually defined next action
+  conversationHistory?: string | null;
 
   notes?: string | null;
 };

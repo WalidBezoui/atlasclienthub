@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, BotMessageSquare, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileTextIcon, Star, Calendar, MessageCircle, FileUp, ListTodo } from 'lucide-react';
+import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, BotMessageSquare, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileTextIcon, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardDescription as CardFormDescription } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
@@ -81,6 +81,7 @@ const initialFormData: Omit<OutreachProspect, 'id' | 'userId'> = {
     linkSent: false,
     carouselOffered: false,
     nextStep: null,
+    conversationHistory: null,
 };
 
 function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProspect, onSave: (prospectData: Omit<OutreachProspect, 'id' | 'userId'> | OutreachProspect) => void, onCancel: () => void }) {
@@ -89,30 +90,14 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
   const [isFetchingMetrics, setIsFetchingMetrics] = useState(false);
 
   useEffect(() => {
-     if (prospect) {
-        const formattedProspect = {
-            ...initialFormData, 
-            ...prospect,
-            status: prospect.status, // Explicitly set status to prevent reset
-            followerCount: prospect.followerCount === undefined || prospect.followerCount === null ? undefined : Number(prospect.followerCount),
-            postCount: prospect.postCount === undefined || prospect.postCount === null ? undefined : Number(prospect.postCount),
-            avgLikes: prospect.avgLikes === undefined || prospect.avgLikes === null ? undefined : Number(prospect.avgLikes),
-            avgComments: prospect.avgComments === undefined || prospect.avgComments === null ? undefined : Number(prospect.avgComments),
-            painPoints: prospect.painPoints || [],
-            goals: prospect.goals || [],
-            offerInterest: prospect.offerInterest || [],
-            lastContacted: prospect.lastContacted ? new Date(prospect.lastContacted).toISOString().split('T')[0] : undefined,
-            followUpDate: prospect.followUpDate ? new Date(prospect.followUpDate).toISOString().split('T')[0] : undefined,
-            followUpNeeded: prospect.followUpNeeded || false,
-            visualStyle: prospect.visualStyle || null, 
-            bioSummary: prospect.bioSummary || null, 
-            linkSent: prospect.linkSent || false,
-            carouselOffered: prospect.carouselOffered || false,
-            lastMessageSnippet: prospect.lastMessageSnippet || null,
-            lastScriptSent: prospect.lastScriptSent || null,
-            nextStep: prospect.nextStep || null,
-        };
-      setFormData(formattedProspect);
+    if (prospect) {
+      // Don't use initialFormData spread when editing. Construct from the prospect prop directly.
+      // This prevents any default values from overriding existing ones.
+      setFormData({
+        ...prospect,
+        lastContacted: prospect.lastContacted ? new Date(prospect.lastContacted).toISOString().split('T')[0] : null,
+        followUpDate: prospect.followUpDate ? new Date(prospect.followUpDate).toISOString().split('T')[0] : null,
+      });
     } else {
       setFormData(initialFormData);
     }
@@ -470,6 +455,13 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
               <Input id="lastScriptSent" name="lastScriptSent" placeholder="e.g., 'Initial Cold DM'" value={formData.lastScriptSent || ''} onChange={handleChange} />
             </div>
             <div className="pt-2">
+                <Label htmlFor="conversationHistory">Conversation History</Label>
+                <Textarea id="conversationHistory" name="conversationHistory" placeholder="Paste conversation history here, e.g.,&#10;Me: Hey!&#10;Them: Hi, thanks for reaching out." value={formData.conversationHistory || ''} onChange={handleChange} rows={6} />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Provide the conversation context for the AI to generate better replies.
+                </p>
+            </div>
+            <div className="pt-2">
               <Label htmlFor="notes">General Notes (Optional)</Label>
               <Textarea id="notes" name="notes" value={formData.notes || ''} onChange={handleChange} />
             </div>
@@ -665,11 +657,12 @@ export default function OutreachPage() {
         additionalNotes: prospect.notes?.trim() || null,
 
         // New CRM fields
-        lastMessageSnippet: prospect.lastMessageSnippet || null,
-        lastScriptSent: prospect.lastScriptSent || null,
+        lastMessageSnippet: prospect.lastMessageSnippet?.trim() || null,
+        lastScriptSent: prospect.lastScriptSent?.trim() || null,
         linkSent: prospect.linkSent || false,
         carouselOffered: prospect.carouselOffered || false,
-        nextStep: prospect.nextStep || null,
+        nextStep: prospect.nextStep?.trim() || null,
+        conversationHistory: prospect.conversationHistory?.trim() || null,
     };
     setCurrentScriptGenerationInput(input);
 
@@ -834,8 +827,8 @@ export default function OutreachPage() {
                     checked={showOnlyNeedsFollowUp}
                     onCheckedChange={setShowOnlyNeedsFollowUp}
                 >
-                    <Star className="mr-2 h-4 w-4 text-yellow-500" />
-                    Needs Follow-up Only
+                  <Star className="mr-2 h-4 w-4 text-yellow-500" />
+                  Needs Follow-up Only
                 </DropdownMenuCheckboxItem>
               </DropdownMenuContent>
             </DropdownMenu>

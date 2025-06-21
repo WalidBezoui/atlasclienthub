@@ -54,6 +54,7 @@ const GenerateContextualScriptInputSchema = z.object({
   linkSent: z.boolean().nullable().optional().describe("Whether a link (e.g., to an audit) has been sent."),
   carouselOffered: z.boolean().nullable().optional().describe("Whether a free sample (like a carousel post) was offered."),
   nextStep: z.string().nullable().optional().describe("The defined next step for this prospect."),
+  conversationHistory: z.string().nullable().optional().describe("The history of the conversation so far."),
 
 
   // Offer Interest & Tone (from guide)
@@ -108,6 +109,12 @@ The message MUST build trust, show relevance, remove skepticism about the studio
 - **Lead Status**: {{leadStatus}}
 {{#if lastMessageSnippet}}- **Last Message from Them**: "{{lastMessageSnippet}}"{{/if}}
 
+**CONVERSATION HISTORY:**
+{{#if conversationHistory}}
+{{{conversationHistory}}}
+{{else}}
+No conversation history provided.
+{{/if}}
 ---
 **SCRIPT GENERATION LOGIC**
 
@@ -134,14 +141,14 @@ The message MUST build trust, show relevance, remove skepticism about the studio
 
 ---
 
-**IF the script type is "Warm Follow-Up DM" OR the lead status is 'Warm', 'Replied', or 'Interested' (this is a FOLLOW-UP), adapt the structure:**
+**IF the script type is "Warm Follow-Up DM" OR the lead status is 'Warm', 'Replied', or 'Interested' (this is a FOLLOW-UP), adapt the structure. Base your response on the provided Conversation History and the Last Message Snippet.**
 
 **A. Re-engage Gently:**
-   - Refer back to your last interaction.
-   - If they replied, acknowledge their message.
+   - Refer back to the last interaction based on the conversation history.
+   - If they replied, acknowledge their message directly.
    - Example if they said "for free!!?": "Hey {{clientName}}! Just following up on the free audit. And yes, absolutely no strings attached! We do this for a select few brands we're excited about."
    - Example if they said "I'll check later": "Hey {{clientName}}, hope you had a great week! Just wanted to gently follow up on the free audit I mentioned. No pressure at all, just wanted to see if you had any thoughts."
-   - If they haven't replied at all (status is 'Warm' but no reply): "Hey {{clientName}}, just wanted to quickly resurface my message from last week about a free 3-point audit for {{businessName}}. Let me know if it's something you'd be open to! 🙂"
+   - If they haven't replied at all (status is 'Warm' but no reply and no convo history): "Hey {{clientName}}, just wanted to quickly resurface my message from last week about a free 3-point audit for {{businessName}}. Let me know if it's something you'd be open to! 🙂"
 
 **B. Reiterate Value (Briefly):**
    - Remind them of the core benefit of the "{{offerType}}".

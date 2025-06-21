@@ -183,6 +183,7 @@ export const addProspect = async (prospectData: Omit<OutreachProspect, 'id' | 'u
     linkSent: prospectData.linkSent || false,
     carouselOffered: prospectData.carouselOffered || false,
     nextStep: prospectData.nextStep || null,
+    conversationHistory: prospectData.conversationHistory || null,
 
     notes: prospectData.notes || null,
   };
@@ -233,6 +234,7 @@ export const getProspects = async (): Promise<OutreachProspect[]> => {
       linkSent: data.linkSent,
       carouselOffered: data.carouselOffered,
       nextStep: data.nextStep,
+      conversationHistory: data.conversationHistory,
       notes: data.notes,
     };
     return prospect;
@@ -282,7 +284,7 @@ export const updateProspect = async (id: string, prospectData: Partial<Omit<Outr
 
   const optionalStringFields: (keyof OutreachProspect)[] = [
       'instagramHandle', 'businessName', 'website', 'industry', 'email', 'visualStyle', 'bioSummary', 
-      'businessTypeOther', 'uniqueNote', 'helpStatement', 'notes', 'lastMessageSnippet', 'lastScriptSent', 'nextStep'
+      'businessTypeOther', 'uniqueNote', 'helpStatement', 'notes', 'lastMessageSnippet', 'lastScriptSent', 'nextStep', 'conversationHistory'
   ];
   optionalStringFields.forEach(field => {
       if (prospectData.hasOwnProperty(field)) {

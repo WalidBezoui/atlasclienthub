@@ -52,13 +52,12 @@ function ClientForm({ client, onSave, onCancel }: { client?: Client, onSave: (cl
 
   useEffect(() => {
     if (client) {
-        const formattedClient = {
-            ...initialFormDataState, 
-            ...client,
-            status: client.status, // Explicitly set status to prevent reset
-            joinedDate: client.joinedDate ? new Date(client.joinedDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
-        };
-      setFormData(formattedClient);
+      // Don't use initialFormDataState spread when editing. Construct from the client prop directly.
+      // This prevents any default values from overriding existing ones.
+      setFormData({
+        ...client,
+        joinedDate: client.joinedDate ? new Date(client.joinedDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      });
     } else {
       setFormData(initialFormDataState);
     }
