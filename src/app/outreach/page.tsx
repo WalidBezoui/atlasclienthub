@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, BotMessageSquare, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileTextIcon, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText } from 'lucide-react';
+import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, BotMessageSquare, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileTextIcon, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardDescription as CardFormDescription } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
@@ -92,13 +92,12 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
 
   useEffect(() => {
     if (prospect) {
-      const prospectDataWithDefaults = {
-        ...initialFormData,
+      // Explicitly set form data from the prospect object to prevent status reset bug.
+      setFormData({
         ...prospect,
         lastContacted: prospect.lastContacted ? new Date(prospect.lastContacted).toISOString().split('T')[0] : null,
         followUpDate: prospect.followUpDate ? new Date(prospect.followUpDate).toISOString().split('T')[0] : null,
-      };
-      setFormData(prospectDataWithDefaults);
+      });
     } else {
       setFormData(initialFormData);
     }
@@ -456,12 +455,6 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
               <Input id="lastScriptSent" name="lastScriptSent" placeholder="e.g., 'Initial Cold DM'" value={formData.lastScriptSent || ''} onChange={handleChange} />
             </div>
             <div className="pt-2">
-               <ConversationTracker
-                    value={formData.conversationHistory}
-                    onChange={(newValue) => setFormData(prev => ({ ...prev, conversationHistory: newValue }))}
-                />
-            </div>
-            <div className="pt-2">
               <Label htmlFor="notes">General Notes (Optional)</Label>
               <Textarea id="notes" name="notes" value={formData.notes || ''} onChange={handleChange} />
             </div>
@@ -497,6 +490,11 @@ export default function OutreachPage() {
   const [currentScriptGenerationInput, setCurrentScriptGenerationInput] = useState<GenerateContextualScriptInput | null>(null);
   const [currentProspectForScript, setCurrentProspectForScript] = useState<OutreachProspect | null>(null);
   
+  const [isConversationModalOpen, setIsConversationModalOpen] = useState(false);
+  const [currentProspectForConversation, setCurrentProspectForConversation] = useState<OutreachProspect | null>(null);
+  const [conversationHistoryContent, setConversationHistoryContent] = useState<string | null>(null);
+  const [isSavingConversation, setIsSavingConversation] = useState(false);
+
   const { toast } = useToast();
 
   const scriptMenuItems: Array<{label: string, type: GenerateContextualScriptInput['scriptType']}> = [
@@ -757,6 +755,28 @@ export default function OutreachPage() {
     setIsFormOpen(true);
   };
 
+  const handleOpenConversationModal = (prospect: OutreachProspect) => {
+    setCurrentProspectForConversation(prospect);
+    setConversationHistoryContent(prospect.conversationHistory || null);
+    setIsConversationModalOpen(true);
+  };
+
+  const handleSaveConversation = async () => {
+    if (!currentProspectForConversation) return;
+    setIsSavingConversation(true);
+    try {
+      await updateProspect(currentProspectForConversation.id, { conversationHistory: conversationHistoryContent });
+      toast({ title: 'Conversation Saved', description: `History for ${currentProspectForConversation.name} updated.` });
+      setIsConversationModalOpen(false);
+      setCurrentProspectForConversation(null);
+      fetchProspects(); // Refetch to get the latest data
+    } catch (error: any) {
+      toast({ title: 'Save Failed', description: error.message || 'Could not save conversation.', variant: 'destructive' });
+    } finally {
+      setIsSavingConversation(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -788,6 +808,28 @@ export default function OutreachPage() {
             onSave={handleSaveProspect} 
             onCancel={() => { setIsFormOpen(false); setEditingProspect(undefined);}} 
           />
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={isConversationModalOpen} onOpenChange={setIsConversationModalOpen}>
+        <DialogContent className="sm:max-w-xl md:max-w-2xl h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="font-headline">Conversation with {currentProspectForConversation?.name}</DialogTitle>
+            <DialogDescription>Track and manage your conversation history. This context is used by the AI.</DialogDescription>
+          </DialogHeader>
+          <div className="flex-grow min-h-0">
+            <ConversationTracker
+              value={conversationHistoryContent}
+              onChange={(newValue) => setConversationHistoryContent(newValue)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsConversationModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveConversation} disabled={isSavingConversation}>
+              {isSavingConversation ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              Save Conversation
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -903,6 +945,10 @@ export default function OutreachPage() {
                           {getDaysSinceText(prospect.lastContacted)}
                         </TableCell>
                         <TableCell className="text-right space-x-0.5">
+                           <Button variant="ghost" size="icon" onClick={() => handleOpenConversationModal(prospect)} aria-label={`Manage conversation for ${prospect.name}`}>
+                            <MessagesSquare className="h-4 w-4" />
+                            <span className="sr-only">Manage Conversation</span>
+                          </Button>
                            <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="icon" aria-label={`Generate script for ${prospect.name}`}>

@@ -70,7 +70,7 @@ export function ConversationTracker({ value, onChange }: ConversationTrackerProp
   };
 
   return (
-    <Card className="flex flex-col h-[500px]">
+    <Card className="flex flex-col h-full">
       <CardHeader className="p-4 border-b">
         <CardTitle className="text-base font-semibold">Conversation History</CardTitle>
       </CardHeader>
