@@ -45,6 +45,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { fetchInstagramMetrics } from '@/app/actions/fetch-ig-metrics';
+import { ConversationTracker } from '@/components/outreach/conversation-tracker';
 
 
 const initialFormData: Omit<OutreachProspect, 'id' | 'userId'> = {
@@ -91,13 +92,13 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
 
   useEffect(() => {
     if (prospect) {
-      // Don't use initialFormData spread when editing. Construct from the prospect prop directly.
-      // This prevents any default values from overriding existing ones.
-      setFormData({
+      const prospectDataWithDefaults = {
+        ...initialFormData,
         ...prospect,
         lastContacted: prospect.lastContacted ? new Date(prospect.lastContacted).toISOString().split('T')[0] : null,
         followUpDate: prospect.followUpDate ? new Date(prospect.followUpDate).toISOString().split('T')[0] : null,
-      });
+      };
+      setFormData(prospectDataWithDefaults);
     } else {
       setFormData(initialFormData);
     }
@@ -455,11 +456,10 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
               <Input id="lastScriptSent" name="lastScriptSent" placeholder="e.g., 'Initial Cold DM'" value={formData.lastScriptSent || ''} onChange={handleChange} />
             </div>
             <div className="pt-2">
-                <Label htmlFor="conversationHistory">Conversation History</Label>
-                <Textarea id="conversationHistory" name="conversationHistory" placeholder="Paste conversation history here, e.g.,&#10;Me: Hey!&#10;Them: Hi, thanks for reaching out." value={formData.conversationHistory || ''} onChange={handleChange} rows={6} />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Provide the conversation context for the AI to generate better replies.
-                </p>
+               <ConversationTracker
+                    value={formData.conversationHistory}
+                    onChange={(newValue) => setFormData(prev => ({ ...prev, conversationHistory: newValue }))}
+                />
             </div>
             <div className="pt-2">
               <Label htmlFor="notes">General Notes (Optional)</Label>
@@ -776,7 +776,7 @@ export default function OutreachPage() {
             setEditingProspect(undefined);
           }
       }}>
-        <DialogContent className="sm:max-w-lg md:max-w-2xl">
+        <DialogContent className="sm:max-w-lg md:max-w-3xl">
           <DialogHeader className="mb-2">
             <DialogTitle className="font-headline text-2xl">{editingProspect ? 'Edit Prospect Details' : 'Add New Prospect'}</DialogTitle>
             <DialogDescription> 

@@ -43,6 +43,7 @@ const initialFormDataState = {
   instagramHandle: '',
   contactPhone: '',
   notes: '',
+  industry: '',
 };
 
 
@@ -52,12 +53,12 @@ function ClientForm({ client, onSave, onCancel }: { client?: Client, onSave: (cl
 
   useEffect(() => {
     if (client) {
-      // Don't use initialFormDataState spread when editing. Construct from the client prop directly.
-      // This prevents any default values from overriding existing ones.
-      setFormData({
+      const clientDataWithDefaults = {
+        ...initialFormDataState,
         ...client,
         joinedDate: client.joinedDate ? new Date(client.joinedDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-      });
+      };
+      setFormData(clientDataWithDefaults);
     } else {
       setFormData(initialFormDataState);
     }
@@ -103,6 +104,10 @@ function ClientForm({ client, onSave, onCancel }: { client?: Client, onSave: (cl
       <div>
         <Label htmlFor="instagramHandle">Instagram Handle (Optional)</Label>
         <Input id="instagramHandle" name="instagramHandle" placeholder="@username" value={formData.instagramHandle || ''} onChange={handleChange} />
+      </div>
+       <div>
+        <Label htmlFor="industry">Industry (Optional)</Label>
+        <Input id="industry" name="industry" value={formData.industry || ''} onChange={handleChange} />
       </div>
       <div>
         <Label htmlFor="status">Status *</Label>
