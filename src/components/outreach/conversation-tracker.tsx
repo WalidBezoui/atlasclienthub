@@ -8,7 +8,9 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { User, Bot } from 'lucide-react';
+import { User, Bot, MoreHorizontal, Edit, Trash2, Repeat } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Textarea } from '@/components/ui/textarea';
 
 interface ConversationTrackerProps {
   value: string | null;
@@ -20,53 +22,113 @@ type Message = {
   content: string;
 };
 
+const parseMessages = (value: string | null): Message[] => {
+  if (!value) return [];
+  return value
+    .split('\n')
+    .filter(line => line.trim() !== '')
+    .map(line => {
+      if (line.startsWith('Me: ')) {
+        return { sender: 'Me', content: line.substring(4) };
+      }
+      if (line.startsWith('Them: ')) {
+        return { sender: 'Prospect', content: line.substring(6) };
+      }
+      return { sender: 'Prospect', content: line };
+    })
+    .filter(msg => msg.content.trim() !== '');
+};
+
+const serializeMessages = (messages: Message[]): string => {
+  return messages.map(msg => {
+    const prefix = msg.sender === 'Me' ? 'Me' : 'Them';
+    return `${prefix}: ${msg.content}`;
+  }).join('\n');
+};
+
+
 export function ConversationTracker({ value, onChange }: ConversationTrackerProps) {
+  const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [sender, setSender] = useState<'Me' | 'Prospect'>('Me');
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editingText, setEditingText] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  const messages: Message[] = useMemo(() => {
-    if (!value) return [];
-    return value
-      .split('\n')
-      .filter(line => line.trim() !== '')
-      .map(line => {
-        if (line.startsWith('Me: ')) {
-          return { sender: 'Me', content: line.substring(4) };
-        }
-        if (line.startsWith('Them: ')) {
-            return { sender: 'Prospect', content: line.substring(6) };
-        }
-        // Fallback for lines without a prefix
-        return { sender: 'Prospect', content: line };
-      })
-      .filter(msg => msg.content.trim() !== '');
+  useEffect(() => {
+    setMessages(parseMessages(value));
   }, [value]);
 
-  useEffect(() => {
-    // Scroll to bottom when messages change
-    if (scrollAreaRef.current) {
+  const scrollToBottom = () => {
+    setTimeout(() => {
+       if (scrollAreaRef.current) {
         const viewport = scrollAreaRef.current.querySelector('div[data-radix-scroll-area-viewport]');
         if (viewport) {
-            viewport.scrollTop = viewport.scrollHeight;
+          viewport.scrollTop = viewport.scrollHeight;
         }
-    }
+      }
+    }, 100);
+  };
+  
+  useEffect(() => {
+    scrollToBottom();
   }, [messages]);
+  
+  const triggerChange = (updatedMessages: Message[]) => {
+      setMessages(updatedMessages);
+      onChange(serializeMessages(updatedMessages));
+  };
 
   const handleAddMessage = () => {
     if (!newMessage.trim()) return;
-    const prefix = sender === 'Me' ? 'Me' : 'Them';
-    const newLine = `${prefix}: ${newMessage}`;
-    const newValue = value ? `${value}\n${newLine}` : newLine;
-    onChange(newValue);
+    const newMessages = [...messages, { sender, content: newMessage.trim() }];
+    triggerChange(newMessages);
     setNewMessage('');
+    scrollToBottom();
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleAddMessage();
+      if (editingIndex !== null) {
+        handleSaveEdit();
+      } else {
+        handleAddMessage();
+      }
     }
+  };
+
+  const handleDeleteMessage = (index: number) => {
+    const newMessages = messages.filter((_, i) => i !== index);
+    triggerChange(newMessages);
+  };
+  
+  const handleSwitchSender = (index: number) => {
+    const newMessages = messages.map((msg, i) => {
+        if (i === index) {
+            return { ...msg, sender: msg.sender === 'Me' ? 'Prospect' : 'Me' };
+        }
+        return msg;
+    });
+    triggerChange(newMessages);
+  };
+
+  const handleStartEdit = (index: number) => {
+    setEditingIndex(index);
+    setEditingText(messages[index].content);
+  };
+
+  const handleSaveEdit = () => {
+    if (editingIndex === null) return;
+    const newMessages = messages.map((msg, i) => {
+        if (i === editingIndex) {
+            return { ...msg, content: editingText };
+        }
+        return msg;
+    });
+    triggerChange(newMessages);
+    setEditingIndex(null);
+    setEditingText('');
   };
 
   return (
@@ -75,26 +137,75 @@ export function ConversationTracker({ value, onChange }: ConversationTrackerProp
         <CardTitle className="text-base font-semibold">Conversation History</CardTitle>
       </CardHeader>
       <ScrollArea className="flex-grow p-4 bg-muted/20" ref={scrollAreaRef}>
-        <div className="space-y-4">
+        <div className="space-y-1">
           {messages.length > 0 ? (
             messages.map((message, index) => (
               <div
                 key={index}
-                className={cn('flex items-end gap-2', {
+                className={cn('flex items-end gap-2 group w-full', {
                   'justify-end': message.sender === 'Me',
                   'justify-start': message.sender === 'Prospect',
                 })}
               >
+                {message.sender === 'Prospect' && (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                            <DropdownMenuItem onClick={() => handleStartEdit(index)}><Edit className="mr-2 h-4 w-4"/>Edit</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleSwitchSender(index)}><Repeat className="mr-2 h-4 w-4"/>Switch to Me</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDeleteMessage(index)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4"/>Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
+
                 {message.sender === 'Prospect' && <User className="h-6 w-6 text-muted-foreground shrink-0" />}
+
                 <div
                   className={cn('rounded-lg px-3 py-2 text-sm break-words max-w-[80%]', {
                     'bg-primary text-primary-foreground': message.sender === 'Me',
                     'bg-card border': message.sender === 'Prospect',
                   })}
                 >
-                  {message.content}
+                  {editingIndex === index ? (
+                     <div className="flex flex-col gap-2 w-64">
+                      <Textarea 
+                        value={editingText}
+                        onChange={(e) => setEditingText(e.target.value)}
+                        onKeyDown={handleKeyPress}
+                        autoFocus
+                        rows={3}
+                        className="bg-background text-foreground"
+                      />
+                      <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="sm" onClick={() => setEditingIndex(null)}>Cancel</Button>
+                          <Button size="sm" onClick={handleSaveEdit}>Save</Button>
+                      </div>
+                     </div>
+                  ) : (
+                    message.content
+                  )}
                 </div>
+
                  {message.sender === 'Me' && <Bot className="h-6 w-6 text-muted-foreground shrink-0" />}
+                 
+                {message.sender === 'Me' && (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleStartEdit(index)}><Edit className="mr-2 h-4 w-4"/>Edit</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleSwitchSender(index)}><Repeat className="mr-2 h-4 w-4"/>Switch to Prospect</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDeleteMessage(index)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4"/>Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
               </div>
             ))
           ) : (
@@ -110,10 +221,11 @@ export function ConversationTracker({ value, onChange }: ConversationTrackerProp
                 placeholder="Type message..."
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
+                onKeyDown={handleKeyPress}
                 className="flex-grow"
+                disabled={editingIndex !== null}
             />
-            <Button onClick={handleAddMessage}>Add</Button>
+            <Button onClick={handleAddMessage} disabled={editingIndex !== null}>Add</Button>
         </div>
         <RadioGroup value={sender} onValueChange={(val: 'Me' | 'Prospect') => setSender(val)} className="flex items-center space-x-4">
             <Label>Sender:</Label>
