@@ -86,58 +86,55 @@ const initialFormData: Omit<OutreachProspect, 'id' | 'userId'> = {
 };
 
 function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProspect, onSave: (prospectData: Omit<OutreachProspect, 'id' | 'userId'> | OutreachProspect) => void, onCancel: () => void }) {
-  const [formData, setFormData] = useState<Omit<OutreachProspect, 'id' | 'userId'> | OutreachProspect>(initialFormData);
   const { toast } = useToast();
   const [isFetchingMetrics, setIsFetchingMetrics] = useState(false);
-
-  useEffect(() => {
-    if (prospect) {
-      // Explicitly populate every field from the prospect prop to avoid state inconsistencies.
-      // This is a more robust way to ensure the form is correctly initialized for editing.
-      const populatedData = {
-        id: prospect.id,
-        userId: prospect.userId,
-        name: prospect.name ?? '',
-        email: prospect.email ?? null,
-        instagramHandle: prospect.instagramHandle ?? null,
-        businessName: prospect.businessName ?? null,
-        website: prospect.website ?? null,
-        prospectLocation: prospect.prospectLocation ?? null,
-        industry: prospect.industry ?? null,
-        visualStyle: prospect.visualStyle ?? null,
-        bioSummary: prospect.bioSummary ?? null,
-        businessType: prospect.businessType ?? null,
-        businessTypeOther: prospect.businessTypeOther ?? null,
-        accountStage: prospect.accountStage ?? null,
-        followerCount: prospect.followerCount ?? null,
-        postCount: prospect.postCount ?? null,
-        avgLikes: prospect.avgLikes ?? null,
-        avgComments: prospect.avgComments ?? null,
-        painPoints: prospect.painPoints ?? [],
-        goals: prospect.goals ?? [],
-        status: prospect.status ?? 'To Contact',
-        source: prospect.source ?? null,
-        lastContacted: prospect.lastContacted ? new Date(prospect.lastContacted).toISOString().split('T')[0] : null,
-        followUpDate: prospect.followUpDate ? new Date(prospect.followUpDate).toISOString().split('T')[0] : null,
-        followUpNeeded: prospect.followUpNeeded ?? false,
-        offerInterest: prospect.offerInterest ?? [],
-        uniqueNote: prospect.uniqueNote ?? null,
-        helpStatement: prospect.helpStatement ?? null,
-        tonePreference: prospect.tonePreference ?? null,
-        notes: prospect.notes ?? null,
-        lastMessageSnippet: prospect.lastMessageSnippet ?? null,
-        lastScriptSent: prospect.lastScriptSent ?? null,
-        linkSent: prospect.linkSent ?? false,
-        carouselOffered: prospect.carouselOffered ?? false,
-        nextStep: prospect.nextStep ?? null,
-        conversationHistory: prospect.conversationHistory ?? null,
-      };
-      setFormData(populatedData);
-    } else {
-      // For new prospects, reset to the initial empty state.
-      setFormData(initialFormData);
+  
+  const getInitialState = useCallback(() => {
+    if (!prospect) {
+      return initialFormData;
     }
+    // Deep copy and normalize the prospect data for the form state
+    return {
+      ...initialFormData,
+      ...prospect,
+      name: prospect.name ?? '',
+      email: prospect.email ?? null,
+      instagramHandle: prospect.instagramHandle ?? null,
+      businessName: prospect.businessName ?? null,
+      website: prospect.website ?? null,
+      prospectLocation: prospect.prospectLocation ?? null,
+      industry: prospect.industry ?? null,
+      visualStyle: prospect.visualStyle ?? null,
+      bioSummary: prospect.bioSummary ?? null,
+      businessType: prospect.businessType ?? null,
+      businessTypeOther: prospect.businessTypeOther ?? null,
+      accountStage: prospect.accountStage ?? null,
+      followerCount: prospect.followerCount ?? null,
+      postCount: prospect.postCount ?? null,
+      avgLikes: prospect.avgLikes ?? null,
+      avgComments: prospect.avgComments ?? null,
+      painPoints: prospect.painPoints ?? [],
+      goals: prospect.goals ?? [],
+      status: prospect.status ?? 'To Contact',
+      source: prospect.source ?? null,
+      lastContacted: prospect.lastContacted ? new Date(prospect.lastContacted).toISOString().split('T')[0] : null,
+      followUpDate: prospect.followUpDate ? new Date(prospect.followUpDate).toISOString().split('T')[0] : null,
+      followUpNeeded: prospect.followUpNeeded ?? false,
+      offerInterest: prospect.offerInterest ?? [],
+      uniqueNote: prospect.uniqueNote ?? null,
+      helpStatement: prospect.helpStatement ?? null,
+      tonePreference: prospect.tonePreference ?? null,
+      notes: prospect.notes ?? null,
+      lastMessageSnippet: prospect.lastMessageSnippet ?? null,
+      lastScriptSent: prospect.lastScriptSent ?? null,
+      linkSent: prospect.linkSent ?? false,
+      carouselOffered: prospect.carouselOffered ?? false,
+      nextStep: prospect.nextStep ?? null,
+      conversationHistory: prospect.conversationHistory ?? null,
+    };
   }, [prospect]);
+
+  const [formData, setFormData] = useState(getInitialState());
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -204,7 +201,10 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
         toast({ title: "Error", description: "Either Email or Instagram Handle is required.", variant: "destructive" });
         return;
     }
-    onSave(formData);
+    
+    // When saving, if it's an existing prospect, make sure to include the id.
+    const dataToSave = prospect?.id ? { ...formData, id: prospect.id, userId: prospect.userId } : formData;
+    onSave(dataToSave);
   };
 
   return (
@@ -785,6 +785,11 @@ export default function OutreachPage() {
   if (!user && !authLoading) {
     return <div className="flex justify-center items-center h-screen"><p>Redirecting to login...</p></div>;
   }
+  
+  const handleOpenNewProspectForm = () => {
+    setEditingProspect(undefined);
+    setIsFormOpen(true);
+  };
 
   const handleOpenEditProspectForm = (prospect: OutreachProspect) => {
     setEditingProspect(prospect);
@@ -820,7 +825,7 @@ export default function OutreachPage() {
         description="Track and manage your cold outreach efforts with detailed prospect information."
         icon={Send}
         actions={
-          <Button onClick={() => { setEditingProspect(undefined); setIsFormOpen(true); }}>
+          <Button onClick={handleOpenNewProspectForm}>
             <PlusCircle className="mr-2 h-4 w-4" /> Add Prospect
           </Button>
         }
@@ -840,6 +845,7 @@ export default function OutreachPage() {
             </DialogDescription>
           </DialogHeader>
           <ProspectForm 
+            key={editingProspect?.id || 'new'}
             prospect={editingProspect} 
             onSave={handleSaveProspect} 
             onCancel={() => { setIsFormOpen(false); setEditingProspect(undefined);}} 
