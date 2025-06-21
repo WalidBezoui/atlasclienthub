@@ -92,7 +92,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
 
   useEffect(() => {
     if (prospect) {
-      // Explicitly set each field to prevent state initialization issues.
+      // Explicitly set each field to prevent state initialization issues and ensure data loads correctly.
       const populatedData = {
         name: prospect.name || '',
         email: prospect.email || null,
@@ -112,7 +112,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
         avgComments: prospect.avgComments === null || prospect.avgComments === undefined ? null : prospect.avgComments,
         painPoints: prospect.painPoints || [],
         goals: prospect.goals || [],
-        status: prospect.status || 'To Contact', // The critical line
+        status: prospect.status || 'To Contact',
         source: prospect.source || null,
         lastContacted: prospect.lastContacted ? new Date(prospect.lastContacted).toISOString().split('T')[0] : null,
         followUpDate: prospect.followUpDate ? new Date(prospect.followUpDate).toISOString().split('T')[0] : null,
@@ -1065,5 +1065,7 @@ export default function OutreachPage() {
     </div>
   );
 }
+
+    
 
     

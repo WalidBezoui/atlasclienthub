@@ -53,12 +53,12 @@ function ClientForm({ client, onSave, onCancel }: { client?: Client, onSave: (cl
 
   useEffect(() => {
     if (client) {
-      // Explicitly set each field to prevent state initialization issues.
+      // Explicitly set each field to prevent state initialization issues and ensure data loads correctly.
       const populatedData = {
         name: client.name || '',
         contactEmail: client.contactEmail || '',
         companyName: client.companyName || '',
-        status: client.status || 'Active', // Critical line for client status
+        status: client.status || 'Active',
         joinedDate: client.joinedDate 
             ? new Date(client.joinedDate).toISOString().split('T')[0]
             : new Date().toISOString().split('T')[0],
@@ -443,3 +443,5 @@ export default function ClientsPage() {
     </div>
   );
 }
+
+    
