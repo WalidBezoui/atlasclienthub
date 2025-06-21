@@ -97,6 +97,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
   
   const [formData, setFormData] = useState(() => {
     const sourceData = prospect || initialFormData;
+    // Explicitly map all fields to ensure correct initialization.
     return {
       name: sourceData.name ?? '',
       instagramHandle: sourceData.instagramHandle ?? null,
@@ -905,7 +906,7 @@ export default function OutreachPage() {
                             )}
                         </DropdownMenuGroup>
                         
-                        {(canAskQualifier || scriptMenuItems.length > 0) && <DropdownMenuSeparator />}
+                        <DropdownMenuSeparator />
                         
                         <DropdownMenuGroup>
                            <DropdownMenuLabel>Generate Scripts</DropdownMenuLabel>
