@@ -92,9 +92,16 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
 
   useEffect(() => {
     if (prospect) {
-      // Explicitly set form data from the prospect object to prevent status reset bug.
+      // Create a new state object by merging the initial state with the prospect's data.
+      // This ensures all fields are present and prevents accidental resets.
+      const prospectDataWithDefaults = {
+        ...initialFormData,
+        ...prospect, // The prospect data will overwrite the initial defaults.
+      };
+      
+      // Now, set the final state, ensuring dates are formatted correctly for the input fields.
       setFormData({
-        ...prospect,
+        ...prospectDataWithDefaults,
         lastContacted: prospect.lastContacted ? new Date(prospect.lastContacted).toISOString().split('T')[0] : null,
         followUpDate: prospect.followUpDate ? new Date(prospect.followUpDate).toISOString().split('T')[0] : null,
       });
