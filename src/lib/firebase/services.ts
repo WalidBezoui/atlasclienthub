@@ -177,13 +177,16 @@ export const addProspect = async (prospectData: Omit<OutreachProspect, 'id' | 'u
     helpStatement: prospectData.helpStatement || null,
     tonePreference: prospectData.tonePreference || null,
     
-    // New CRM fields
     lastMessageSnippet: prospectData.lastMessageSnippet || null,
     lastScriptSent: prospectData.lastScriptSent || null,
     linkSent: prospectData.linkSent || false,
     carouselOffered: prospectData.carouselOffered || false,
     nextStep: prospectData.nextStep || null,
     conversationHistory: prospectData.conversationHistory || null,
+
+    qualifierQuestion: prospectData.qualifierQuestion || null,
+    qualifierSentAt: processDateForFirestore(prospectData.qualifierSentAt),
+    qualifierReply: prospectData.qualifierReply || null,
 
     notes: prospectData.notes || null,
   };
@@ -235,6 +238,9 @@ export const getProspects = async (): Promise<OutreachProspect[]> => {
       carouselOffered: data.carouselOffered,
       nextStep: data.nextStep,
       conversationHistory: data.conversationHistory,
+      qualifierQuestion: data.qualifierQuestion,
+      qualifierSentAt: data.qualifierSentAt ? (data.qualifierSentAt as Timestamp).toDate().toISOString() : undefined,
+      qualifierReply: data.qualifierReply,
       notes: data.notes,
     };
     return prospect;
@@ -251,9 +257,11 @@ export const updateProspect = async (id: string, prospectData: Partial<Omit<Outr
   if (prospectData.hasOwnProperty('lastContacted')) {
     dataToUpdate.lastContacted = processDateForFirestore(prospectData.lastContacted);
   }
-
   if (prospectData.hasOwnProperty('followUpDate')) {
     dataToUpdate.followUpDate = processDateForFirestore(prospectData.followUpDate);
+  }
+  if (prospectData.hasOwnProperty('qualifierSentAt')) {
+    dataToUpdate.qualifierSentAt = processDateForFirestore(prospectData.qualifierSentAt);
   }
   
   const numericFields: (keyof OutreachProspect)[] = ['followerCount', 'postCount', 'avgLikes', 'avgComments'];
@@ -284,7 +292,8 @@ export const updateProspect = async (id: string, prospectData: Partial<Omit<Outr
 
   const optionalStringFields: (keyof OutreachProspect)[] = [
       'instagramHandle', 'businessName', 'website', 'industry', 'email', 'visualStyle', 'bioSummary', 
-      'businessTypeOther', 'uniqueNote', 'helpStatement', 'notes', 'lastMessageSnippet', 'lastScriptSent', 'nextStep', 'conversationHistory'
+      'businessTypeOther', 'uniqueNote', 'helpStatement', 'notes', 'lastMessageSnippet', 'lastScriptSent', 'nextStep', 'conversationHistory',
+      'qualifierQuestion', 'qualifierReply'
   ];
   optionalStringFields.forEach(field => {
       if (prospectData.hasOwnProperty(field)) {
@@ -471,9 +480,10 @@ export const getDashboardOverview = async (): Promise<{
   auditsInProgress: number;
   outreachSentThisMonth: number;
   newLeadsThisMonth: number; 
+  awaitingQualifierReply: number;
 }> => {
   const userId = getCurrentUserId();
-  if (!userId) return { activeClients: 0, auditsInProgress: 0, outreachSentThisMonth: 0, newLeadsThisMonth: 0 };
+  if (!userId) return { activeClients: 0, auditsInProgress: 0, outreachSentThisMonth: 0, newLeadsThisMonth: 0, awaitingQualifierReply: 0 };
 
   const now = new Date();
   const currentMonthStartBoundary = startOfDay(startOfMonth(now));
@@ -498,16 +508,20 @@ export const getDashboardOverview = async (): Promise<{
     where('lastContacted', '<=', currentMonthEndTimestamp)
   );
 
+  const awaitingQualifierQuery = query(prospectsCollection, where('userId', '==', userId), where('status', '==', 'Qualifier Sent'));
+
   const [
     clientsSnapshot, 
     auditsSnapshot, 
     outreachSentSnapshot, 
-    newLeadsSnapshot
+    newLeadsSnapshot,
+    awaitingQualifierSnapshot
   ] = await Promise.all([
     getCountFromServer(clientsQuery),
     getCountFromServer(auditsQuery),
     getCountFromServer(outreachSentQuery),
-    getCountFromServer(newLeadsQuery) 
+    getCountFromServer(newLeadsQuery),
+    getCountFromServer(awaitingQualifierQuery),
   ]);
 
   return {
@@ -515,6 +529,7 @@ export const getDashboardOverview = async (): Promise<{
     auditsInProgress: auditsSnapshot.data().count,
     outreachSentThisMonth: outreachSentSnapshot.data().count,
     newLeadsThisMonth: newLeadsSnapshot.data().count,
+    awaitingQualifierReply: awaitingQualifierSnapshot.data().count,
   };
 };
 

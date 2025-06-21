@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { BrainCircuit, Lightbulb, Loader2, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,6 +32,7 @@ const initialFormState = {
 export default function NewAuditPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [instagramHandle, setInstagramHandle] = useState(initialFormState.instagramHandle);
   const [entityName, setEntityName] = useState(initialFormState.entityName);
@@ -42,6 +44,25 @@ export default function NewAuditPage() {
   const [auditStatus, setAuditStatus] = useState<AuditStatus>(initialFormState.auditStatus);
   
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Pre-populate from URL params if available
+    const handle = searchParams.get('handle');
+    const name = searchParams.get('name');
+    const entityId = searchParams.get('entityId'); // You can use this if needed
+    const industry = searchParams.get('industry');
+
+    if (handle) setInstagramHandle(handle);
+    if (name) setEntityName(name);
+    if (handle || name) {
+        setEntityType('Prospect');
+        setQuestionnaireResponses(
+            `Analyzing profile for ${name || ''} (${handle || ''}).\n` +
+            `Industry: ${industry || 'Not specified'}.\n` +
+            `Key areas to focus on: `
+        );
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -112,6 +133,7 @@ export default function NewAuditPage() {
       auditReport,
       status: auditStatus,
       requestedDate: new Date().toISOString(),
+      entityId: searchParams.get('entityId') || undefined,
     };
 
     try {

@@ -1,8 +1,9 @@
 
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, BotMessageSquare, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileTextIcon, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare, Save } from 'lucide-react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, BotMessageSquare, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileTextIcon, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare, Save, FileQuestion, GraduationCap } from 'lucide-react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardDescription as CardFormDescription } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
@@ -14,7 +15,8 @@ import {
   DropdownMenuLabel, 
   DropdownMenuSeparator, 
   DropdownMenuTrigger,
-  DropdownMenuItem
+  DropdownMenuItem,
+  DropdownMenuGroup
 } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -38,7 +40,8 @@ import { LoadingSpinner } from '@/components/shared/loading-spinner';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useScriptContext } from '@/contexts/ScriptContext';
-import { generateContextualScript, type GenerateContextualScriptInput, type GenerateContextualScriptOutput } from '@/ai/flows/generate-contextual-script';
+import { generateContextualScript, type GenerateContextualScriptInput } from '@/ai/flows/generate-contextual-script';
+import { generateQualifierQuestion, type GenerateQualifierInput } from '@/ai/flows/generate-qualifier-question';
 import { ScriptModal } from '@/components/scripts/script-modal';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -83,6 +86,9 @@ const initialFormData: Omit<OutreachProspect, 'id' | 'userId'> = {
     carouselOffered: false,
     nextStep: null,
     conversationHistory: null,
+    qualifierQuestion: null,
+    qualifierSentAt: null,
+    qualifierReply: null,
 };
 
 function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProspect, onSave: (prospectData: Omit<OutreachProspect, 'id' | 'userId'> | OutreachProspect) => void, onCancel: () => void }) {
@@ -90,50 +96,22 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
   const [isFetchingMetrics, setIsFetchingMetrics] = useState(false);
   
   const [formData, setFormData] = useState(() => {
-    if (!prospect) {
-        return initialFormData;
-    }
-    // If a prospect is passed, initialize state with its data. This runs only once per component instance.
-    const sourceData = prospect;
+    const sourceData = prospect || initialFormData;
     const initialState = {
-        name: sourceData.name ?? '',
-        status: sourceData.status ?? 'To Contact',
-        instagramHandle: sourceData.instagramHandle ?? null,
-        businessName: sourceData.businessName ?? null,
-        website: sourceData.website ?? null,
-        prospectLocation: sourceData.prospectLocation ?? null,
-        industry: sourceData.industry ?? null,
-        email: sourceData.email ?? null,
-        visualStyle: sourceData.visualStyle ?? null,
-        bioSummary: sourceData.bioSummary ?? null,
-        businessType: sourceData.businessType ?? null,
-        businessTypeOther: sourceData.businessTypeOther ?? null,
-        accountStage: sourceData.accountStage ?? null,
-        followerCount: sourceData.followerCount ?? null,
-        postCount: sourceData.postCount ?? null,
-        avgLikes: sourceData.avgLikes ?? null,
-        avgComments: sourceData.avgComments ?? null,
+        ...initialFormData, // Start with defaults
+        ...sourceData,     // Override with prospect data
+        // Ensure dates are in YYYY-MM-DD format for the input, or empty string
+        lastContacted: sourceData.lastContacted ? new Date(sourceData.lastContacted).toISOString().split('T')[0] : '',
+        followUpDate: sourceData.followUpDate ? new Date(sourceData.followUpDate).toISOString().split('T')[0] : '',
+        // Ensure arrays are not undefined
         painPoints: sourceData.painPoints ?? [],
         goals: sourceData.goals ?? [],
-        source: sourceData.source ?? null,
-        lastContacted: sourceData.lastContacted ? new Date(sourceData.lastContacted).toISOString().split('T')[0] : null,
-        followUpDate: sourceData.followUpDate ? new Date(sourceData.followUpDate).toISOString().split('T')[0] : null,
-        followUpNeeded: sourceData.followUpNeeded ?? false,
         offerInterest: sourceData.offerInterest ?? [],
-        uniqueNote: sourceData.uniqueNote ?? null,
-        helpStatement: sourceData.helpStatement ?? null,
-        tonePreference: sourceData.tonePreference ?? null,
-        lastMessageSnippet: sourceData.lastMessageSnippet ?? null,
-        lastScriptSent: sourceData.lastScriptSent ?? null,
-        linkSent: sourceData.linkSent ?? false,
-        carouselOffered: sourceData.carouselOffered ?? false,
-        nextStep: sourceData.nextStep ?? null,
-        conversationHistory: sourceData.conversationHistory ?? null,
-        notes: sourceData.notes ?? null,
-        // Carry over id and userId if editing
-        id: sourceData.id,
-        userId: sourceData.userId,
     };
+    if (prospect) {
+        (initialState as OutreachProspect).id = prospect.id;
+        (initialState as OutreachProspect).userId = prospect.userId;
+    }
     return initialState;
   });
 
@@ -181,7 +159,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
           postCount: result.data!.postCount,
           avgLikes: result.data!.avgLikes,
           avgComments: result.data!.avgComments,
-           accountStage: result.data!.followerCount < 1000 ? "Growing (100–1k followers)" : result.data!.followerCount < 10000 ? "Established (>1k followers)" : "Established (>1k followers)", // Corrected logic
+           accountStage: result.data!.followerCount < 1000 ? "Growing (100–1k followers)" : result.data!.followerCount < 10000 ? "Established (>1k followers)" : "Established (>1k followers)",
         }));
         toast({ title: "Metrics Fetched!", description: `Data for @${formData.instagramHandle} updated.` });
       }
@@ -198,12 +176,11 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
         toast({ title: "Error", description: "Prospect Name is required.", variant: "destructive" });
         return;
     }
-    if (!('instagramHandle' in formData && formData.instagramHandle) && !('email' in formData && formData.email)) {
+    if (!formData.instagramHandle && !formData.email) {
         toast({ title: "Error", description: "Either Email or Instagram Handle is required.", variant: "destructive" });
         return;
     }
     
-    // When saving, if it's an existing prospect, make sure to include the id.
     const dataToSave = prospect?.id ? { ...formData, id: prospect.id, userId: prospect.userId } : formData;
     onSave(dataToSave);
   };
@@ -322,19 +299,19 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
                 </div>
                 <div>
                     <Label htmlFor="followerCount">Follower Count</Label>
-                    <Input id="followerCount" name="followerCount" type="number" value={formData.followerCount === undefined || formData.followerCount === null ? '' : formData.followerCount} onChange={handleChange} />
+                    <Input id="followerCount" name="followerCount" type="number" value={formData.followerCount ?? ''} onChange={handleChange} />
                 </div>
                 <div>
                     <Label htmlFor="postCount">Post Count</Label>
-                    <Input id="postCount" name="postCount" type="number" value={formData.postCount === undefined || formData.postCount === null ? '' : formData.postCount} onChange={handleChange} />
+                    <Input id="postCount" name="postCount" type="number" value={formData.postCount ?? ''} onChange={handleChange} />
                 </div>
                 <div>
                     <Label htmlFor="avgLikes">Avg Likes (last 3 posts)</Label>
-                    <Input id="avgLikes" name="avgLikes" type="number" step="0.1" value={formData.avgLikes === undefined || formData.avgLikes === null ? '' : formData.avgLikes} onChange={handleChange} />
+                    <Input id="avgLikes" name="avgLikes" type="number" step="0.1" value={formData.avgLikes ?? ''} onChange={handleChange} />
                 </div>
                 <div>
                     <Label htmlFor="avgComments">Avg Comments (last 3 posts)</Label>
-                    <Input id="avgComments" name="avgComments" type="number" step="0.1" value={formData.avgComments === undefined || formData.avgComments === null ? '' : formData.avgComments} onChange={handleChange} />
+                    <Input id="avgComments" name="avgComments" type="number" step="0.1" value={formData.avgComments ?? ''} onChange={handleChange} />
                 </div>
             </div>
         </CardContent>
@@ -433,10 +410,29 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
         </CardContent>
       </Card>
       <Separator />
+
+      <Card className="pt-4">
+        <CardHeader className="py-2">
+            <DialogTitle className="text-lg font-semibold flex items-center"><FileQuestion className="mr-2 h-5 w-5 text-primary"/>Section 7: Qualifier Details</DialogTitle>
+            <CardFormDescription>Track the pre-audit qualification question and response.</CardFormDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+             <div>
+                <Label htmlFor="qualifierQuestion">Qualifier Question Sent</Label>
+                <Textarea id="qualifierQuestion" name="qualifierQuestion" value={formData.qualifierQuestion || ''} onChange={handleChange} rows={2}/>
+                {formData.qualifierSentAt && <p className="text-xs text-muted-foreground mt-1">Sent on: {new Date(formData.qualifierSentAt).toLocaleString()}</p>}
+            </div>
+             <div>
+                <Label htmlFor="qualifierReply">Prospect's Reply to Qualifier</Label>
+                <Textarea id="qualifierReply" name="qualifierReply" placeholder="Log the prospect's response here..." value={formData.qualifierReply || ''} onChange={handleChange} rows={2}/>
+            </div>
+        </CardContent>
+      </Card>
+      <Separator />
       
       <Card className="pt-4">
         <CardHeader className="py-2">
-            <DialogTitle className="text-lg font-semibold flex items-center"><MessageSquare className="mr-2 h-5 w-5 text-primary"/>Section 7: Offer Interest (If replied)</DialogTitle>
+            <DialogTitle className="text-lg font-semibold flex items-center"><MessageSquare className="mr-2 h-5 w-5 text-primary"/>Section 8: Offer Interest (If replied)</DialogTitle>
             <CardFormDescription>Helps segment what to pitch.</CardFormDescription>
         </CardHeader>
         <CardContent className="space-y-2 columns-1 sm:columns-2">
@@ -456,7 +452,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
 
       <Card className="pt-4">
         <CardHeader className="py-2">
-            <DialogTitle className="text-lg font-semibold flex items-center"><Settings2 className="mr-2 h-5 w-5 text-primary"/>Section 8: Smart Prompts & Notes</DialogTitle>
+            <DialogTitle className="text-lg font-semibold flex items-center"><Settings2 className="mr-2 h-5 w-5 text-primary"/>Section 9: Smart Prompts & Notes</DialogTitle>
             <CardFormDescription>These make the LLM outputs sharper.</CardFormDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -524,14 +520,14 @@ export default function OutreachPage() {
   const [generatedScript, setGeneratedScript] = useState('');
   const [scriptModalTitle, setScriptModalTitle] = useState("Generated Script");
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
-  const [currentScriptGenerationInput, setCurrentScriptGenerationInput] = useState<GenerateContextualScriptInput | null>(null);
   const [currentProspectForScript, setCurrentProspectForScript] = useState<OutreachProspect | null>(null);
+  const [scriptModalConfig, setScriptModalConfig] = useState<any>({});
   
   const [isConversationModalOpen, setIsConversationModalOpen] = useState(false);
   const [currentProspectForConversation, setCurrentProspectForConversation] = useState<OutreachProspect | null>(null);
   const [conversationHistoryContent, setConversationHistoryContent] = useState<string | null>(null);
   const [isSavingConversation, setIsSavingConversation] = useState(false);
-
+  
   const { toast } = useToast();
 
   const scriptMenuItems: Array<{label: string, type: GenerateContextualScriptInput['scriptType']}> = [
@@ -572,9 +568,10 @@ export default function OutreachPage() {
         return;
     }
     try {
-        await ('id' in prospectData && prospectData.id 
-          ? updateProspect(prospectData.id, prospectData as Partial<OutreachProspect>) 
-          : addProspect(prospectData as Omit<OutreachProspect, 'id'|'userId'>));
+        const dataToSave = prospectData.id ? prospectData : { ...prospectData, lastContacted: new Date().toISOString() };
+        await ('id' in dataToSave && dataToSave.id 
+          ? updateProspect(dataToSave.id, dataToSave as Partial<OutreachProspect>) 
+          : addProspect(dataToSave as Omit<OutreachProspect, 'id'|'userId'>));
 
         toast({ title: "Success", description: `Prospect ${prospectData.name} saved.` });
         
@@ -645,17 +642,16 @@ export default function OutreachPage() {
     });
   };
 
-  const handleGenerateProspectScript = async (prospect: OutreachProspect, scriptType: GenerateContextualScriptInput['scriptType']) => {
+  const handleGenerateScript = async (prospect: OutreachProspect, scriptType: GenerateContextualScriptInput['scriptType']) => {
     setIsGeneratingScript(true);
     setIsScriptModalOpen(true);
     setGeneratedScript('');
-    setScriptModalTitle(`Generating ${scriptType} for ${prospect.name || 'Prospect'}...`);
+    setScriptModalTitle(`Generating ${scriptType}...`);
     setCurrentProspectForScript(prospect); 
-
-    setClientContext({ 
-        clientHandle: prospect.instagramHandle || undefined,
-        clientName: prospect.name,
-        clientIndustry: prospect.industry || prospect.businessType || "Not Specified",
+    setScriptModalConfig({
+        showSaveToSnippetsButton: true,
+        showConfirmButton: false,
+        scriptTypeToSave: scriptType
     });
     
     const input: GenerateContextualScriptInput = {
@@ -668,30 +664,22 @@ export default function OutreachPage() {
         clientIndustry: prospect.industry?.trim() || null,
         visualStyle: prospect.visualStyle?.trim() || null, 
         bioSummary: prospect.bioSummary?.trim() || null, 
-        
         businessType: prospect.businessType || null,
         businessTypeOther: prospect.businessTypeOther?.trim() || null,
-        
         accountStage: prospect.accountStage || null,
-        followerCount: prospect.followerCount === null || prospect.followerCount === undefined ? null : prospect.followerCount,
-        postCount: prospect.postCount === null || prospect.postCount === undefined ? null : prospect.postCount,
-        avgLikes: prospect.avgLikes === null || prospect.avgLikes === undefined ? null : prospect.avgLikes,
-        avgComments: prospect.avgComments === null || prospect.avgComments === undefined ? null : prospect.avgComments,
-
+        followerCount: prospect.followerCount,
+        postCount: prospect.postCount,
+        avgLikes: prospect.avgLikes,
+        avgComments: prospect.avgComments,
         painPoints: prospect.painPoints || [],
         goals: prospect.goals || [],
-
         leadStatus: prospect.status,
         source: prospect.source || null,
         lastTouch: prospect.lastContacted ? `Last contacted on ${new Date(prospect.lastContacted).toLocaleDateString()}` : 'No prior contact recorded',
         followUpNeeded: prospect.followUpNeeded || false,
-        
         offerInterest: prospect.offerInterest || [],
-        
         tonePreference: prospect.tonePreference || null,
         additionalNotes: prospect.notes?.trim() || null,
-
-        // New CRM fields
         lastMessageSnippet: prospect.lastMessageSnippet?.trim() || null,
         lastScriptSent: prospect.lastScriptSent?.trim() || null,
         linkSent: prospect.linkSent || false,
@@ -699,41 +687,82 @@ export default function OutreachPage() {
         nextStep: prospect.nextStep?.trim() || null,
         conversationHistory: prospect.conversationHistory?.trim() || null,
     };
-    setCurrentScriptGenerationInput(input);
-
+    
     try {
-        const result: GenerateContextualScriptOutput = await generateContextualScript(input);
+        const result = await generateContextualScript(input);
         setGeneratedScript(result.script);
         setScriptModalTitle(`${scriptType} for ${prospect.name || 'Prospect'}`);
     } catch (error) {
-        console.error("Error generating script for prospect:", error);
-        toast({ title: "Script Generation Failed", description: (error as Error).message || "Could not generate script.", variant: "destructive" });
-        setScriptModalTitle("Error Generating Script");
-        setGeneratedScript("Failed to generate script. Please try again.");
+        handleScriptGenerationError(error, "Error Generating Script");
     } finally {
         setIsGeneratingScript(false);
     }
   };
-  
-  const handleRegenerateProspectScript = async (): Promise<string | null> => {
-    if (!currentScriptGenerationInput) {
-        toast({ title: "Error", description: "No script context to regenerate.", variant: "destructive" });
-        return null;
-    }
+
+  const handleGenerateQualifier = async (prospect: OutreachProspect) => {
     setIsGeneratingScript(true);
+    setIsScriptModalOpen(true);
     setGeneratedScript('');
+    setScriptModalTitle(`Generating Qualifier for ${prospect.name}...`);
+    setCurrentProspectForScript(prospect);
+    setScriptModalConfig({
+        showSaveToSnippetsButton: false,
+        showConfirmButton: true,
+        confirmButtonText: "Send & Update Status",
+        onConfirm: async (scriptContent: string) => {
+            await handleSendQualifier(prospect.id, scriptContent);
+        }
+    });
+
+    const input: GenerateQualifierInput = {
+        prospectName: prospect.name,
+        igHandle: prospect.instagramHandle,
+        businessType: prospect.businessType,
+        lastMessage: prospect.lastMessageSnippet,
+        goals: prospect.goals,
+        painPoints: prospect.painPoints,
+        accountStage: prospect.accountStage
+    };
+
     try {
-        const result = await generateContextualScript(currentScriptGenerationInput);
-        setGeneratedScript(result.script);
-        setIsGeneratingScript(false);
-        return result.script;
+        const result = await generateQualifierQuestion(input);
+        setGeneratedScript(result.question);
+        setScriptModalTitle(`Qualifier Question for ${prospect.name}`);
     } catch (error) {
-        console.error("Error regenerating script:", error);
-        toast({ title: "Script Regeneration Failed", description: (error as Error).message || "Could not regenerate script.", variant: "destructive" });
-        setGeneratedScript("Failed to regenerate script. Please try again.");
+        handleScriptGenerationError(error, "Error Generating Qualifier");
+    } finally {
         setIsGeneratingScript(false);
-        return null;
     }
+  };
+
+  const handleSendQualifier = async (prospectId: string, question: string) => {
+      try {
+          await updateProspect(prospectId, {
+              qualifierQuestion: question,
+              qualifierSentAt: new Date().toISOString(),
+              status: 'Qualifier Sent'
+          });
+          toast({ title: "Qualifier Sent!", description: "Prospect status updated." });
+          fetchProspects();
+          setIsScriptModalOpen(false);
+      } catch (error) {
+          console.error("Error sending qualifier:", error);
+          toast({ title: "Update Failed", description: "Could not update the prospect.", variant: "destructive" });
+      }
+  };
+
+  const handleScriptGenerationError = (error: any, title: string) => {
+    console.error(title, error);
+    toast({ title, description: (error as Error).message || "Could not generate script.", variant: "destructive" });
+    setScriptModalTitle(title);
+    setGeneratedScript("Failed to generate script. Please try again.");
+  }
+  
+  const handleRegenerateScript = async (): Promise<string | null> => {
+    // This function can be enhanced to handle both script types if needed,
+    // but for now, it's tied to the contextual script.
+    // To handle qualifiers, we'd need to store the input for that flow as well.
+    return null; // Placeholder
   };
 
   const filteredProspects = prospects.filter(prospect => {
@@ -752,10 +781,12 @@ export default function OutreachPage() {
   const getStatusBadgeVariant = (status: OutreachLeadStage): "default" | "secondary" | "outline" | "destructive" => {
     switch (status) {
       case 'Closed - Won':
-      case 'Audit Sent':
+      case 'Audit Delivered':
+      case 'Ready for Audit':
       case 'Replied':
       case 'Interested': return 'default';
-      case 'Warm': return 'secondary';
+      case 'Warm':
+      case 'Qualifier Sent': return 'secondary';
       case 'Cold':
       case 'To Contact': return 'outline';
       case 'Closed - Lost':
@@ -818,8 +849,66 @@ export default function OutreachPage() {
       setIsSavingConversation(false);
     }
   };
+  
+  const renderActions = (prospect: OutreachProspect) => {
+    const canAskQualifier = ['Interested', 'Replied'].includes(prospect.status);
+    const canCreateAudit = prospect.status === 'Ready for Audit';
+    const auditLink = `/audits/new?handle=${prospect.instagramHandle || ''}&name=${prospect.name}&entityId=${prospect.id}&industry=${prospect.industry || ''}`;
+
+    return (
+        <TableCell className="text-right space-x-0.5">
+            <TooltipProvider>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Actions</span>
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuGroup>
+                            <DropdownMenuItem onClick={() => handleOpenEditProspectForm(prospect)}>
+                                <Edit className="mr-2 h-4 w-4" /> Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleOpenConversationModal(prospect)}>
+                                <MessagesSquare className="mr-2 h-4 w-4" /> Manage Conversation
+                            </DropdownMenuItem>
+                            {canAskQualifier && (
+                                <DropdownMenuItem onClick={() => handleGenerateQualifier(prospect)}>
+                                    <FileQuestion className="mr-2 h-4 w-4" /> Ask Qualifier Question
+                                </DropdownMenuItem>
+                            )}
+                            {canCreateAudit && (
+                                <Link href={auditLink}>
+                                    <DropdownMenuItem>
+                                        <GraduationCap className="mr-2 h-4 w-4" /> Create Audit
+                                    </DropdownMenuItem>
+                                </Link>
+                            )}
+                        </DropdownMenuGroup>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuGroup>
+                           {scriptMenuItems.map(item => (
+                                <DropdownMenuItem key={item.type} onClick={() => handleGenerateScript(prospect, item.type)}>
+                                    <BotMessageSquare className="mr-2 h-4 w-4" />
+                                    <span>{item.label}</span>
+                                </DropdownMenuItem>
+                            ))}
+                        </DropdownMenuGroup>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => handleDeleteProspect(prospect.id, prospect.name)} className="text-destructive">
+                            <Trash2 className="mr-2 h-4 w-4" /> Delete
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </TooltipProvider>
+        </TableCell>
+    );
+  };
+
 
   return (
+    <Suspense fallback={<div className="flex justify-center items-center h-screen"><LoadingSpinner text="Loading Outreach..." size="lg"/></div>}>
     <div className="space-y-6">
       <PageHeader
         title="Outreach Manager"
@@ -1008,40 +1097,7 @@ export default function OutreachPage() {
                         <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">
                           {getDaysSinceText(prospect.lastContacted)}
                         </TableCell>
-                        <TableCell className="text-right space-x-0.5">
-                           <Button variant="ghost" size="icon" onClick={() => handleOpenConversationModal(prospect)} aria-label={`Manage conversation for ${prospect.name}`}>
-                            <MessagesSquare className="h-4 w-4" />
-                            <span className="sr-only">Manage Conversation</span>
-                          </Button>
-                           <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" aria-label={`Generate script for ${prospect.name}`}>
-                                  <BotMessageSquare className="h-4 w-4" />
-                                  <span className="sr-only">Scripts</span>
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                {scriptMenuItems.map(item => (
-                                    <DropdownMenuItem
-                                        key={item.type}
-                                        onClick={() => handleGenerateProspectScript(prospect, item.type)}
-                                        disabled={isGeneratingScript && currentScriptGenerationInput?.clientName === prospect.name && currentScriptGenerationInput?.scriptType === item.type}
-                                    >
-                                      {item.label}
-                                      {isGeneratingScript && currentScriptGenerationInput?.clientName === prospect.name && currentScriptGenerationInput?.scriptType === item.type && <Loader2 className="ml-auto h-4 w-4 animate-spin" />}
-                                    </DropdownMenuItem>
-                                ))}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                           <Button variant="ghost" size="icon" onClick={() => handleOpenEditProspectForm(prospect)} aria-label={`Edit prospect ${prospect.name}`}>
-                            <Edit className="h-4 w-4" />
-                             <span className="sr-only">Edit Prospect</span>
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleDeleteProspect(prospect.id, prospect.name)} className="text-destructive hover:text-destructive" aria-label={`Delete prospect ${prospect.name}`}>
-                            <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">Delete Prospect</span>
-                          </Button>
-                        </TableCell>
+                        {renderActions(prospect)}
                       </TableRow>
                     )) : (
                        <TableRow>
@@ -1071,21 +1127,21 @@ export default function OutreachPage() {
       </Card>
       <ScriptModal
         isOpen={isScriptModalOpen}
-        onClose={() => {
-          setIsScriptModalOpen(false);
-          setCurrentProspectForScript(null); 
-        }}
+        onClose={() => setIsScriptModalOpen(false)}
         scriptContent={generatedScript}
         title={scriptModalTitle}
-        onRegenerate={handleRegenerateProspectScript}
+        onRegenerate={scriptModalConfig.onRegenerate || handleRegenerateScript}
         isLoadingInitially={isGeneratingScript && !generatedScript}
-        scriptTypeToSave={currentScriptGenerationInput?.scriptType}
-        prospectContextToSave={
-            currentProspectForScript 
-            ? { prospectId: currentProspectForScript.id, prospectName: currentProspectForScript.name } 
-            : undefined
-        }
+        isConfirming={isGeneratingScript}
+        // Configurable props
+        scriptTypeToSave={scriptModalConfig.scriptTypeToSave}
+        prospectContextToSave={currentProspectForScript ? { prospectId: currentProspectForScript.id, prospectName: currentProspectForScript.name } : undefined}
+        showSaveToSnippetsButton={scriptModalConfig.showSaveToSnippetsButton}
+        showConfirmButton={scriptModalConfig.showConfirmButton}
+        confirmButtonText={scriptModalConfig.confirmButtonText}
+        onConfirm={scriptModalConfig.onConfirm}
       />
     </div>
+    </Suspense>
   );
 }

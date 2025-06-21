@@ -39,8 +39,8 @@ export const TONE_PREFERENCES = ["Friendly & casual", "Confident & professional"
 export type TonePreference = typeof TONE_PREFERENCES[number];
 
 // Refined Lead Stages for Outreach
-export type OutreachLeadStage = "To Contact" | "Cold" | "Warm" | "Replied" | "Audit Sent" | "Closed - Won" | "Closed - Lost" | "Not Interested";
-export const OUTREACH_LEAD_STAGE_OPTIONS: OutreachLeadStage[] = ["To Contact", "Cold", "Warm", "Replied", "Audit Sent", "Closed - Won", "Closed - Lost", "Not Interested"];
+export type OutreachLeadStage = "To Contact" | "Cold" | "Warm" | "Replied" | "Interested" | "Qualifier Sent" | "Ready for Audit" | "Audit Delivered" | "Closed - Won" | "Closed - Lost" | "Not Interested";
+export const OUTREACH_LEAD_STAGE_OPTIONS: OutreachLeadStage[] = ["To Contact", "Cold", "Warm", "Replied", "Interested", "Qualifier Sent", "Ready for Audit", "Audit Delivered", "Closed - Won", "Closed - Lost", "Not Interested"];
 
 
 export type OutreachProspect = {
@@ -97,6 +97,11 @@ export type OutreachProspect = {
   carouselOffered?: boolean | null; // e.g., a free sample was offered
   nextStep?: string | null; // Manually defined next action
   conversationHistory?: string | null;
+
+  // Qualifier Question Fields
+  qualifierQuestion?: string | null;
+  qualifierSentAt?: string | null; // ISO date string
+  qualifierReply?: string | null;
 
   notes?: string | null;
 };

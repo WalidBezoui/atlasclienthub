@@ -1,7 +1,7 @@
 
 'use client';
 import React, { useEffect, useState, useCallback } from 'react';
-import { LayoutDashboard, Users, Send, ListChecks, Zap, PlusCircle, TrendingUp, AlertTriangle, Compass, CheckSquare, Scaling, Clock, UsersRound, Lightbulb, BrainCircuit, Rocket } from 'lucide-react';
+import { LayoutDashboard, Users, Send, ListChecks, Zap, PlusCircle, TrendingUp, AlertTriangle, Compass, CheckSquare, Scaling, Clock, UsersRound, Lightbulb, BrainCircuit, Rocket, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
@@ -22,6 +22,7 @@ const initialOverviewData = {
   auditsInProgress: 0,
   outreachSentThisMonth: 0,
   newLeadsThisMonth: 0,
+  awaitingQualifierReply: 0,
 };
 
 const initialChartData: MonthlyActivity[] = [
@@ -90,7 +91,7 @@ export default function DashboardPage() {
     { metric: 'Active Clients', value: overviewData.activeClients, icon: Users, color: 'text-blue-500', bgColor: 'bg-blue-100' },
     { metric: 'Audits In Progress', value: overviewData.auditsInProgress, icon: ListChecks, color: 'text-yellow-500', bgColor: 'bg-yellow-100' },
     { metric: 'Outreach This Month', value: overviewData.outreachSentThisMonth, icon: Send, color: 'text-green-500', bgColor: 'bg-green-100' },
-    { metric: 'New Leads (Interested)', value: overviewData.newLeadsThisMonth, icon: Zap, color: 'text-purple-500', bgColor: 'bg-purple-100' },
+    { metric: 'Awaiting Reply', value: overviewData.awaitingQualifierReply, icon: HelpCircle, color: 'text-purple-500', bgColor: 'bg-purple-100' },
   ];
 
   const fastlaneInsights = [
@@ -347,4 +348,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
