@@ -538,6 +538,7 @@ export default function OutreachPage() {
   const [statusFilters, setStatusFilters] = useState<Set<OutreachLeadStage>>(new Set(OUTREACH_LEAD_STAGE_OPTIONS));
   const [showOnlyNeedsFollowUp, setShowOnlyNeedsFollowUp] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  
   const [editingProspect, setEditingProspect] = useState<OutreachProspect | undefined>(undefined);
   
   const [isScriptModalOpen, setIsScriptModalOpen] = useState(false);
@@ -877,7 +878,25 @@ export default function OutreachPage() {
   const renderActions = (prospect: OutreachProspect) => {
     const canAskQualifier = ['Interested', 'Replied'].includes(prospect.status);
     const canCreateAudit = prospect.status === 'Ready for Audit';
-    const auditLink = `/audits/new?handle=${prospect.instagramHandle || ''}&name=${prospect.name}&entityId=${prospect.id}&industry=${prospect.industry || ''}`;
+
+    const buildQuestionnaireFromProspect = (p: OutreachProspect) => {
+        const parts = [
+            `Analyzing profile for: ${p.name || 'N/A'} (@${p.instagramHandle || 'N/A'})`,
+            `Entity ID: ${p.id}`,
+            `Industry: ${p.industry || 'Not specified'}`,
+            `Business Type: ${p.businessType || 'Not specified'}${p.businessType === 'Other' ? ` (${p.businessTypeOther || ''})` : ''}`,
+            `Account Stage: ${p.accountStage || 'N/A'}`,
+            `Follower Count: ${p.followerCount ?? 'N/A'}`,
+            `\n--- GOALS ---\n${p.goals && p.goals.length > 0 ? p.goals.map(g => `- ${g}`).join('\n') : 'No specific goals listed.'}`,
+            `\n--- PAIN POINTS ---\n${p.painPoints && p.painPoints.length > 0 ? p.painPoints.map(pp => `- ${pp}`).join('\n') : 'No specific pain points listed.'}`,
+            `\n--- QUALIFIER ---\nQ: ${p.qualifierQuestion || 'None sent.'}\nA: ${p.qualifierReply || 'No reply logged.'}`,
+            `\n--- CONVERSATION HISTORY ---\n${p.conversationHistory || 'No history logged.'}`,
+            `\n--- ADDITIONAL NOTES ---\n${p.notes || 'None'}`
+        ];
+        return encodeURIComponent(parts.join('\n\n'));
+    };
+
+    const auditLink = `/audits/new?handle=${prospect.instagramHandle || ''}&name=${prospect.name}&entityId=${prospect.id}&q=${buildQuestionnaireFromProspect(prospect)}`;
 
     return (
         <TableCell className="text-right space-x-0.5">
@@ -897,24 +916,42 @@ export default function OutreachPage() {
                             <DropdownMenuItem onClick={() => handleOpenConversationModal(prospect)}>
                                 <MessagesSquare className="mr-2 h-4 w-4" /> Manage Conversation
                             </DropdownMenuItem>
-                             {canCreateAudit && (
-                                <Link href={auditLink}>
-                                    <DropdownMenuItem>
-                                        <GraduationCap className="mr-2 h-4 w-4" /> Create Audit
-                                    </DropdownMenuItem>
-                                </Link>
-                            )}
+
+                             <Tooltip>
+                                <TooltipTrigger asChild>
+                                     <div className={cn(!canCreateAudit && "cursor-not-allowed w-full")}>
+                                        <Link href={canCreateAudit ? auditLink : '#'} passHref legacyBehavior>
+                                            <DropdownMenuItem
+                                                disabled={!canCreateAudit}
+                                                className={cn(!canCreateAudit && "cursor-not-allowed")}
+                                                onClick={(e) => !canCreateAudit && e.preventDefault()}
+                                            >
+                                                <GraduationCap className="mr-2 h-4 w-4" /> Create Audit
+                                            </DropdownMenuItem>
+                                        </Link>
+                                    </div>
+                                </TooltipTrigger>
+                                {!canCreateAudit && <TooltipContent><p>Status must be 'Ready for Audit'</p></TooltipContent>}
+                            </Tooltip>
                         </DropdownMenuGroup>
                         
                         <DropdownMenuSeparator />
                         
                         <DropdownMenuGroup>
                            <DropdownMenuLabel>Generate Scripts</DropdownMenuLabel>
-                           {canAskQualifier && (
-                                <DropdownMenuItem onClick={() => handleGenerateQualifier(prospect)}>
-                                    <FileQuestion className="mr-2 h-4 w-4" /> Ask Qualifier Question
-                                </DropdownMenuItem>
-                            )}
+                           <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <div className={cn(!canAskQualifier && "cursor-not-allowed w-full")}>
+                                        <DropdownMenuItem
+                                            disabled={!canAskQualifier}
+                                            onClick={() => canAskQualifier && handleGenerateQualifier(prospect)}
+                                        >
+                                            <FileQuestion className="mr-2 h-4 w-4" /> Ask Qualifier Question
+                                        </DropdownMenuItem>
+                                    </div>
+                                </TooltipTrigger>
+                                {!canAskQualifier && <TooltipContent><p>Status must be 'Interested' or 'Replied'</p></TooltipContent>}
+                            </Tooltip>
                            {scriptMenuItems.map(item => (
                                 <DropdownMenuItem key={item.type} onClick={() => handleGenerateScript(prospect, item.type)}>
                                     <BotMessageSquare className="mr-2 h-4 w-4" />

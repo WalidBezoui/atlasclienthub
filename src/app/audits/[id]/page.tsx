@@ -3,7 +3,8 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Printer, FileText, CalendarDays, CheckCircle, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Printer, FileText, CalendarDays, CheckCircle, AlertTriangle, Edit } from 'lucide-react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
@@ -18,7 +19,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { getAuditById, updateAudit } from '@/lib/firebase/services';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-
 
 export default function AuditDetailPage() {
   const { user, loading: authLoading } = useAuth();
@@ -116,6 +116,11 @@ export default function AuditDetailPage() {
             <Button variant="outline" onClick={() => router.push('/audits')}>
               <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
             </Button>
+             <Link href={`/audits/${id}/edit`} passHref>
+              <Button variant="outline">
+                <Edit className="mr-2 h-4 w-4" /> Edit Audit
+              </Button>
+            </Link>
             <Button onClick={handlePrint}>
               <Printer className="mr-2 h-4 w-4" /> Export to PDF
             </Button>
@@ -308,4 +313,3 @@ export default function AuditDetailPage() {
     </div>
   );
 }
-

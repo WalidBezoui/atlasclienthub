@@ -130,10 +130,9 @@ export default function EditAuditPage() {
     if (auditStatus === 'Completed' && originalAudit.status !== 'Completed') {
       updatedAuditData.completedDate = new Date().toISOString();
     } else if (auditStatus !== 'Completed' && originalAudit.completedDate) {
-      // If status changed from Completed, clear completedDate unless it's already being set
-      // This check is a bit complex; ensure `updateAudit` handles `null` for completedDate.
-       if (!updatedAuditData.hasOwnProperty('completedDate')) {
-           updatedAuditData.completedDate = undefined; // Explicitly set to undefined to be handled by service
+      // If status changed from Completed, clear completedDate.
+      if (!updatedAuditData.hasOwnProperty('completedDate')) {
+           (updatedAuditData as any).completedDate = null; // Explicitly set to null to be handled by service
        }
     }
 
@@ -169,6 +168,8 @@ export default function EditAuditPage() {
       </div>
     );
   }
+
+  const hasReport = auditReport !== undefined && auditReport !== null;
 
   return (
     <div className="space-y-6">
@@ -224,7 +225,7 @@ export default function EditAuditPage() {
             <Textarea
               id="questionnaireResponses"
               placeholder="Describe the account's goals, target audience, current challenges, etc."
-              rows={8}
+              rows={12}
               value={questionnaireResponses}
               onChange={(e) => setQuestionnaireResponses(e.target.value)}
               required
@@ -245,85 +246,52 @@ export default function EditAuditPage() {
         </CardContent>
       </Card>
 
-    {(auditReport !== undefined || isGeneratingReport) && (
-        <Card className="shadow-lg">
-            <CardHeader>
-                <CardTitle className="font-headline flex items-center">
-                <FileText className="mr-2 h-6 w-6 text-primary" />
-                Audit Report for {instagramHandle}
-                </CardTitle>
-                <CardDescription>Review and edit the report content below. This will be saved with the audit.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                {isGeneratingReport && auditReport === undefined && (
-                    <div className="flex justify-center items-center py-12">
-                        <LoadingSpinner text="Our AI is hard at work analyzing the profile..." />
-                    </div>
-                )}
-                {auditReport !== undefined && (
-                     <Textarea 
-                        value={auditReport} 
-                        onChange={(e) => setAuditReport(e.target.value)} 
-                        rows={20}
-                        className="text-sm p-4 bg-muted/30 rounded-md border"
-                        aria-label="Editable Audit Report"
-                    />
-                )}
-                <div>
-                    <Label htmlFor="auditStatus">Audit Status</Label>
-                    <Select value={auditStatus} onValueChange={(value: AuditStatus) => setAuditStatus(value)}>
-                    <SelectTrigger id="auditStatus">
-                        <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {AUDIT_STATUS_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                    </SelectContent>
-                    </Select>
+    <Card className="shadow-lg">
+        <CardHeader>
+            <CardTitle className="font-headline flex items-center">
+            <FileText className="mr-2 h-6 w-6 text-primary" />
+            Audit Report & Status
+            </CardTitle>
+            <CardDescription>
+                {hasReport ? "Review and edit the report content below." : "No report generated yet. You can generate one using the questionnaire data above."}
+            </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+            {isGeneratingReport && !hasReport && (
+                <div className="flex justify-center items-center py-12">
+                    <LoadingSpinner text="Our AI is hard at work analyzing the profile..." />
                 </div>
-            </CardContent>
-            <CardFooter className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => router.push(id ? `/audits/${id}` : '/audits')} disabled={isUpdating}>
-                Cancel
-                </Button>
-                <Button onClick={handleUpdateAudit} disabled={isUpdating || isGeneratingReport}>
-                {isUpdating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating...</> : <><Save className="mr-2 h-4 w-4" /> Update Audit</>}
-                </Button>
-            </CardFooter>
-        </Card>
-    )}
-
-    {!auditReport && !isGeneratingReport && originalAudit && (
-         <Card className="shadow-lg">
-            <CardHeader>
-                <CardTitle className="font-headline flex items-center">
-                     <FileText className="mr-2 h-6 w-6 text-primary" />
-                    Audit Report
-                </CardTitle>
-                <CardDescription>No report generated yet or existing report was cleared. You can generate one using the questionnaire data.</CardDescription>
-            </CardHeader>
-             <CardContent>
-                  <div>
-                    <Label htmlFor="auditStatusBottom">Audit Status</Label>
-                    <Select value={auditStatus} onValueChange={(value: AuditStatus) => setAuditStatus(value)}>
-                    <SelectTrigger id="auditStatusBottom">
-                        <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {AUDIT_STATUS_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                    </SelectContent>
-                    </Select>
-                </div>
-             </CardContent>
-            <CardFooter className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => router.push(id ? `/audits/${id}` : '/audits')} disabled={isUpdating}>
-                Cancel
-                </Button>
-                <Button onClick={handleUpdateAudit} disabled={isUpdating || isGeneratingReport}>
-                {isUpdating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating...</> : <><Save className="mr-2 h-4 w-4" /> Update Audit (No Report)</>}
-                </Button>
-            </CardFooter>
-        </Card>
-    )}
+            )}
+            {hasReport && (
+                 <Textarea 
+                    value={auditReport} 
+                    onChange={(e) => setAuditReport(e.target.value)} 
+                    rows={20}
+                    className="text-sm p-4 bg-muted/30 rounded-md border"
+                    aria-label="Editable Audit Report"
+                />
+            )}
+            <div>
+                <Label htmlFor="auditStatus">Audit Status</Label>
+                <Select value={auditStatus} onValueChange={(value: AuditStatus) => setAuditStatus(value)}>
+                <SelectTrigger id="auditStatus">
+                    <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                    {AUDIT_STATUS_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+                </Select>
+            </div>
+        </CardContent>
+        <CardFooter className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => router.push(id ? `/audits/${id}` : '/audits')} disabled={isUpdating}>
+            Cancel
+            </Button>
+            <Button onClick={handleUpdateAudit} disabled={isUpdating || isGeneratingReport}>
+            {isUpdating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating...</> : <><Save className="mr-2 h-4 w-4" /> Update Audit</>}
+            </Button>
+        </CardFooter>
+    </Card>
     </div>
   );
 }

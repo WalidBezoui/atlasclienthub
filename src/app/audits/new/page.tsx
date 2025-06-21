@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { BrainCircuit, Lightbulb, Loader2, FileText } from 'lucide-react';
+import { BrainCircuit, Lightbulb, Loader2, FileText, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
@@ -46,19 +46,21 @@ export default function NewAuditPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Pre-populate from URL params if available
     const handle = searchParams.get('handle');
     const name = searchParams.get('name');
-    const entityId = searchParams.get('entityId'); // You can use this if needed
-    const industry = searchParams.get('industry');
-
+    const questionnaire = searchParams.get('q');
+    
     if (handle) setInstagramHandle(handle);
     if (name) setEntityName(name);
     if (handle || name) {
         setEntityType('Prospect');
+    }
+    if (questionnaire) {
+        setQuestionnaireResponses(decodeURIComponent(questionnaire));
+    } else if (handle || name) {
+        // Fallback questionnaire if 'q' param is missing
         setQuestionnaireResponses(
-            `Analyzing profile for ${name || ''} (${handle || ''}).\n` +
-            `Industry: ${industry || 'Not specified'}.\n` +
+            `Analyzing profile for ${name || ''} (@${handle || ''}).\n` +
             `Key areas to focus on: `
         );
     }
@@ -79,8 +81,8 @@ export default function NewAuditPage() {
     setAuditStatus(initialFormState.auditStatus);
     setIsGenerating(false);
     setIsSaving(false);
+    router.replace('/audits/new', undefined); // Clear URL params
   };
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,10 +94,8 @@ export default function NewAuditPage() {
       });
       return;
     }
-
     setIsGenerating(true);
     setAuditReport(undefined); 
-
     try {
       const result = await generateIgAudit({ questionnaireResponses });
       setAuditReport(result.auditReport);
@@ -125,7 +125,7 @@ export default function NewAuditPage() {
       return;
     }
     setIsSaving(true);
-    const newAuditData: Omit<InstagramAudit, 'id' | 'userId' | 'requestedDate'> & { requestedDate?: string } = {
+    const newAuditData: Omit<InstagramAudit, 'id' | 'userId'> = {
       instagramHandle,
       entityName: entityName || undefined,
       entityType: entityType || undefined,
@@ -134,6 +134,7 @@ export default function NewAuditPage() {
       status: auditStatus,
       requestedDate: new Date().toISOString(),
       entityId: searchParams.get('entityId') || undefined,
+      completedDate: auditStatus === 'Completed' ? new Date().toISOString() : undefined,
     };
 
     try {
@@ -212,13 +213,13 @@ export default function NewAuditPage() {
               <Textarea
                 id="questionnaireResponses"
                 placeholder="Describe the account's goals, target audience, current challenges, content pillars, competitors, etc."
-                rows={8}
+                rows={12}
                 value={questionnaireResponses}
                 onChange={(e) => setQuestionnaireResponses(e.target.value)}
                 required
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Example prompts: "Analyze bio effectiveness for a local coffee shop targeting young professionals. Current bio is 'Best coffee in town'. Goals: Increase foot traffic from IG.", "Suggest content pillars for a fitness influencer focusing on home workouts for busy moms. Competitors: @fitmom, @homeworkoutqueen."
+                If started from the Outreach page, this is pre-filled with prospect data. You can edit or add more context here.
               </p>
             </div>
           </CardContent>
@@ -260,7 +261,9 @@ export default function NewAuditPage() {
             <CardDescription>Review the report below. You can edit it before saving.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <Label htmlFor="auditReport">Report Content</Label>
             <Textarea 
+              id="auditReport"
               value={auditReport} 
               onChange={(e) => setAuditReport(e.target.value)} 
               rows={20}
@@ -284,7 +287,7 @@ export default function NewAuditPage() {
               Clear & Start New
             </Button>
             <Button onClick={handleSaveAudit} disabled={isSaving}>
-              {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : "Save Audit"}
+              {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : <><Save className="mr-2 h-4 w-4" />Save Audit</>}
             </Button>
           </CardFooter>
         </Card>
