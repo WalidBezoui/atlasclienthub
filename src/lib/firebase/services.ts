@@ -125,37 +125,24 @@ export const deleteClient = async (id: string): Promise<void> => {
 // --- Outreach Prospect Services ---
 const prospectsCollection = collection(db, 'prospects');
 
+const processDateForFirestore = (dateInput: any, defaultToTimestamp: boolean = false): Timestamp | null => {
+    if (typeof dateInput === 'string' && dateInput.trim() !== '') {
+        const parsedDate = new Date(dateInput);
+        if (!isNaN(parsedDate.getTime())) {
+            return Timestamp.fromDate(parsedDate);
+        }
+    }
+    // @ts-ignore
+    if (defaultToTimestamp) return serverTimestamp();
+    return null;
+};
+
+
 export const addProspect = async (prospectData: Omit<OutreachProspect, 'id' | 'userId'>): Promise<string> => {
   const userId = getCurrentUserId();
   if (!userId) throw new Error('User not authenticated');
   
-  let lastContactedTimestamp;
-  if (typeof prospectData.lastContacted === 'string' && prospectData.lastContacted.trim() !== '') {
-      const parsedDate = new Date(prospectData.lastContacted);
-      if (!isNaN(parsedDate.getTime())) {
-          lastContactedTimestamp = Timestamp.fromDate(parsedDate);
-      } else {
-          console.warn(`Invalid date string for lastContacted: "${prospectData.lastContacted}". Defaulting to serverTimestamp.`);
-          lastContactedTimestamp = serverTimestamp();
-      }
-  } else {
-      lastContactedTimestamp = serverTimestamp();
-  }
-
-  let followUpDateTimestamp;
-  if (typeof prospectData.followUpDate === 'string' && prospectData.followUpDate.trim() !== '') {
-      const parsedDate = new Date(prospectData.followUpDate);
-      if (!isNaN(parsedDate.getTime())) {
-          followUpDateTimestamp = Timestamp.fromDate(parsedDate);
-      } else {
-          console.warn(`Invalid date string for followUpDate: "${prospectData.followUpDate}". Setting to null.`);
-          followUpDateTimestamp = null;
-      }
-  } else {
-      followUpDateTimestamp = null;
-  }
-
-  const dataForFirestore: Partial<OutreachProspect> & { userId: string } = {
+  const dataForFirestore = {
     userId,
     name: prospectData.name,
     status: prospectData.status || 'To Contact' as OutreachLeadStage,
@@ -180,8 +167,8 @@ export const addProspect = async (prospectData: Omit<OutreachProspect, 'id' | 'u
     goals: prospectData.goals || [],
     
     source: prospectData.source || null,
-    lastContacted: lastContactedTimestamp,
-    followUpDate: followUpDateTimestamp,
+    lastContacted: processDateForFirestore(prospectData.lastContacted, true), // Default to now if not provided
+    followUpDate: processDateForFirestore(prospectData.followUpDate),
     followUpNeeded: prospectData.followUpNeeded || false,
     
     offerInterest: prospectData.offerInterest || [],
@@ -189,6 +176,14 @@ export const addProspect = async (prospectData: Omit<OutreachProspect, 'id' | 'u
     uniqueNote: prospectData.uniqueNote || null,
     helpStatement: prospectData.helpStatement || null,
     tonePreference: prospectData.tonePreference || null,
+    
+    // New CRM fields
+    lastMessageSnippet: prospectData.lastMessageSnippet || null,
+    lastScriptSent: prospectData.lastScriptSent || null,
+    linkSent: prospectData.linkSent || false,
+    carouselOffered: prospectData.carouselOffered || false,
+    nextStep: prospectData.nextStep || null,
+
     notes: prospectData.notes || null,
   };
   
@@ -226,13 +221,18 @@ export const getProspects = async (): Promise<OutreachProspect[]> => {
       painPoints: data.painPoints || [],
       goals: data.goals || [],
       source: data.source,
-      lastContacted: data.lastContacted ? (data.lastContacted as Timestamp).toDate().toISOString().split('T')[0] : undefined,
-      followUpDate: data.followUpDate ? (data.followUpDate as Timestamp).toDate().toISOString().split('T')[0] : undefined,
+      lastContacted: data.lastContacted ? (data.lastContacted as Timestamp).toDate().toISOString() : undefined,
+      followUpDate: data.followUpDate ? (data.followUpDate as Timestamp).toDate().toISOString() : undefined,
       followUpNeeded: data.followUpNeeded || false,
       offerInterest: data.offerInterest || [],
       uniqueNote: data.uniqueNote,
       helpStatement: data.helpStatement,
       tonePreference: data.tonePreference,
+      lastMessageSnippet: data.lastMessageSnippet,
+      lastScriptSent: data.lastScriptSent,
+      linkSent: data.linkSent,
+      carouselOffered: data.carouselOffered,
+      nextStep: data.nextStep,
       notes: data.notes,
     };
     return prospect;
@@ -247,31 +247,11 @@ export const updateProspect = async (id: string, prospectData: Partial<Omit<Outr
   const dataToUpdate: any = { ...prospectData }; 
   
   if (prospectData.hasOwnProperty('lastContacted')) {
-    if (typeof prospectData.lastContacted === 'string' && prospectData.lastContacted.trim() !== '') {
-        const parsedDate = new Date(prospectData.lastContacted);
-        if (!isNaN(parsedDate.getTime())) {
-            dataToUpdate.lastContacted = Timestamp.fromDate(parsedDate);
-        } else {
-            console.warn(`Invalid date string for lastContacted in update: "${prospectData.lastContacted}". Setting to null.`);
-            dataToUpdate.lastContacted = null;
-        }
-    } else { // Handles null, undefined, or empty string from input
-        dataToUpdate.lastContacted = null;
-    }
+    dataToUpdate.lastContacted = processDateForFirestore(prospectData.lastContacted);
   }
 
   if (prospectData.hasOwnProperty('followUpDate')) {
-    if (typeof prospectData.followUpDate === 'string' && prospectData.followUpDate.trim() !== '') {
-        const parsedDate = new Date(prospectData.followUpDate);
-        if (!isNaN(parsedDate.getTime())) {
-            dataToUpdate.followUpDate = Timestamp.fromDate(parsedDate);
-        } else {
-            console.warn(`Invalid date string for followUpDate in update: "${prospectData.followUpDate}". Setting to null.`);
-            dataToUpdate.followUpDate = null;
-        }
-    } else { // Handles null, undefined, or empty string
-        dataToUpdate.followUpDate = null;
-    }
+    dataToUpdate.followUpDate = processDateForFirestore(prospectData.followUpDate);
   }
   
   const numericFields: (keyof OutreachProspect)[] = ['followerCount', 'postCount', 'avgLikes', 'avgComments'];
@@ -286,9 +266,12 @@ export const updateProspect = async (id: string, prospectData: Partial<Omit<Outr
     }
   });
 
-  if (prospectData.hasOwnProperty('followUpNeeded')) {
-    dataToUpdate.followUpNeeded = prospectData.followUpNeeded || false;
-  }
+  const booleanFields: (keyof OutreachProspect)[] = ['followUpNeeded', 'linkSent', 'carouselOffered'];
+  booleanFields.forEach(field => {
+    if (prospectData.hasOwnProperty(field)) {
+      dataToUpdate[field] = prospectData[field] || false;
+    }
+  });
   
   const arrayFields: (keyof OutreachProspect)[] = ['painPoints', 'goals', 'offerInterest'];
   arrayFields.forEach(field => {
@@ -297,22 +280,23 @@ export const updateProspect = async (id: string, prospectData: Partial<Omit<Outr
     }
   });
 
-  const optionalFieldsToNullifyIfPresent: (keyof OutreachProspect)[] = [
-      'instagramHandle', 'businessName', 'website', 'prospectLocation', 'industry', 'email',
-      'visualStyle', 'bioSummary', 
-      'businessType', 'businessTypeOther', 'accountStage', 'source',
-      'uniqueNote', 'helpStatement', 'tonePreference', 'notes'
+  const optionalStringFields: (keyof OutreachProspect)[] = [
+      'instagramHandle', 'businessName', 'website', 'industry', 'email', 'visualStyle', 'bioSummary', 
+      'businessTypeOther', 'uniqueNote', 'helpStatement', 'notes', 'lastMessageSnippet', 'lastScriptSent', 'nextStep'
   ];
-  optionalFieldsToNullifyIfPresent.forEach(field => {
-      if (prospectData.hasOwnProperty(field) && (prospectData[field] === undefined || prospectData[field] === '' || prospectData[field] === null) ) {
-          // Ensure dataToUpdate reflects this nullification if it wasn't already handled (e.g. for dates)
-          if (! (field === 'lastContacted' || field === 'followUpDate') ) { // Dates are handled above
-             dataToUpdate[field] = null;
-          }
+  optionalStringFields.forEach(field => {
+      if (prospectData.hasOwnProperty(field)) {
+          dataToUpdate[field] = prospectData[field] || null;
       }
   });
   
-  // Construct final update object strictly from what was in prospectData
+  const optionalEnumFields: (keyof OutreachProspect)[] = ['prospectLocation', 'businessType', 'accountStage', 'source', 'tonePreference'];
+  optionalEnumFields.forEach(field => {
+      if (prospectData.hasOwnProperty(field)) {
+          dataToUpdate[field] = prospectData[field] || null;
+      }
+  });
+  
   const finalUpdateData: Partial<OutreachProspect> = {};
   for (const key of Object.keys(dataToUpdate) as Array<keyof OutreachProspect>) {
       if(prospectData.hasOwnProperty(key)) {
@@ -324,6 +308,7 @@ export const updateProspect = async (id: string, prospectData: Partial<Omit<Outr
     await updateDoc(prospectDoc, finalUpdateData);
   }
 };
+
 
 export const deleteProspect = async (id: string): Promise<void> => {
   const userId = getCurrentUserId();
@@ -339,45 +324,19 @@ export const addAudit = async (auditData: Omit<InstagramAudit, 'id' | 'userId' |
   const userId = getCurrentUserId();
   if (!userId) throw new Error('User not authenticated');
 
-  let requestedDateTimestamp;
-  if (typeof auditData.requestedDate === 'string' && auditData.requestedDate.trim() !== '') {
-    const parsedDate = new Date(auditData.requestedDate);
-    if (!isNaN(parsedDate.getTime())) {
-        requestedDateTimestamp = Timestamp.fromDate(parsedDate);
-    } else {
-        console.warn(`Invalid date string for requestedDate: "${auditData.requestedDate}". Defaulting to serverTimestamp.`);
-        requestedDateTimestamp = serverTimestamp();
-    }
-  } else {
-      requestedDateTimestamp = serverTimestamp();
-  }
-
-  let completedDateTimestamp;
-  if (typeof auditData.completedDate === 'string' && auditData.completedDate.trim() !== '') {
-    const parsedDate = new Date(auditData.completedDate);
-    if (!isNaN(parsedDate.getTime())) {
-        completedDateTimestamp = Timestamp.fromDate(parsedDate);
-    } else {
-        console.warn(`Invalid date string for completedDate: "${auditData.completedDate}". Setting to null.`);
-        completedDateTimestamp = null;
-    }
-  } else {
-      completedDateTimestamp = null;
-  }
-  
   const dataForFirestore = {
     userId,
     instagramHandle: auditData.instagramHandle,
     status: auditData.status,
     questionnaireResponses: auditData.questionnaireResponses,
-    requestedDate: requestedDateTimestamp,
+    requestedDate: processDateForFirestore(auditData.requestedDate, true),
     entityName: auditData.entityName || null,
     entityType: auditData.entityType || null,
     auditReport: auditData.auditReport || null,
-    completedDate: completedDateTimestamp,
+    completedDate: processDateForFirestore(auditData.completedDate),
   };
   
-  const docRef = await addDoc(auditsCollection, dataForFirestore);
+  const docRef = await addDoc(auditsCollection, dataForFirestore as any);
   return docRef.id;
 };
 
@@ -430,31 +389,11 @@ export const updateAudit = async (id: string, auditData: Partial<Omit<InstagramA
   }
 
   if (dataToUpdate.hasOwnProperty('requestedDate')) {
-     if (typeof dataToUpdate.requestedDate === 'string' && dataToUpdate.requestedDate.trim() !== '') {
-        const parsedDate = new Date(dataToUpdate.requestedDate);
-        if(!isNaN(parsedDate.getTime())) {
-            dataToUpdate.requestedDate = Timestamp.fromDate(parsedDate);
-        } else {
-            console.warn(`Invalid date string for requestedDate in update: "${dataToUpdate.requestedDate}". Setting to null.`);
-            dataToUpdate.requestedDate = null;
-        }
-     } else {
-        dataToUpdate.requestedDate = null;
-     }
+     dataToUpdate.requestedDate = processDateForFirestore(dataToUpdate.requestedDate);
   }
   
   if (dataToUpdate.hasOwnProperty('completedDate')) { 
-    if (typeof dataToUpdate.completedDate === 'string' && dataToUpdate.completedDate.trim() !== '') {
-        const parsedDate = new Date(dataToUpdate.completedDate);
-        if(!isNaN(parsedDate.getTime())) {
-            dataToUpdate.completedDate = Timestamp.fromDate(parsedDate);
-        } else {
-            console.warn(`Invalid date string for completedDate in update: "${dataToUpdate.completedDate}". Setting to null.`);
-            dataToUpdate.completedDate = null;
-        }
-     } else {
-        dataToUpdate.completedDate = null;
-     }
+    dataToUpdate.completedDate = processDateForFirestore(dataToUpdate.completedDate);
   }
   
   if (dataToUpdate.hasOwnProperty('entityName')) dataToUpdate.entityName = dataToUpdate.entityName || null;
@@ -541,10 +480,6 @@ export const getDashboardOverview = async (): Promise<{
   const currentMonthStartTimestamp = Timestamp.fromDate(currentMonthStartBoundary);
   const currentMonthEndTimestamp = Timestamp.fromDate(currentMonthEndBoundary);
 
-  // console.log("[DashboardQuery] Current Month Start:", currentMonthStartBoundary.toISOString(), currentMonthStartTimestamp.toDate());
-  // console.log("[DashboardQuery] Current Month End:", currentMonthEndBoundary.toISOString(), currentMonthEndTimestamp.toDate());
-
-
   const clientsQuery = query(clientsCollection, where('userId', '==', userId), where('status', '==', 'Active'));
   const auditsQuery = query(auditsCollection, where('userId', '==', userId), where('status', '==', 'In Progress'));
   
@@ -561,12 +496,11 @@ export const getDashboardOverview = async (): Promise<{
     where('lastContacted', '<=', currentMonthEndTimestamp)
   );
 
-
   const [
     clientsSnapshot, 
     auditsSnapshot, 
     outreachSentSnapshot, 
-    newLeadsSnapshotResults
+    newLeadsSnapshot
   ] = await Promise.all([
     getCountFromServer(clientsQuery),
     getCountFromServer(auditsQuery),
@@ -578,7 +512,7 @@ export const getDashboardOverview = async (): Promise<{
     activeClients: clientsSnapshot.data().count,
     auditsInProgress: auditsSnapshot.data().count,
     outreachSentThisMonth: outreachSentSnapshot.data().count,
-    newLeadsThisMonth: newLeadsSnapshotResults.data().count,
+    newLeadsThisMonth: newLeadsSnapshot.data().count,
   };
 };
 
@@ -637,15 +571,11 @@ export const getMonthlyActivityData = async (): Promise<MonthlyActivity[]> => {
 
   outreachDocs.forEach(doc => {
     const lastContacted = (doc.data().lastContacted as Timestamp)?.toDate();
-    // console.log(`[ActivityData] Prospect: ${doc.id}, Last Contacted: ${lastContacted?.toISOString()}`);
     if (lastContacted) {
       const monthName = format(lastContacted, 'MMM');
       const monthData = activityData.find(m => m.month === monthName);
       if (monthData) {
           monthData.outreach++;
-          // console.log(`[ActivityData] Incremented outreach for ${monthName}. Total: ${monthData.outreach}`);
-      } else {
-          // console.log(`[ActivityData] Month data not found for ${monthName}`);
       }
     }
   });
@@ -662,9 +592,5 @@ export const getMonthlyActivityData = async (): Promise<MonthlyActivity[]> => {
   const correctlyOrderedActivityData = monthLabels.map(label => {
     return activityData.find(ad => ad.month === label) || { month: label, clients: 0, outreach: 0, audits: 0 };
   });
-  // console.log("[ActivityData] Final ordered data:", correctlyOrderedActivityData);
   return correctlyOrderedActivityData;
 };
-
-
-    

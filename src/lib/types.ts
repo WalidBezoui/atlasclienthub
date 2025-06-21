@@ -55,8 +55,8 @@ export type OutreachProspect = {
   prospectLocation?: ProspectLocation | null;
   industry?: string | null; // General industry text input
   email?: string | null; // Kept email as optional
-  visualStyle?: string | null; // New field from guide
-  bioSummary?: string | null; // New field from guide
+  visualStyle?: string | null; 
+  bioSummary?: string | null; 
 
   // Section 2: Business Type
   businessType?: BusinessType | null;
@@ -90,6 +90,13 @@ export type OutreachProspect = {
   helpStatement?: string | null; 
   tonePreference?: TonePreference | null;
   
+  // New CRM / Tracking Fields
+  lastMessageSnippet?: string | null; // Last message from prospect
+  lastScriptSent?: string | null; // Identifier for the last script we sent
+  linkSent?: boolean | null; // e.g., a link to an audit was sent
+  carouselOffered?: boolean | null; // e.g., a free sample was offered
+  nextStep?: string | null; // Manually defined next action
+
   notes?: string | null;
 };
 

@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, BotMessageSquare, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileTextIcon, Star } from 'lucide-react';
+import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, BotMessageSquare, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileTextIcon, Star, Calendar, MessageCircle, FileUp, ListTodo } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardDescription as CardFormDescription } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
@@ -76,6 +76,11 @@ const initialFormData: Omit<OutreachProspect, 'id' | 'userId'> = {
     helpStatement: null, 
     tonePreference: null,
     notes: null,
+    lastMessageSnippet: null,
+    lastScriptSent: null,
+    linkSent: false,
+    carouselOffered: false,
+    nextStep: null,
 };
 
 function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProspect, onSave: (prospectData: Omit<OutreachProspect, 'id' | 'userId'> | OutreachProspect) => void, onCancel: () => void }) {
@@ -100,6 +105,8 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
             followUpNeeded: prospect.followUpNeeded || false,
             visualStyle: prospect.visualStyle || null, 
             bioSummary: prospect.bioSummary || null, 
+            linkSent: prospect.linkSent || false,
+            carouselOffered: prospect.carouselOffered || false,
         };
       setFormData(formattedProspect);
     } else {
@@ -350,7 +357,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
       
       <Card className="pt-4">
         <CardHeader className="py-2">
-             <DialogTitle className="text-lg font-semibold flex items-center"><Sparkles className="mr-2 h-5 w-5 text-primary"/>Section 6: Lead Warmth & Status</DialogTitle>
+             <DialogTitle className="text-lg font-semibold flex items-center"><Sparkles className="mr-2 h-5 w-5 text-primary"/>Section 6: Lead & Interaction Status</DialogTitle>
         </CardHeader>
         <CardContent className="space-y-3">
             <div>
@@ -381,9 +388,21 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
                     <Input id="followUpDate" name="followUpDate" type="date" value={formData.followUpDate || ''} onChange={handleChange} />
                 </div>
             </div>
-            <div className="flex items-center space-x-2 mt-1">
+             <div>
+                <Label htmlFor="lastMessageSnippet">Last Message from Prospect (Optional)</Label>
+                <Textarea id="lastMessageSnippet" name="lastMessageSnippet" placeholder="e.g., 'Thanks, I'll check it out'" value={formData.lastMessageSnippet || ''} onChange={handleChange} rows={2}/>
+            </div>
+            <div className="flex items-center space-x-2 pt-2">
                 <Checkbox id="followUpNeeded" checked={!!formData.followUpNeeded} onCheckedChange={(checked) => handleSingleCheckboxChange('followUpNeeded', !!checked)} />
                 <Label htmlFor="followUpNeeded" className="font-normal">Follow-Up Needed?</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+                <Checkbox id="linkSent" checked={!!formData.linkSent} onCheckedChange={(checked) => handleSingleCheckboxChange('linkSent', !!checked)} />
+                <Label htmlFor="linkSent" className="font-normal">Link Sent? (e.g., Audit)</Label>
+            </div>
+             <div className="flex items-center space-x-2">
+                <Checkbox id="carouselOffered" checked={!!formData.carouselOffered} onCheckedChange={(checked) => handleSingleCheckboxChange('carouselOffered', !!checked)} />
+                <Label htmlFor="carouselOffered" className="font-normal">Carousel Offered?</Label>
             </div>
         </CardContent>
       </Card>
@@ -411,17 +430,21 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
 
       <Card className="pt-4">
         <CardHeader className="py-2">
-            <DialogTitle className="text-lg font-semibold flex items-center"><Settings2 className="mr-2 h-5 w-5 text-primary"/>Section 8: Smart Question Prompts (Optional)</DialogTitle>
+            <DialogTitle className="text-lg font-semibold flex items-center"><Settings2 className="mr-2 h-5 w-5 text-primary"/>Section 8: Smart Prompts & Notes</DialogTitle>
             <CardFormDescription>These make the LLM outputs sharper.</CardFormDescription>
         </CardHeader>
         <CardContent className="space-y-3">
             <div>
-                <Label htmlFor="uniqueNote">What’s unique or interesting about this brand? (1-2 sentences)</Label>
+                <Label htmlFor="uniqueNote">Unique/Interesting observation about this brand? (1-2 sentences)</Label>
                 <Textarea id="uniqueNote" name="uniqueNote" placeholder="e.g., They post skincare tips in Darija" value={formData.uniqueNote || ''} onChange={handleChange} rows={2}/>
             </div>
             <div>
                 <Label htmlFor="helpStatement">If you had to help them in 1 sentence, what would it be?</Label>
                 <Textarea id="helpStatement" name="helpStatement" placeholder="e.g., Their highlights and bio confuse visitors." value={formData.helpStatement || ''} onChange={handleChange} rows={2}/>
+            </div>
+             <div>
+                <Label htmlFor="nextStep">Next Step (Manual)</Label>
+                <Textarea id="nextStep" name="nextStep" placeholder="e.g., 'Follow up on audit feedback next week.'" value={formData.nextStep || ''} onChange={handleChange} rows={2}/>
             </div>
             <div>
                 <Label>Tone Preference?</Label>
@@ -438,13 +461,17 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
                     ))}
                   </RadioGroup>
             </div>
+             <div className="pt-2">
+              <Label htmlFor="lastScriptSent">Last Script Sent (Label)</Label>
+              <Input id="lastScriptSent" name="lastScriptSent" placeholder="e.g., 'Initial Cold DM'" value={formData.lastScriptSent || ''} onChange={handleChange} />
+            </div>
+            <div className="pt-2">
+              <Label htmlFor="notes">General Notes (Optional)</Label>
+              <Textarea id="notes" name="notes" value={formData.notes || ''} onChange={handleChange} />
+            </div>
         </CardContent>
       </Card>
 
-      <div className="pt-2">
-        <Label htmlFor="notes">General Notes (Optional)</Label>
-        <Textarea id="notes" name="notes" value={formData.notes || ''} onChange={handleChange} />
-      </div>
 
       <DialogFooter className="pt-6 sticky bottom-0 bg-background py-4 z-10 border-t">
         <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
@@ -487,7 +514,7 @@ export default function OutreachPage() {
     setIsLoading(true);
     try {
       const fetchedProspects = await getProspects();
-      setProspects(fetchedProspects);
+      setProspects(fetchedProspects.sort((a,b) => (b.followUpNeeded ? 1 : -1) - (a.followUpNeeded ? 1 : -1) || new Date(b.lastContacted || 0).getTime() - new Date(a.lastContacted || 0).getTime()));
     } catch (error) {
       console.error("Error fetching prospects:", error);
       toast({ title: "Error", description: "Could not fetch prospects.", variant: "destructive" });
@@ -627,10 +654,16 @@ export default function OutreachPage() {
         followUpNeeded: prospect.followUpNeeded || false,
         
         offerInterest: prospect.offerInterest || [],
-        uniqueNote: prospect.uniqueNote?.trim() || null,
-        helpStatement: prospect.helpStatement?.trim() || null,
+        
         tonePreference: prospect.tonePreference || null,
         additionalNotes: prospect.notes?.trim() || null,
+
+        // New CRM fields
+        lastMessageSnippet: prospect.lastMessageSnippet || null,
+        lastScriptSent: prospect.lastScriptSent || null,
+        linkSent: prospect.linkSent || false,
+        carouselOffered: prospect.carouselOffered || false,
+        nextStep: prospect.nextStep || null,
     };
     setCurrentScriptGenerationInput(input);
 
@@ -695,6 +728,21 @@ export default function OutreachPage() {
       case 'Not Interested': return 'destructive';
       default: return 'default';
     }
+  };
+
+  const getDaysSinceText = (lastContacted?: string | null): string => {
+      if (!lastContacted) return '-';
+      const lastContactDate = new Date(lastContacted);
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      lastContactDate.setHours(0,0,0,0);
+      
+      const diffTime = today.getTime() - lastContactDate.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays === 0) return 'Today';
+      if (diffDays === 1) return 'Yesterday';
+      return `${diffDays} days ago`;
   };
 
   if (authLoading || (isLoading && !prospects.length && user)) {
@@ -802,10 +850,9 @@ export default function OutreachPage() {
                   <TableRow>
                     <TableHead className="w-[50px]">Follow</TableHead>
                     <TableHead>Name</TableHead>
-                    <TableHead className="hidden md:table-cell">IG Handle</TableHead>
-                    <TableHead className="hidden sm:table-cell">Business Type</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="hidden lg:table-cell">Last Contacted</TableHead>
+                    <TableHead className="hidden sm:table-cell">Status</TableHead>
+                    <TableHead className="hidden md:table-cell">Next Step</TableHead>
+                    <TableHead className="hidden lg:table-cell">Days Since</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -829,10 +876,8 @@ export default function OutreachPage() {
                               </Tooltip>
                           </TooltipProvider>
                         </TableCell>
-                        <TableCell className="font-medium">{prospect.name}</TableCell>
-                        <TableCell className="hidden md:table-cell text-muted-foreground">{prospect.instagramHandle || '-'}</TableCell>
-                        <TableCell className="hidden sm:table-cell text-muted-foreground">{prospect.businessType === "Other" && prospect.businessTypeOther ? prospect.businessTypeOther : prospect.businessType || '-'}</TableCell>
-                        <TableCell>
+                        <TableCell className="font-medium">{prospect.name}<br/><span className="text-xs text-muted-foreground">{prospect.instagramHandle || ''}</span></TableCell>
+                        <TableCell className="hidden sm:table-cell">
                           <Select 
                             value={prospect.status} 
                             onValueChange={(newStatus: OutreachLeadStage) => handleStatusChange(prospect.id, newStatus)}
@@ -849,8 +894,9 @@ export default function OutreachPage() {
                             </SelectContent>
                           </Select>
                         </TableCell>
-                        <TableCell className="hidden lg:table-cell text-muted-foreground">
-                          {prospect.lastContacted ? new Date(prospect.lastContacted).toLocaleDateString() : '-'}
+                        <TableCell className="hidden md:table-cell text-muted-foreground text-xs">{prospect.nextStep || '-'}</TableCell>
+                        <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">
+                          {getDaysSinceText(prospect.lastContacted)}
                         </TableCell>
                         <TableCell className="text-right space-x-0.5">
                            <DropdownMenu>
@@ -885,7 +931,7 @@ export default function OutreachPage() {
                       </TableRow>
                     )) : (
                        <TableRow>
-                        <TableCell colSpan={7} className="text-center h-24">
+                        <TableCell colSpan={6} className="text-center h-24">
                             <div className="flex flex-col items-center justify-center">
                                 <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
                                 <p className="font-semibold">

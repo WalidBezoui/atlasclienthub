@@ -47,10 +47,16 @@ const GenerateContextualScriptInputSchema = z.object({
   source: z.enum(LEAD_SOURCES).nullable().optional().describe("How the lead was found or generated."),
   lastTouch: z.string().nullable().optional().describe("Description of the last interaction (e.g., None, Sent intro DM 3 days ago)."),
   followUpNeeded: z.boolean().nullable().optional().describe("Whether a follow-up is marked as needed."),
+  lastMessageSnippet: z.string().nullable().optional().describe("The last message received from the prospect."),
+  lastScriptSent: z.string().nullable().optional().describe("A label for the last script that was sent to this prospect."),
+  linkSent: z.boolean().nullable().optional().describe("Whether a link (e.g., to an audit) has been sent."),
+  carouselOffered: z.boolean().nullable().optional().describe("Whether a free sample (like a carousel post) was offered."),
+  nextStep: z.string().nullable().optional().describe("The defined next step for this prospect."),
+
 
   // Offer Interest & Tone (from guide)
   offerInterest: z.array(z.enum(OFFER_INTERESTS)).nullable().optional().describe("What the prospect has shown interest in, if they've replied."),
-  tonePreference: z.enum(TONE_PREFERENCES).nullable().optional().describe("The preferred tone for the generated script (Friendly, Confident, Creative)."), // Guide uses "Friendly / Bold / Polite" - mapping to existing.
+  tonePreference: z.enum(TONE_PREFERENCES).nullable().optional().describe("The preferred tone for the generated script (Friendly, Confident, Creative)."),
   offerType: z.string().describe("The specific offer being made, e.g., 'Free 3-point audit + visual tips'.").default("Free 3-point audit + visual tips"),
 
   // Business Type (from existing, relevant for context)
@@ -80,63 +86,76 @@ const prompt = ai.definePrompt({
   name: 'generateContextualScriptPrompt',
   input: {schema: GenerateContextualScriptInputSchema},
   output: {schema: GenerateContextualScriptOutputSchema},
-  prompt: `You are an expert Instagram outreach copywriter for "${SENDER_STUDIO_NAME}".
-Your objective is to craft a personalized, persuasive Instagram DM to offer a free audit or content service to potential clients.
-The message must: Build trust, Show relevance and expertise, Remove skepticism (especially as "${SENDER_STUDIO_NAME}" is currently positioning itself as a new, mission-driven studio selecting hand-picked brands), Offer tangible value, and Include a soft, non-pushy call-to-action.
-The message goal is to get permission to send the audit/service described in "{{offerType}}".
-The sender account, "${SENDER_STUDIO_NAME}", currently has ${SENDER_FOLLOWER_COUNT} followers. Frame this positively as being selective or mission-driven, NOT as being new or desperate.
+  prompt: `You are an expert Instagram outreach copywriter for a new, mission-driven studio called "${SENDER_STUDIO_NAME}". Your goal is to craft a personalized, persuasive Instagram DM.
+The message MUST build trust, show relevance, remove skepticism about the studio being new (0 followers), offer tangible value, and include a soft, non-pushy call-to-action.
 
-Prospect Details:
-{{#if clientName}}Name: {{clientName}}{{/if}}
-{{#if clientHandle}}IG Handle: {{clientHandle}}{{/if}}
-{{#if businessName}}Brand Name: {{businessName}}{{/if}}
-{{#if clientIndustry}}Industry: {{clientIndustry}}{{/if}}
-{{#if visualStyle}}Visual Style: {{visualStyle}}{{/if}}
-{{#if accountStage}}Business Stage: {{accountStage}}{{/if}}
-{{#if bioSummary}}Bio Summary: "{{bioSummary}}"{{/if}}
-{{#if painPoints}}Identified Pain Point(s): {{#each painPoints}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}{{/if}}
-Preferred Tone: {{#if tonePreference}}{{tonePreference}}{{else}}Friendly & Confident{{/if}}
-Offer: {{offerType}}
+**IMPORTANT CONTEXT: Your studio, "${SENDER_STUDIO_NAME}", currently has ${SENDER_FOLLOWER_COUNT} followers. You MUST frame this positively.** Position the studio as being highly selective, new, and on a mission to work with a few hand-picked brands. This creates exclusivity and purpose. DO NOT mention being new or trying to grow.
 
-Follow this structure for the DM:
+**PROSPECT DETAILS:**
+- **Name**: {{clientName}}
+- **IG Handle**: {{clientHandle}}
+- **Brand Name**: {{businessName}}
+- **Industry**: {{clientIndustry}}
+- **Visual Style Notes**: {{visualStyle}}
+- **Bio Summary**: "{{bioSummary}}"
+- **Business Stage**: {{accountStage}}
+- **Identified Pain Point(s)**: {{#each painPoints}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}
+- **Their Goals**: {{#each goals}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}
+- **Preferred Tone**: {{#if tonePreference}}{{tonePreference}}{{else}}Friendly & Confident{{/if}}
+- **Offer**: {{offerType}}
+- **Lead Status**: {{leadStatus}}
+{{#if lastMessageSnippet}}- **Last Message from Them**: "{{lastMessageSnippet}}"{{/if}}
 
-A. Personalized Opening:
-   - Start with a warm greeting (e.g., "Hey {{#if clientName}}{{clientName}}{{else if businessName}}{{businessName}}{{else if clientHandle}}{{clientHandle}}{{else}}there{{/if}}! 👋").
-   - Include a SINCERE compliment that shows you’ve ACTUALLY REVIEWED THEIR FEED. Reference their specific content, products, {{#if visualStyle}}their {{visualStyle}} visual style, {{/if}}or overall vibe related to their {{#if clientIndustry}}{{clientIndustry}} niche.{{/if}}
-   - Example: "I came across {{#if businessName}}{{businessName}}{{else if clientHandle}}{{clientHandle}}{{else}}your profile{{/if}} and loved the {{#if visualStyle}}{{visualStyle}} vibe{{/if}} of your {{#if clientIndustry}}{{clientIndustry}} content{{/if}} – it really stands out." (Adapt this using available info).
+---
+**SCRIPT GENERATION LOGIC**
 
-B. Who You Are (Without Saying "I'm New"):
+**IF the lead status is 'To Contact' or 'Cold' (this is a NEW lead), follow this structure:**
+
+**A. Personalized Opening:**
+   - Start with a warm greeting (e.g., "Hey {{#if clientName}}{{clientName}}{{else if businessName}}{{businessName}}{{else}}{{clientHandle}}{{/if}}! 👋").
+   - Give a SINCERE compliment that shows you’ve reviewed their feed. Reference their specific content, products, {{#if visualStyle}}their {{visualStyle}} visual style, {{/if}}or overall vibe related to their {{#if clientIndustry}}{{clientIndustry}} niche.{{/if}} Be specific. Avoid "cool feed".
+   - Example: "I came across {{businessName}} and was impressed by the {{visualStyle}} aesthetic in your recent posts. The way you showcase your products feels very authentic."
+
+**B. Who You Are (The "Mission-Driven" Angle):**
    - Introduce "${SENDER_STUDIO_NAME}".
-   - Position the studio as focused, curated, and mission-driven.
-   - Explain the current initiative: "${SENDER_STUDIO_NAME}" is working with a few hand-picked brands admired for their potential, offering personalized audits/makeovers as part of a growth mission. This builds exclusivity.
-   - Example phrasing: "I run ${SENDER_STUDIO_NAME} – we help brands like yours sharpen their visual presence and turn scrolls into clicks through content makeovers and subtle branding upgrades. We're currently working with a few hand-picked brands we admire to offer personalized insights – part of our mission to elevate standout {{#if clientIndustry_lc_pluralized}}{{clientIndustry_lc_pluralized}}{{else}}businesses{{/if}}."
+   - Frame the outreach as a special initiative: "${SENDER_STUDIO_NAME}" is working with a few **hand-picked brands** admired for their potential, offering personalized insights as part of a growth mission.
+   - Example phrasing: "I run ${SENDER_STUDIO_NAME} – we help brands like yours sharpen their visual presence to turn scrolls into clicks. We're currently working with a few hand-picked brands we admire to offer personalized insights, as part of our mission to elevate standout {{#if clientIndustry_lc_pluralized}}{{clientIndustry_lc_pluralized}}{{else}}businesses{{/if}}."
 
-C. The Offer:
+**C. The Offer:**
    - Clearly state the value of the "{{offerType}}". Make it tangible and no-pressure.
    - Briefly list 2-3 key deliverables or benefits.
-   - Example for a "Free 3-point audit + visual tips": "It includes: what’s working in your feed, where you might be losing engagement or conversions, and a couple of fresh design ideas to upgrade your visual identity." (Tailor this to the specific offerType if it changes).
+   - Example for a "Free 3-point audit + visual tips": "It includes a quick look at what’s working in your feed, a key area where you might be losing engagement, and a couple of fresh design ideas to upgrade your visual identity."
 
-D. Soft Close (Low-Pressure CTA):
+**D. Soft Close (Low-Pressure CTA):**
    - End with a short, frictionless question to get permission.
-   - Example: "Would you like me to send it over? 💬" or "Want me to DM it to you here?"
+   - Example: "Would you like me to send it over? 💬"
 
-E. Things to AVOID:
-   - Do NOT say "${SENDER_STUDIO_NAME}" just launched or is trying to grow.
-   - Do NOT use generic compliments like “cool feed.”
-   - Do NOT use fake urgency (e.g., "spots filling fast!").
-   - Do NOT use a robotic tone or spammy formatting.
-   - Keep the intro punchy and the overall message concise for Instagram DMs.
+---
 
-Psychology Reminders:
-- Specificity: Use details from the prospect's profile like {{#if visualStyle}}their {{visualStyle}} style{{/if}}{{#if clientIndustry}} or {{clientIndustry}} focus{{/if}}.
-- Exclusivity: Frame the offer as selective for "hand-picked brands."
-- Reciprocity: The free value of the "{{offerType}}".
-- Clarity: Be clear about what the "{{offerType}}" includes.
-- Low Commitment CTA: Just ask for permission.
+**IF the lead status is 'Warm', 'Replied', or 'Interested' (this is a FOLLOW-UP), adapt the structure:**
 
-Critique Directive: After drafting the script based on ALL the above, review it for emotional impact, clarity, alignment with "${SENDER_STUDIO_NAME}"'s mission-driven positioning (even with 0 followers), and conciseness. Ensure it directly addresses the prospect based on the provided context. Then, output ONLY the perfected script.
+**A. Re-engage Gently:**
+   - Refer back to your last interaction.
+   - If they replied, acknowledge their message.
+   - Example if they said "for free!!?": "Hey {{clientName}}! Just following up on the free audit. And yes, absolutely no strings attached! We do this for a select few brands we're excited about."
+   - Example if they said "I'll check later": "Hey {{clientName}}, hope you had a great week! Just wanted to gently follow up on the free audit I mentioned. No pressure at all, just wanted to see if you had any thoughts."
+   - If they haven't replied at all (status is 'Warm' but no reply): "Hey {{clientName}}, just wanted to quickly resurface my message from last week about a free 3-point audit for {{businessName}}. Let me know if it's something you'd be open to! 🙂"
 
-Generate the "{{scriptType}}" now:
+**B. Reiterate Value (Briefly):**
+   - Remind them of the core benefit of the "{{offerType}}".
+   - Example: "It's a quick way to get some fresh eyes on your content strategy."
+
+**C. The CTA (Adjust based on context):**
+   - If they showed interest, make the next step easy.
+   - Example: "If you're still interested, just give me the word and I'll get it to you this week!"
+   - If it's a cold follow-up, repeat the soft CTA: "Would you be open to me sending it over?"
+
+---
+
+**FINAL CRITIQUE DIRECTIVE:**
+After drafting the script based on ALL the above, review it for emotional impact, clarity, and alignment with "${SENDER_STUDIO_NAME}"'s exclusive, mission-driven positioning. Ensure it sounds human and is concise for Instagram DMs.
+
+**Now, generate the "{{scriptType}}" for this prospect:**
 `,
 });
 
@@ -167,8 +186,7 @@ const generateContextualScriptFlow = ai.defineFlow(
         clientIndustry_lc_pluralized
     };
 
-    const {output} = await prompt(augmentedInput, { config: { temperature: 0.75, maxOutputTokens: 500 }}); // Increased max tokens slightly for potentially more detailed personalized scripts
+    const {output} = await prompt(augmentedInput, { config: { temperature: 0.8, maxOutputTokens: 500 }});
     return output!;
   }
 );
-
