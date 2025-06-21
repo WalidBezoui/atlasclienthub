@@ -96,23 +96,50 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
   const [isFetchingMetrics, setIsFetchingMetrics] = useState(false);
   
   const [formData, setFormData] = useState(() => {
+    // This lazy initializer runs only once, ensuring the form starts correctly.
+    // The `key` prop on the component will force re-mounting for new prospects.
     const sourceData = prospect || initialFormData;
-    const initialState = {
-        ...initialFormData, // Start with defaults
-        ...sourceData,     // Override with prospect data
-        // Ensure dates are in YYYY-MM-DD format for the input, or empty string
-        lastContacted: sourceData.lastContacted ? new Date(sourceData.lastContacted).toISOString().split('T')[0] : '',
-        followUpDate: sourceData.followUpDate ? new Date(sourceData.followUpDate).toISOString().split('T')[0] : '',
-        // Ensure arrays are not undefined
-        painPoints: sourceData.painPoints ?? [],
-        goals: sourceData.goals ?? [],
-        offerInterest: sourceData.offerInterest ?? [],
+    
+    // Explicitly map each field to prevent state mismatches
+    return {
+      name: sourceData.name ?? '',
+      instagramHandle: sourceData.instagramHandle ?? null,
+      businessName: sourceData.businessName ?? null,
+      website: sourceData.website ?? null,
+      prospectLocation: sourceData.prospectLocation ?? null,
+      industry: sourceData.industry ?? null,
+      email: sourceData.email ?? null,
+      visualStyle: sourceData.visualStyle ?? null,
+      bioSummary: sourceData.bioSummary ?? null,
+      businessType: sourceData.businessType ?? null,
+      businessTypeOther: sourceData.businessTypeOther ?? null,
+      accountStage: sourceData.accountStage ?? null,
+      followerCount: sourceData.followerCount ?? null,
+      postCount: sourceData.postCount ?? null,
+      avgLikes: sourceData.avgLikes ?? null,
+      avgComments: sourceData.avgComments ?? null,
+      painPoints: sourceData.painPoints ?? [],
+      goals: sourceData.goals ?? [],
+      status: sourceData.status ?? 'To Contact', // Critical field
+      source: sourceData.source ?? null,
+      lastContacted: sourceData.lastContacted ? new Date(sourceData.lastContacted).toISOString().split('T')[0] : '',
+      followUpDate: sourceData.followUpDate ? new Date(sourceData.followUpDate).toISOString().split('T')[0] : '',
+      followUpNeeded: sourceData.followUpNeeded ?? false,
+      offerInterest: sourceData.offerInterest ?? [],
+      uniqueNote: sourceData.uniqueNote ?? null,
+      helpStatement: sourceData.helpStatement ?? null,
+      tonePreference: sourceData.tonePreference ?? null,
+      notes: sourceData.notes ?? null,
+      lastMessageSnippet: sourceData.lastMessageSnippet ?? null,
+      lastScriptSent: sourceData.lastScriptSent ?? null,
+      linkSent: sourceData.linkSent ?? false,
+      carouselOffered: sourceData.carouselOffered ?? false,
+      nextStep: sourceData.nextStep ?? null,
+      conversationHistory: sourceData.conversationHistory ?? null,
+      qualifierQuestion: sourceData.qualifierQuestion ?? null,
+      qualifierSentAt: sourceData.qualifierSentAt ?? null,
+      qualifierReply: sourceData.qualifierReply ?? null,
     };
-    if (prospect) {
-        (initialState as OutreachProspect).id = prospect.id;
-        (initialState as OutreachProspect).userId = prospect.userId;
-    }
-    return initialState;
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -568,7 +595,7 @@ export default function OutreachPage() {
         return;
     }
     try {
-        const dataToSave = prospectData.id ? prospectData : { ...prospectData, lastContacted: new Date().toISOString() };
+        const dataToSave = 'id' in prospectData ? prospectData : { ...prospectData, lastContacted: new Date().toISOString() };
         await ('id' in dataToSave && dataToSave.id 
           ? updateProspect(dataToSave.id, dataToSave as Partial<OutreachProspect>) 
           : addProspect(dataToSave as Omit<OutreachProspect, 'id'|'userId'>));
@@ -873,12 +900,7 @@ export default function OutreachPage() {
                             <DropdownMenuItem onClick={() => handleOpenConversationModal(prospect)}>
                                 <MessagesSquare className="mr-2 h-4 w-4" /> Manage Conversation
                             </DropdownMenuItem>
-                            {canAskQualifier && (
-                                <DropdownMenuItem onClick={() => handleGenerateQualifier(prospect)}>
-                                    <FileQuestion className="mr-2 h-4 w-4" /> Ask Qualifier Question
-                                </DropdownMenuItem>
-                            )}
-                            {canCreateAudit && (
+                             {canCreateAudit && (
                                 <Link href={auditLink}>
                                     <DropdownMenuItem>
                                         <GraduationCap className="mr-2 h-4 w-4" /> Create Audit
@@ -886,8 +908,16 @@ export default function OutreachPage() {
                                 </Link>
                             )}
                         </DropdownMenuGroup>
-                        <DropdownMenuSeparator />
+                        
+                        {(canAskQualifier || scriptMenuItems.length > 0) && <DropdownMenuSeparator />}
+                        
                         <DropdownMenuGroup>
+                           <DropdownMenuLabel>Generate Scripts</DropdownMenuLabel>
+                           {canAskQualifier && (
+                                <DropdownMenuItem onClick={() => handleGenerateQualifier(prospect)}>
+                                    <FileQuestion className="mr-2 h-4 w-4" /> Ask Qualifier Question
+                                </DropdownMenuItem>
+                            )}
                            {scriptMenuItems.map(item => (
                                 <DropdownMenuItem key={item.type} onClick={() => handleGenerateScript(prospect, item.type)}>
                                     <BotMessageSquare className="mr-2 h-4 w-4" />
@@ -895,6 +925,7 @@ export default function OutreachPage() {
                                 </DropdownMenuItem>
                             ))}
                         </DropdownMenuGroup>
+
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => handleDeleteProspect(prospect.id, prospect.name)} className="text-destructive">
                             <Trash2 className="mr-2 h-4 w-4" /> Delete
@@ -1145,3 +1176,4 @@ export default function OutreachPage() {
     </Suspense>
   );
 }
+
