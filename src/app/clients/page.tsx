@@ -53,17 +53,30 @@ function ClientForm({ client, onSave, onCancel }: { client?: Client, onSave: (cl
 
   useEffect(() => {
     if (client) {
-      const populatedData = { ...initialFormDataState, ...client };
-      
-      populatedData.joinedDate = client.joinedDate 
-        ? new Date(client.joinedDate).toISOString().split('T')[0]
-        : new Date().toISOString().split('T')[0];
-
+      // Explicitly set each field to prevent state initialization issues.
+      const populatedData = {
+        name: client.name || '',
+        contactEmail: client.contactEmail || '',
+        companyName: client.companyName || '',
+        status: client.status || 'Active', // Critical line for client status
+        joinedDate: client.joinedDate 
+            ? new Date(client.joinedDate).toISOString().split('T')[0]
+            : new Date().toISOString().split('T')[0],
+        instagramHandle: client.instagramHandle || '',
+        contactPhone: client.contactPhone || '',
+        notes: client.notes || '',
+        industry: client.industry || '',
+      };
+      // If editing, carry over the id and userId
+      if ('id' in client) {
+        (populatedData as Client).id = client.id;
+        (populatedData as Client).userId = client.userId;
+      }
       setFormData(populatedData);
     } else {
       setFormData(initialFormDataState);
     }
-  }, [client]);
+}, [client]);
 
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
