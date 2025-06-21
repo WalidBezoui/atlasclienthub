@@ -96,11 +96,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
   const [isFetchingMetrics, setIsFetchingMetrics] = useState(false);
   
   const [formData, setFormData] = useState(() => {
-    // This lazy initializer runs only once, ensuring the form starts correctly.
-    // The `key` prop on the component will force re-mounting for new prospects.
     const sourceData = prospect || initialFormData;
-    
-    // Explicitly map each field to prevent state mismatches
     return {
       name: sourceData.name ?? '',
       instagramHandle: sourceData.instagramHandle ?? null,
@@ -120,7 +116,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
       avgComments: sourceData.avgComments ?? null,
       painPoints: sourceData.painPoints ?? [],
       goals: sourceData.goals ?? [],
-      status: sourceData.status ?? 'To Contact', // Critical field
+      status: sourceData.status ?? 'To Contact',
       source: sourceData.source ?? null,
       lastContacted: sourceData.lastContacted ? new Date(sourceData.lastContacted).toISOString().split('T')[0] : '',
       followUpDate: sourceData.followUpDate ? new Date(sourceData.followUpDate).toISOString().split('T')[0] : '',
@@ -137,7 +133,7 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
       nextStep: sourceData.nextStep ?? null,
       conversationHistory: sourceData.conversationHistory ?? null,
       qualifierQuestion: sourceData.qualifierQuestion ?? null,
-      qualifierSentAt: sourceData.qualifierSentAt ?? null,
+      qualifierSentAt: sourceData.qualifierSentAt ? new Date(sourceData.qualifierSentAt).toISOString().split('T')[0] : null,
       qualifierReply: sourceData.qualifierReply ?? null,
     };
   });
@@ -1176,4 +1172,3 @@ export default function OutreachPage() {
     </Suspense>
   );
 }
-
