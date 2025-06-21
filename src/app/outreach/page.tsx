@@ -89,52 +89,59 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
   const { toast } = useToast();
   const [isFetchingMetrics, setIsFetchingMetrics] = useState(false);
   
-  const getInitialState = useCallback(() => {
-    if (!prospect) {
-      return initialFormData;
+  const [formData, setFormData] = useState<Omit<OutreachProspect, 'id' | 'userId'> | OutreachProspect>(initialFormData);
+
+  useEffect(() => {
+    if (prospect) {
+      // Create a fresh state object based on the prospect to avoid stale state issues.
+      const populatedData = {
+        name: prospect.name ?? '',
+        status: prospect.status ?? 'To Contact',
+        instagramHandle: prospect.instagramHandle ?? null,
+        businessName: prospect.businessName ?? null,
+        website: prospect.website ?? null,
+        prospectLocation: prospect.prospectLocation ?? null,
+        industry: prospect.industry ?? null,
+        email: prospect.email ?? null,
+        visualStyle: prospect.visualStyle ?? null,
+        bioSummary: prospect.bioSummary ?? null,
+        businessType: prospect.businessType ?? null,
+        businessTypeOther: prospect.businessTypeOther ?? null,
+        accountStage: prospect.accountStage ?? null,
+        followerCount: prospect.followerCount ?? null,
+        postCount: prospect.postCount ?? null,
+        avgLikes: prospect.avgLikes ?? null,
+        avgComments: prospect.avgComments ?? null,
+        painPoints: prospect.painPoints ?? [],
+        goals: prospect.goals ?? [],
+        source: prospect.source ?? null,
+        lastContacted: prospect.lastContacted ? new Date(prospect.lastContacted).toISOString().split('T')[0] : null,
+        followUpDate: prospect.followUpDate ? new Date(prospect.followUpDate).toISOString().split('T')[0] : null,
+        followUpNeeded: prospect.followUpNeeded ?? false,
+        offerInterest: prospect.offerInterest ?? [],
+        uniqueNote: prospect.uniqueNote ?? null,
+        helpStatement: prospect.helpStatement ?? null,
+        tonePreference: prospect.tonePreference ?? null,
+        lastMessageSnippet: prospect.lastMessageSnippet ?? null,
+        lastScriptSent: prospect.lastScriptSent ?? null,
+        linkSent: prospect.linkSent ?? false,
+        carouselOffered: prospect.carouselOffered ?? false,
+        nextStep: prospect.nextStep ?? null,
+        conversationHistory: prospect.conversationHistory ?? null,
+        notes: prospect.notes ?? null,
+      };
+
+      // If editing, carry over the id and userId
+      if ('id' in prospect) {
+          (populatedData as OutreachProspect).id = prospect.id;
+          (populatedData as OutreachProspect).userId = prospect.userId;
+      }
+      setFormData(populatedData);
+    } else {
+        setFormData(initialFormData); // Reset to initial state for a new prospect
     }
-    // Deep copy and normalize the prospect data for the form state
-    return {
-      ...initialFormData,
-      ...prospect,
-      name: prospect.name ?? '',
-      email: prospect.email ?? null,
-      instagramHandle: prospect.instagramHandle ?? null,
-      businessName: prospect.businessName ?? null,
-      website: prospect.website ?? null,
-      prospectLocation: prospect.prospectLocation ?? null,
-      industry: prospect.industry ?? null,
-      visualStyle: prospect.visualStyle ?? null,
-      bioSummary: prospect.bioSummary ?? null,
-      businessType: prospect.businessType ?? null,
-      businessTypeOther: prospect.businessTypeOther ?? null,
-      accountStage: prospect.accountStage ?? null,
-      followerCount: prospect.followerCount ?? null,
-      postCount: prospect.postCount ?? null,
-      avgLikes: prospect.avgLikes ?? null,
-      avgComments: prospect.avgComments ?? null,
-      painPoints: prospect.painPoints ?? [],
-      goals: prospect.goals ?? [],
-      status: prospect.status ?? 'To Contact',
-      source: prospect.source ?? null,
-      lastContacted: prospect.lastContacted ? new Date(prospect.lastContacted).toISOString().split('T')[0] : null,
-      followUpDate: prospect.followUpDate ? new Date(prospect.followUpDate).toISOString().split('T')[0] : null,
-      followUpNeeded: prospect.followUpNeeded ?? false,
-      offerInterest: prospect.offerInterest ?? [],
-      uniqueNote: prospect.uniqueNote ?? null,
-      helpStatement: prospect.helpStatement ?? null,
-      tonePreference: prospect.tonePreference ?? null,
-      notes: prospect.notes ?? null,
-      lastMessageSnippet: prospect.lastMessageSnippet ?? null,
-      lastScriptSent: prospect.lastScriptSent ?? null,
-      linkSent: prospect.linkSent ?? false,
-      carouselOffered: prospect.carouselOffered ?? false,
-      nextStep: prospect.nextStep ?? null,
-      conversationHistory: prospect.conversationHistory ?? null,
-    };
   }, [prospect]);
 
-  const [formData, setFormData] = useState(getInitialState());
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -964,7 +971,28 @@ export default function OutreachPage() {
                               </Tooltip>
                           </TooltipProvider>
                         </TableCell>
-                        <TableCell className="font-medium">{prospect.name}<br/><span className="text-xs text-muted-foreground">{prospect.instagramHandle || ''}</span></TableCell>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            <div>
+                              {prospect.name}
+                              <br/>
+                              {prospect.instagramHandle ? (
+                                <a 
+                                  href={`https://instagram.com/${prospect.instagramHandle.replace('@', '')}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-muted-foreground hover:text-primary hover:underline inline-flex items-center gap-1"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {prospect.instagramHandle}
+                                  <LinkIcon className="h-3 w-3" />
+                                </a>
+                              ) : (
+                                <span className="text-xs text-muted-foreground italic">No handle</span>
+                              )}
+                            </div>
+                          </div>
+                        </TableCell>
                         <TableCell className="hidden sm:table-cell">
                           <Select 
                             value={prospect.status} 
