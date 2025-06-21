@@ -34,11 +34,11 @@ import { useScriptContext } from '@/contexts/ScriptContext'; // Import script co
 
 const CLIENT_STATUS_OPTIONS: ClientStatus[] = ["Active", "On Hold", "Past"];
 
-const initialFormDataState = { 
+const initialFormDataState: Omit<Client, 'id' | 'userId'> = { 
   name: '',
   contactEmail: '',
   companyName: '',
-  status: 'Active' as ClientStatus,
+  status: 'Active',
   joinedDate: new Date().toISOString().split('T')[0],
   instagramHandle: '',
   contactPhone: '',
@@ -53,19 +53,13 @@ function ClientForm({ client, onSave, onCancel }: { client?: Client, onSave: (cl
 
   useEffect(() => {
     if (client) {
-      setFormData({
-        name: client.name || '',
-        contactEmail: client.contactEmail || '',
-        companyName: client.companyName || '',
-        status: client.status || 'Active',
-        joinedDate: client.joinedDate ? new Date(client.joinedDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-        contactPhone: client.contactPhone || '',
-        instagramHandle: client.instagramHandle || '',
-        notes: client.notes || '',
-        industry: client.industry || '',
-        id: 'id' in client ? client.id : undefined,
-        userId: 'userId' in client ? client.userId : undefined,
-      });
+      const populatedData = { ...initialFormDataState, ...client };
+      
+      populatedData.joinedDate = client.joinedDate 
+        ? new Date(client.joinedDate).toISOString().split('T')[0]
+        : new Date().toISOString().split('T')[0];
+
+      setFormData(populatedData);
     } else {
       setFormData(initialFormDataState);
     }
