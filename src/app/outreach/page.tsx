@@ -89,59 +89,53 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
   const { toast } = useToast();
   const [isFetchingMetrics, setIsFetchingMetrics] = useState(false);
   
-  const [formData, setFormData] = useState<Omit<OutreachProspect, 'id' | 'userId'> | OutreachProspect>(initialFormData);
-
-  useEffect(() => {
-    if (prospect) {
-      // Create a fresh state object based on the prospect to avoid stale state issues.
-      const populatedData = {
-        name: prospect.name ?? '',
-        status: prospect.status ?? 'To Contact',
-        instagramHandle: prospect.instagramHandle ?? null,
-        businessName: prospect.businessName ?? null,
-        website: prospect.website ?? null,
-        prospectLocation: prospect.prospectLocation ?? null,
-        industry: prospect.industry ?? null,
-        email: prospect.email ?? null,
-        visualStyle: prospect.visualStyle ?? null,
-        bioSummary: prospect.bioSummary ?? null,
-        businessType: prospect.businessType ?? null,
-        businessTypeOther: prospect.businessTypeOther ?? null,
-        accountStage: prospect.accountStage ?? null,
-        followerCount: prospect.followerCount ?? null,
-        postCount: prospect.postCount ?? null,
-        avgLikes: prospect.avgLikes ?? null,
-        avgComments: prospect.avgComments ?? null,
-        painPoints: prospect.painPoints ?? [],
-        goals: prospect.goals ?? [],
-        source: prospect.source ?? null,
-        lastContacted: prospect.lastContacted ? new Date(prospect.lastContacted).toISOString().split('T')[0] : null,
-        followUpDate: prospect.followUpDate ? new Date(prospect.followUpDate).toISOString().split('T')[0] : null,
-        followUpNeeded: prospect.followUpNeeded ?? false,
-        offerInterest: prospect.offerInterest ?? [],
-        uniqueNote: prospect.uniqueNote ?? null,
-        helpStatement: prospect.helpStatement ?? null,
-        tonePreference: prospect.tonePreference ?? null,
-        lastMessageSnippet: prospect.lastMessageSnippet ?? null,
-        lastScriptSent: prospect.lastScriptSent ?? null,
-        linkSent: prospect.linkSent ?? false,
-        carouselOffered: prospect.carouselOffered ?? false,
-        nextStep: prospect.nextStep ?? null,
-        conversationHistory: prospect.conversationHistory ?? null,
-        notes: prospect.notes ?? null,
-      };
-
-      // If editing, carry over the id and userId
-      if ('id' in prospect) {
-          (populatedData as OutreachProspect).id = prospect.id;
-          (populatedData as OutreachProspect).userId = prospect.userId;
-      }
-      setFormData(populatedData);
-    } else {
-        setFormData(initialFormData); // Reset to initial state for a new prospect
+  const [formData, setFormData] = useState(() => {
+    if (!prospect) {
+        return initialFormData;
     }
-  }, [prospect]);
-
+    // If a prospect is passed, initialize state with its data. This runs only once per component instance.
+    const sourceData = prospect;
+    const initialState = {
+        name: sourceData.name ?? '',
+        status: sourceData.status ?? 'To Contact',
+        instagramHandle: sourceData.instagramHandle ?? null,
+        businessName: sourceData.businessName ?? null,
+        website: sourceData.website ?? null,
+        prospectLocation: sourceData.prospectLocation ?? null,
+        industry: sourceData.industry ?? null,
+        email: sourceData.email ?? null,
+        visualStyle: sourceData.visualStyle ?? null,
+        bioSummary: sourceData.bioSummary ?? null,
+        businessType: sourceData.businessType ?? null,
+        businessTypeOther: sourceData.businessTypeOther ?? null,
+        accountStage: sourceData.accountStage ?? null,
+        followerCount: sourceData.followerCount ?? null,
+        postCount: sourceData.postCount ?? null,
+        avgLikes: sourceData.avgLikes ?? null,
+        avgComments: sourceData.avgComments ?? null,
+        painPoints: sourceData.painPoints ?? [],
+        goals: sourceData.goals ?? [],
+        source: sourceData.source ?? null,
+        lastContacted: sourceData.lastContacted ? new Date(sourceData.lastContacted).toISOString().split('T')[0] : null,
+        followUpDate: sourceData.followUpDate ? new Date(sourceData.followUpDate).toISOString().split('T')[0] : null,
+        followUpNeeded: sourceData.followUpNeeded ?? false,
+        offerInterest: sourceData.offerInterest ?? [],
+        uniqueNote: sourceData.uniqueNote ?? null,
+        helpStatement: sourceData.helpStatement ?? null,
+        tonePreference: sourceData.tonePreference ?? null,
+        lastMessageSnippet: sourceData.lastMessageSnippet ?? null,
+        lastScriptSent: sourceData.lastScriptSent ?? null,
+        linkSent: sourceData.linkSent ?? false,
+        carouselOffered: sourceData.carouselOffered ?? false,
+        nextStep: sourceData.nextStep ?? null,
+        conversationHistory: sourceData.conversationHistory ?? null,
+        notes: sourceData.notes ?? null,
+        // Carry over id and userId if editing
+        id: sourceData.id,
+        userId: sourceData.userId,
+    };
+    return initialState;
+  });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
