@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
-import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, BotMessageSquare, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileTextIcon, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare, MoreHorizontal, Save, FileQuestion, GraduationCap } from 'lucide-react';
+import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, Bot, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileText, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare, MoreHorizontal, Save, FileQuestion, GraduationCap } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardDescription as CardFormDescription } from '@/components/ui/card';
@@ -954,7 +954,7 @@ export default function OutreachPage() {
                             </Tooltip>
                            {scriptMenuItems.map(item => (
                                 <DropdownMenuItem key={item.type} onClick={() => handleGenerateScript(prospect, item.type)}>
-                                    <BotMessageSquare className="mr-2 h-4 w-4" />
+                                    <Bot className="mr-2 h-4 w-4" />
                                     <span>{item.label}</span>
                                 </DropdownMenuItem>
                             ))}
