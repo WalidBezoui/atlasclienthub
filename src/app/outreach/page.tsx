@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, Bot, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileText, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare, MoreHorizontal, Save, FileQuestion, GraduationCap } from 'lucide-react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardDescription as CardFormDescription } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
@@ -21,7 +21,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import type { OutreachProspect, OutreachLeadStage, BusinessType, PainPoint, Goal, LeadSource, OfferInterest, TonePreference, ProspectLocation, AccountStage } from '@/lib/types';
-import { OUTREACH_LEAD_STAGE_OPTIONS, BUSINESS_TYPES, PAIN_POINTS, GOALS, LEAD_SOURCES, OFFER_INTERESTS, TONE_PREFERENCES, PROSPECT_LOCATIONS, ACCOUNT_STAGES, SCRIPT_SNIPPET_TYPES } from '@/lib/types';
+import { OUTREACH_LEAD_STAGE_OPTIONS, BUSINESS_TYPES, PAIN_POINTS, GOALS, LEAD_SOURCES, OFFER_INTERESTS, TONE_PREFERENCES, PROSPECT_LOCATIONS, ACCOUNT_STAGES } from '@/lib/types';
 import {
   Dialog,
   DialogContent,
@@ -37,7 +37,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { addProspect, getProspects, updateProspect, deleteProspect as fbDeleteProspect } from '@/lib/firebase/services';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
-import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useScriptContext } from '@/contexts/ScriptContext';
 import { generateContextualScript, type GenerateContextualScriptInput } from '@/ai/flows/generate-contextual-script';
@@ -97,7 +96,6 @@ function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProsp
   
   const [formData, setFormData] = useState(() => {
     const sourceData = prospect || initialFormData;
-    // Explicitly map all fields to ensure correct initialization.
     return {
       name: sourceData.name ?? '',
       instagramHandle: sourceData.instagramHandle ?? null,
@@ -546,6 +544,7 @@ export default function OutreachPage() {
   const [scriptModalTitle, setScriptModalTitle] = useState("Generated Script");
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   const [currentProspectForScript, setCurrentProspectForScript] = useState<OutreachProspect | null>(null);
+  const [currentScriptGenerationInput, setCurrentScriptGenerationInput] = useState<GenerateContextualScriptInput | null>(null);
   const [scriptModalConfig, setScriptModalConfig] = useState<any>({});
   
   const [isConversationModalOpen, setIsConversationModalOpen] = useState(false);
@@ -585,7 +584,7 @@ export default function OutreachPage() {
         // AuthProvider should handle redirect
       }
     }
-  }, [user, authLoading, fetchProspects, router]);
+  }, [user, authLoading, fetchProspects]);
 
   const handleSaveProspect = async (prospectData: Omit<OutreachProspect, 'id'|'userId'> | OutreachProspect) => {
      if (!user) {
@@ -667,17 +666,39 @@ export default function OutreachPage() {
     });
   };
 
+  const handleConfirmScript = async (scriptContent: string) => {
+    if (!currentProspectForScript || !currentScriptGenerationInput) return;
+
+    const currentHistory = currentProspectForScript.conversationHistory || '';
+    const newHistory = `${currentHistory}\nMe: ${scriptContent}`.trim();
+
+    const updates: Partial<OutreachProspect> = {
+        conversationHistory: newHistory,
+        lastContacted: new Date().toISOString(),
+        lastScriptSent: currentScriptGenerationInput.scriptType
+    };
+
+    if (currentProspectForScript.status === 'To Contact') {
+        updates.status = 'Cold';
+    }
+
+    try {
+        await updateProspect(currentProspectForScript.id, updates);
+        toast({ title: "History Updated", description: "Script sent and logged in conversation history." });
+        setIsScriptModalOpen(false);
+        fetchProspects();
+    } catch (error: any) {
+        toast({ title: "Update Failed", description: error.message || 'Could not update prospect history.', variant: 'destructive' });
+    }
+  };
+
+
   const handleGenerateScript = async (prospect: OutreachProspect, scriptType: GenerateContextualScriptInput['scriptType']) => {
     setIsGeneratingScript(true);
     setIsScriptModalOpen(true);
     setGeneratedScript('');
     setScriptModalTitle(`Generating ${scriptType}...`);
     setCurrentProspectForScript(prospect); 
-    setScriptModalConfig({
-        showSaveToSnippetsButton: true,
-        showConfirmButton: false,
-        scriptTypeToSave: scriptType
-    });
     
     const input: GenerateContextualScriptInput = {
         scriptType,
@@ -712,6 +733,12 @@ export default function OutreachPage() {
         nextStep: prospect.nextStep?.trim() || null,
         conversationHistory: prospect.conversationHistory?.trim() || null,
     };
+    setCurrentScriptGenerationInput(input);
+    setScriptModalConfig({
+        showConfirmButton: true,
+        confirmButtonText: "Send & Add to History",
+        onConfirm: handleConfirmScript,
+    });
     
     try {
         const result = await generateContextualScript(input);
@@ -731,7 +758,6 @@ export default function OutreachPage() {
     setScriptModalTitle(`Generating Qualifier for ${prospect.name}...`);
     setCurrentProspectForScript(prospect);
     setScriptModalConfig({
-        showSaveToSnippetsButton: false,
         showConfirmButton: true,
         confirmButtonText: "Send & Update Status",
         onConfirm: async (scriptContent: string) => {
@@ -784,10 +810,24 @@ export default function OutreachPage() {
   }
   
   const handleRegenerateScript = async (): Promise<string | null> => {
-    // This function can be enhanced to handle both script types if needed,
-    // but for now, it's tied to the contextual script.
-    // To handle qualifiers, we'd need to store the input for that flow as well.
-    return null; // Placeholder
+    if (!currentScriptGenerationInput) {
+      toast({ title: "Error", description: "No previous script context to regenerate.", variant: "destructive" });
+      return null;
+    }
+    setIsGeneratingScript(true); 
+    setGeneratedScript(''); 
+    try {
+      const result = await generateContextualScript(currentScriptGenerationInput);
+      setGeneratedScript(result.script); 
+      setIsGeneratingScript(false);
+      return result.script;
+    } catch (error) {
+      console.error("Error regenerating script:", error);
+      toast({ title: "Script Regeneration Failed", description: (error as Error).message || "Could not regenerate script.", variant: "destructive" });
+      setGeneratedScript("Failed to regenerate script. Please try again.");
+      setIsGeneratingScript(false);
+      return null;
+    }
   };
 
   const filteredProspects = prospects.filter(prospect => {
@@ -879,25 +919,6 @@ export default function OutreachPage() {
     const canAskQualifier = ['Interested', 'Replied'].includes(prospect.status);
     const canCreateAudit = prospect.status === 'Ready for Audit';
 
-    const buildQuestionnaireFromProspect = (p: OutreachProspect) => {
-        const parts = [
-            `Analyzing profile for: ${p.name || 'N/A'} (@${p.instagramHandle || 'N/A'})`,
-            `Entity ID: ${p.id}`,
-            `Industry: ${p.industry || 'Not specified'}`,
-            `Business Type: ${p.businessType || 'Not specified'}${p.businessType === 'Other' ? ` (${p.businessTypeOther || ''})` : ''}`,
-            `Account Stage: ${p.accountStage || 'N/A'}`,
-            `Follower Count: ${p.followerCount ?? 'N/A'}`,
-            `\n--- GOALS ---\n${p.goals && p.goals.length > 0 ? p.goals.map(g => `- ${g}`).join('\n') : 'No specific goals listed.'}`,
-            `\n--- PAIN POINTS ---\n${p.painPoints && p.painPoints.length > 0 ? p.painPoints.map(pp => `- ${pp}`).join('\n') : 'No specific pain points listed.'}`,
-            `\n--- QUALIFIER ---\nQ: ${p.qualifierQuestion || 'None sent.'}\nA: ${p.qualifierReply || 'No reply logged.'}`,
-            `\n--- CONVERSATION HISTORY ---\n${p.conversationHistory || 'No history logged.'}`,
-            `\n--- ADDITIONAL NOTES ---\n${p.notes || 'None'}`
-        ];
-        return encodeURIComponent(parts.join('\n\n'));
-    };
-
-    const auditLink = `/audits/new?handle=${prospect.instagramHandle || ''}&name=${prospect.name}&entityId=${prospect.id}&q=${buildQuestionnaireFromProspect(prospect)}`;
-
     return (
         <TableCell className="text-right space-x-0.5">
             <TooltipProvider>
@@ -925,6 +946,23 @@ export default function OutreachPage() {
                                             className={cn("w-full", !canCreateAudit && "cursor-not-allowed")}
                                             onClick={() => {
                                                 if (canCreateAudit) {
+                                                    const buildQuestionnaireFromProspect = (p: OutreachProspect) => {
+                                                        const parts = [
+                                                            `Analyzing profile for: ${p.name || 'N/A'} (@${p.instagramHandle || 'N/A'})`,
+                                                            `Entity ID: ${p.id}`,
+                                                            `Industry: ${p.industry || 'Not specified'}`,
+                                                            `Business Type: ${p.businessType || 'Not specified'}${p.businessType === 'Other' ? ` (${p.businessTypeOther || ''})` : ''}`,
+                                                            `Account Stage: ${p.accountStage || 'N/A'}`,
+                                                            `Follower Count: ${p.followerCount ?? 'N/A'}`,
+                                                            `\n--- GOALS ---\n${p.goals && p.goals.length > 0 ? p.goals.map(g => `- ${g}`).join('\n') : 'No specific goals listed.'}`,
+                                                            `\n--- PAIN POINTS ---\n${p.painPoints && p.painPoints.length > 0 ? p.painPoints.map(pp => `- ${pp}`).join('\n') : 'No specific pain points listed.'}`,
+                                                            `\n--- QUALIFIER ---\nQ: ${p.qualifierQuestion || 'None sent.'}\nA: ${p.qualifierReply || 'No reply logged.'}`,
+                                                            `\n--- CONVERSATION HISTORY ---\n${p.conversationHistory || 'No history logged.'}`,
+                                                            `\n--- ADDITIONAL NOTES ---\n${p.notes || 'None'}`
+                                                        ];
+                                                        return encodeURIComponent(parts.join('\n\n'));
+                                                    };
+                                                    const auditLink = `/audits/new?handle=${prospect.instagramHandle || ''}&name=${prospect.name}&entityId=${prospect.id}&q=${buildQuestionnaireFromProspect(prospect)}`;
                                                     router.push(auditLink);
                                                 }
                                             }}
@@ -1197,13 +1235,10 @@ export default function OutreachPage() {
         onClose={() => setIsScriptModalOpen(false)}
         scriptContent={generatedScript}
         title={scriptModalTitle}
-        onRegenerate={scriptModalConfig.onRegenerate || handleRegenerateScript}
+        onRegenerate={handleRegenerateScript}
         isLoadingInitially={isGeneratingScript && !generatedScript}
         isConfirming={isGeneratingScript}
         // Configurable props
-        scriptTypeToSave={scriptModalConfig.scriptTypeToSave}
-        prospectContextToSave={currentProspectForScript ? { prospectId: currentProspectForScript.id, prospectName: currentProspectForScript.name } : undefined}
-        showSaveToSnippetsButton={scriptModalConfig.showSaveToSnippetsButton}
         showConfirmButton={scriptModalConfig.showConfirmButton}
         confirmButtonText={scriptModalConfig.confirmButtonText}
         onConfirm={scriptModalConfig.onConfirm}

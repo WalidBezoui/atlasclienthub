@@ -1,6 +1,6 @@
 
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, Users, Send, ListChecks, Settings, Palette, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, Users, Send, ListChecks, Settings, Palette, MessagesSquare } from 'lucide-react';
 
 export interface NavItem {
   title: string;
@@ -32,9 +32,9 @@ export const NAV_ITEMS: NavItem[] = [
     icon: ListChecks,
   },
   {
-    title: 'Snippets',
+    title: 'History',
     href: '/snippets',
-    icon: ClipboardList,
+    icon: MessagesSquare,
   },
   {
     title: 'Brand Guide',

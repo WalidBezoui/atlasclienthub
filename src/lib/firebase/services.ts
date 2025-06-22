@@ -17,7 +17,7 @@ import {
 } from 'firebase/firestore';
 import { subMonths, format, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 
-import type { Client, InstagramAudit, OutreachProspect, MonthlyActivity, OutreachLeadStage, ScriptSnippet, ScriptSnippetType } from '@/lib/types';
+import type { Client, InstagramAudit, OutreachProspect, MonthlyActivity, OutreachLeadStage } from '@/lib/types';
 
 // Generic function to get current user ID
 const getCurrentUserId = (): string | null => {
@@ -428,49 +428,6 @@ export const deleteAudit = async (id: string): Promise<void> => {
   const userId = getCurrentUserId();
   if (!userId) throw new Error('User not authenticated');
   await deleteDoc(doc(db, 'audits', id));
-};
-
-
-// --- Script Snippet Services ---
-const snippetsCollection = collection(db, 'snippets');
-
-export const addSnippet = async (snippetData: Omit<ScriptSnippet, 'id' | 'userId' | 'createdAt'>): Promise<string> => {
-  const userId = getCurrentUserId();
-  if (!userId) throw new Error('User not authenticated');
-
-  const dataForFirestore = {
-    userId,
-    scriptType: snippetData.scriptType,
-    content: snippetData.content,
-    prospectId: snippetData.prospectId || null,
-    prospectName: snippetData.prospectName || null,
-    tags: snippetData.tags || [],
-    createdAt: serverTimestamp(), 
-  };
-
-  const docRef = await addDoc(snippetsCollection, dataForFirestore);
-  return docRef.id;
-};
-
-export const getSnippets = async (): Promise<ScriptSnippet[]> => {
-  const userId = getCurrentUserId();
-  if (!userId) return [];
-  const q = query(snippetsCollection, where('userId', '==', userId), orderBy('createdAt', 'desc'));
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map(docSnap => {
-    const data = docSnap.data();
-    return {
-      id: docSnap.id,
-      ...data,
-      createdAt: (data.createdAt as Timestamp).toDate().toISOString(),
-    } as ScriptSnippet;
-  });
-};
-
-export const deleteSnippet = async (id: string): Promise<void> => {
-  const userId = getCurrentUserId();
-  if (!userId) throw new Error('User not authenticated');
-  await deleteDoc(doc(db, 'snippets', id));
 };
 
 

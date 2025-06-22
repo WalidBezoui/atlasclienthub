@@ -132,18 +132,3 @@ export type MonthlyActivity = {
   outreach: number;
   audits: number;
 };
-
-// For Script Snippets
-export type ScriptSnippetType = "Cold Outreach DM" | "Warm Follow-Up DM" | "Audit Delivery Message" | "Closing Pitch" | "Caption Idea" | "Other" | "Send Reminder" | "Soft Close";
-export const SCRIPT_SNIPPET_TYPES: ScriptSnippetType[] = ["Cold Outreach DM", "Warm Follow-Up DM", "Audit Delivery Message", "Closing Pitch", "Caption Idea", "Other", "Send Reminder", "Soft Close"];
-
-export type ScriptSnippet = {
-  id: string;
-  userId: string;
-  prospectId?: string | null; // Optional: link to a specific prospect
-  prospectName?: string | null; // Optional: for display convenience
-  scriptType: ScriptSnippetType;
-  content: string;
-  tags?: string[] | null; // Optional: for categorization
-  createdAt: string; // ISO date string
-};
