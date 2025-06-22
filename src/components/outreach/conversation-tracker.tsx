@@ -1,8 +1,7 @@
 
 'use client';
 
-import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -63,7 +62,7 @@ const serializeMessages = (messages: Message[]): string => {
   return messages.map(msg => {
     const prefix = msg.sender === 'Me' ? 'Me' : 'Them';
     return `${prefix}: ${msg.content}`;
-  }).join('\n');
+  }).join('\n\n'); // Use double newline for better separation in raw text
 };
 
 
@@ -173,82 +172,80 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
 
 
   return (
-    <Card className="flex flex-col h-full">
-      <CardHeader className="p-4 border-b">
-        <CardTitle className="text-base font-semibold">Conversation History</CardTitle>
-      </CardHeader>
+    <div className="flex flex-col h-full bg-background border rounded-lg">
       <ScrollArea className="flex-grow p-4 bg-muted/20" ref={scrollAreaRef}>
-        <div className="space-y-2">
+        <div className="space-y-4">
           {messages.length > 0 ? (
             messages.map((message, index) => (
               <div
                 key={index}
-                className={cn('flex items-start gap-2.5 group w-full', {
+                className={cn('flex items-end gap-2.5 group w-full', {
                   'justify-end': message.sender === 'Me',
                   'justify-start': message.sender === 'Prospect',
                 })}
               >
-                {message.sender === 'Prospect' && <User className="h-6 w-6 text-muted-foreground shrink-0 mt-1" />}
+                {message.sender === 'Prospect' && <User className="h-6 w-6 text-muted-foreground shrink-0" />}
 
-                <div className="flex flex-col items-start max-w-[80%]">
-                    <div
-                      className={cn('rounded-lg px-3 py-2 text-sm break-words whitespace-pre-wrap shadow-sm', {
-                        'bg-primary text-primary-foreground rounded-br-none': message.sender === 'Me',
-                        'bg-card border rounded-bl-none': message.sender === 'Prospect',
-                      })}
-                    >
-                      {editingIndex === index ? (
-                         <div className="flex flex-col gap-2 w-64">
-                          <Textarea 
-                            value={editingText}
-                            onChange={(e) => setEditingText(e.target.value)}
-                            onKeyDown={handleKeyPress}
-                            autoFocus
-                            rows={4}
-                            className="bg-background text-foreground"
-                          />
-                          <div className="flex justify-end gap-2">
-                              <Button variant="ghost" size="sm" onClick={() => setEditingIndex(null)}>Cancel</Button>
-                              <Button size="sm" onClick={handleSaveEdit}>Save</Button>
-                          </div>
-                         </div>
-                      ) : (
-                        message.content
-                      )}
+                <div className={cn("flex flex-col items-start w-full", { "items-end": message.sender === 'Me' })}>
+                    <div className="flex items-center gap-2">
+                        { message.sender === 'Me' &&
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => handleStartEdit(index)}><Edit className="mr-2 h-4 w-4"/>Edit</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleSwitchSender(index)}><Repeat className="mr-2 h-4 w-4"/>Switch to Prospect</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleDeleteMessage(index)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4"/>Delete</DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        }
+                        <div
+                          className={cn('rounded-lg px-3 py-2 text-sm break-words whitespace-pre-wrap shadow-sm max-w-[80%] md:max-w-[70%]', {
+                            'bg-primary text-primary-foreground rounded-br-none': message.sender === 'Me',
+                            'bg-card border rounded-bl-none': message.sender === 'Prospect',
+                          })}
+                        >
+                          {editingIndex === index ? (
+                             <div className="flex flex-col gap-2 min-w-64">
+                              <Textarea 
+                                value={editingText}
+                                onChange={(e) => setEditingText(e.target.value)}
+                                onKeyDown={handleKeyPress}
+                                autoFocus
+                                rows={4}
+                                className="bg-background text-foreground"
+                              />
+                              <div className="flex justify-end gap-2">
+                                  <Button variant="ghost" size="sm" onClick={() => setEditingIndex(null)}>Cancel</Button>
+                                  <Button size="sm" onClick={handleSaveEdit}>Save</Button>
+                              </div>
+                             </div>
+                          ) : (
+                            message.content
+                          )}
+                        </div>
+
+                         { message.sender === 'Prospect' &&
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start">
+                                    <DropdownMenuItem onClick={() => handleStartEdit(index)}><Edit className="mr-2 h-4 w-4"/>Edit</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleSwitchSender(index)}><Repeat className="mr-2 h-4 w-4"/>Switch to Me</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleDeleteMessage(index)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4"/>Delete</DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                         }
                     </div>
                 </div>
 
-                 {message.sender === 'Me' && (
-                  <div className="flex items-center self-start mt-1">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleStartEdit(index)}><Edit className="mr-2 h-4 w-4"/>Edit</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleSwitchSender(index)}><Repeat className="mr-2 h-4 w-4"/>Switch to Prospect</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDeleteMessage(index)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4"/>Delete</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                    <Bot className="h-6 w-6 text-muted-foreground shrink-0" />
-                  </div>
-                )}
-                 {message.sender === 'Prospect' && (
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start">
-                            <DropdownMenuItem onClick={() => handleStartEdit(index)}><Edit className="mr-2 h-4 w-4"/>Edit</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleSwitchSender(index)}><Repeat className="mr-2 h-4 w-4"/>Switch to Me</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDeleteMessage(index)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4"/>Delete</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                 )}
+                {message.sender === 'Me' && <Bot className="h-6 w-6 text-muted-foreground shrink-0" />}
               </div>
             ))
           ) : (
@@ -258,10 +255,13 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
           )}
         </div>
       </ScrollArea>
-      <CardFooter className="p-4 border-t flex-col items-start gap-4">
+      <div className="p-4 border-t flex-col items-start gap-4 bg-background rounded-b-lg">
         {onGenerateReply && prospect && (
             <div className="w-full space-y-2">
-                <Label htmlFor="custom-instructions" className="text-xs font-semibold">AI Reply Generation</Label>
+                <Label htmlFor="custom-instructions" className="text-xs font-semibold flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    AI Reply Generation
+                </Label>
                 <div className="flex gap-2">
                     <Input 
                         id="custom-instructions"
@@ -274,7 +274,7 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
                         {isGenerating ? (
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         ) : (
-                            <Sparkles className="mr-2 h-4 w-4" />
+                           <Sparkles className="mr-2 h-4 w-4" />
                         )}
                         Generate
                     </Button>
@@ -282,7 +282,7 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
             </div>
         )}
 
-        <Separator className={cn(!onGenerateReply || !prospect, 'hidden')} />
+        <Separator className={cn((!onGenerateReply || !prospect) && "hidden", 'my-4')} />
         
         <div className="w-full space-y-2">
             <Label htmlFor="manual-message" className="text-xs font-semibold">Manual Message Entry</Label>
@@ -293,7 +293,7 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyDown={handleKeyPress}
                 className="flex-grow"
-                rows={2}
+                rows={3}
                 disabled={editingIndex !== null || isGenerating}
             />
             <div className="flex w-full justify-between items-center">
@@ -313,7 +313,7 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
                 </Button>
             </div>
         </div>
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   );
 }
