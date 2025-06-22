@@ -650,55 +650,11 @@ export default function OutreachPage() {
     }
   };
 
-
-  const toggleStatusFilter = (status: OutreachLeadStage) => {
-    setStatusFilters(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(status)) {
-        newSet.delete(status);
-      } else {
-        newSet.add(status);
-      }
-      if (newSet.size === 0) {
-        return new Set(OUTREACH_LEAD_STAGE_OPTIONS);
-      }
-      return newSet;
-    });
-  };
-
-  const handleConfirmScript = async (scriptContent: string) => {
-    if (!currentProspectForScript || !currentScriptGenerationInput) return;
-
-    const currentHistory = currentProspectForScript.conversationHistory || '';
-    const newHistory = `${currentHistory}\nMe: ${scriptContent}`.trim();
-
-    const updates: Partial<OutreachProspect> = {
-        conversationHistory: newHistory,
-        lastContacted: new Date().toISOString(),
-        lastScriptSent: currentScriptGenerationInput.scriptType
-    };
-
-    if (currentProspectForScript.status === 'To Contact') {
-        updates.status = 'Cold';
-    }
-
-    try {
-        await updateProspect(currentProspectForScript.id, updates);
-        toast({ title: "History Updated", description: "Script sent and logged in conversation history." });
-        setIsScriptModalOpen(false);
-        fetchProspects();
-    } catch (error: any) {
-        toast({ title: "Update Failed", description: error.message || 'Could not update prospect history.', variant: 'destructive' });
-    }
-  };
-
-
   const handleGenerateScript = async (prospect: OutreachProspect, scriptType: GenerateContextualScriptInput['scriptType']) => {
     setIsGeneratingScript(true);
     setIsScriptModalOpen(true);
     setGeneratedScript('');
     setScriptModalTitle(`Generating ${scriptType}...`);
-    setCurrentProspectForScript(prospect); 
     
     const input: GenerateContextualScriptInput = {
         scriptType,
@@ -733,11 +689,39 @@ export default function OutreachPage() {
         nextStep: prospect.nextStep?.trim() || null,
         conversationHistory: prospect.conversationHistory?.trim() || null,
     };
+    
+    // Set state for regeneration purposes
     setCurrentScriptGenerationInput(input);
+    setCurrentProspectForScript(prospect);
+
+    const handleConfirm = async (scriptContent: string) => {
+        const currentHistory = prospect.conversationHistory || '';
+        const newHistory = `${currentHistory}\nMe: ${scriptContent}`.trim();
+
+        const updates: Partial<OutreachProspect> = {
+            conversationHistory: newHistory,
+            lastContacted: new Date().toISOString(),
+            lastScriptSent: input.scriptType,
+        };
+
+        if (prospect.status === 'To Contact') {
+            updates.status = 'Cold';
+        }
+
+        try {
+            await updateProspect(prospect.id, updates);
+            toast({ title: "History Updated", description: "Script sent and logged in conversation history." });
+            setIsScriptModalOpen(false);
+            fetchProspects();
+        } catch (error: any) {
+            toast({ title: "Update Failed", description: error.message || 'Could not update prospect history.', variant: 'destructive' });
+        }
+    };
+    
     setScriptModalConfig({
         showConfirmButton: true,
         confirmButtonText: "Send & Add to History",
-        onConfirm: handleConfirmScript,
+        onConfirm: handleConfirm,
     });
     
     try {
@@ -749,6 +733,22 @@ export default function OutreachPage() {
     } finally {
         setIsGeneratingScript(false);
     }
+  };
+
+
+  const toggleStatusFilter = (status: OutreachLeadStage) => {
+    setStatusFilters(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(status)) {
+        newSet.delete(status);
+      } else {
+        newSet.add(status);
+      }
+      if (newSet.size === 0) {
+        return new Set(OUTREACH_LEAD_STAGE_OPTIONS);
+      }
+      return newSet;
+    });
   };
 
   const handleGenerateQualifier = async (prospect: OutreachProspect) => {
