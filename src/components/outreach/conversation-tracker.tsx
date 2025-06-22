@@ -3,7 +3,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -17,8 +16,8 @@ import type { OutreachProspect } from '@/lib/types';
 interface ConversationTrackerProps {
   value: string | null;
   onChange: (newValue: string) => void;
-  prospect: OutreachProspect | null;
-  onGenerateReply: (prospect: OutreachProspect) => Promise<string>;
+  prospect?: OutreachProspect | null;
+  onGenerateReply?: (prospect: OutreachProspect) => Promise<string>;
 }
 
 type Message = {
@@ -28,21 +27,34 @@ type Message = {
 
 const parseMessages = (value: string | null): Message[] => {
   if (!value) return [];
-  return value
-    .split('\n')
-    .filter(line => line.trim() !== '')
-    .map(line => {
-      if (line.startsWith('Me: ')) {
-        return { sender: 'Me', content: line.substring(4) };
-      }
-      if (line.startsWith('Them: ')) {
-        return { sender: 'Prospect', content: line.substring(6) };
-      }
-      // Fallback for lines without a prefix, assuming it's from the prospect
-      return { sender: 'Prospect', content: line };
-    })
-    .filter(msg => msg.content.trim() !== '');
+  const lines = value.split('\n');
+  const messages: Message[] = [];
+
+  lines.forEach(line => {
+    const trimmedLine = line.trim();
+    if (trimmedLine === '') return;
+
+    if (line.startsWith('Me: ') || line.startsWith('Them: ')) {
+      const isMe = line.startsWith('Me: ');
+      messages.push({
+        sender: isMe ? 'Me' : 'Prospect',
+        content: isMe ? line.substring(4) : line.substring(6),
+      });
+    } else if (messages.length > 0) {
+      // It's a continuation of the last message
+      messages[messages.length - 1].content += '\n' + line;
+    } else {
+      // It's the very first line and has no prefix, assume it's the prospect
+      messages.push({
+        sender: 'Prospect',
+        content: line,
+      });
+    }
+  });
+
+  return messages;
 };
+
 
 const serializeMessages = (messages: Message[]): string => {
   return messages.map(msg => {
@@ -93,7 +105,7 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
     scrollToBottom();
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       if (editingIndex !== null) {
@@ -189,7 +201,7 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
                 {message.sender === 'Prospect' && <User className="h-6 w-6 text-muted-foreground shrink-0" />}
 
                 <div
-                  className={cn('rounded-lg px-3 py-2 text-sm break-words max-w-[80%]', {
+                  className={cn('rounded-lg px-3 py-2 text-sm break-words max-w-[80%] whitespace-pre-wrap', {
                     'bg-primary text-primary-foreground': message.sender === 'Me',
                     'bg-card border': message.sender === 'Prospect',
                   })}
@@ -201,7 +213,7 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
                         onChange={(e) => setEditingText(e.target.value)}
                         onKeyDown={handleKeyPress}
                         autoFocus
-                        rows={3}
+                        rows={4}
                         className="bg-background text-foreground"
                       />
                       <div className="flex justify-end gap-2">
@@ -214,8 +226,6 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
                   )}
                 </div>
 
-                 {message.sender === 'Me' && <Bot className="h-6 w-6 text-muted-foreground shrink-0" />}
-                
                  {message.sender === 'Me' && (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -230,6 +240,9 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
                         </DropdownMenuContent>
                     </DropdownMenu>
                 )}
+
+                 {message.sender === 'Me' && <Bot className="h-6 w-6 text-muted-foreground shrink-0" />}
+
               </div>
             ))
           ) : (
@@ -241,15 +254,16 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
       </ScrollArea>
       <CardFooter className="p-4 border-t flex-col items-start gap-2">
         <div className="flex w-full gap-2">
-            <Input
-                placeholder="Type message..."
+            <Textarea
+                placeholder="Type message... (Shift+Enter for new line)"
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyDown={handleKeyPress}
                 className="flex-grow"
+                rows={2}
                 disabled={editingIndex !== null || isGenerating}
             />
-            <Button onClick={handleAddMessage} disabled={editingIndex !== null || isGenerating}>Add</Button>
+            <Button onClick={handleAddMessage} disabled={editingIndex !== null || isGenerating || !newMessage.trim()}>Add</Button>
         </div>
          <div className="flex w-full justify-between items-center">
              <RadioGroup value={sender} onValueChange={(val: 'Me' | 'Prospect') => setSender(val)} className="flex items-center space-x-4">
@@ -264,19 +278,21 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
                 </div>
             </RadioGroup>
             
-            <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleGenerateClick} 
-                disabled={isGenerating || !prospect}
-            >
-                {isGenerating ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                    <Sparkles className="mr-2 h-4 w-4" />
-                )}
-                Generate Reply
-            </Button>
+            {onGenerateReply && prospect && (
+                <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleGenerateClick} 
+                    disabled={isGenerating || !prospect}
+                >
+                    {isGenerating ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                        <Sparkles className="mr-2 h-4 w-4" />
+                    )}
+                    Generate Reply
+                </Button>
+            )}
         </div>
       </CardFooter>
     </Card>
