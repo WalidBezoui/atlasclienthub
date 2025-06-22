@@ -68,7 +68,8 @@ const GenerateContextualScriptInputSchema = z.object({
   businessTypeOther: z.string().nullable().optional().describe("Specific business type if 'Other' was selected."),
   
   // Additional Notes (from existing)
-  additionalNotes: z.string().nullable().optional().describe("Any other relevant notes or context for the LLM.")
+  additionalNotes: z.string().nullable().optional().describe("Any other relevant notes or context for the LLM."),
+  customInstructions: z.string().nullable().optional().describe("User-provided custom instructions to guide the reply generation."),
 });
 export type GenerateContextualScriptInput = z.infer<typeof GenerateContextualScriptInputSchema>;
 
@@ -120,6 +121,12 @@ No conversation history provided.
 **SCRIPT GENERATION LOGIC**
 
 **IF the script type is "Generate Next Reply", your task is to act as an expert conversational assistant. Analyze the entire CONVERSATION HISTORY and the prospect's current Lead Status. Your goal is to suggest the most logical and effective next message from "Me" to move the conversation forward towards a successful outcome (e.g., getting them to agree to an audit, closing a deal).**
+
+{{#if customInstructions}}
+**CRITICAL INSTRUCTION: The user has provided specific guidance for this reply. You MUST prioritize and follow these instructions.**
+**Custom Instructions:** "{{{customInstructions}}}"
+Based on these instructions AND the full context below, generate the next reply.
+{{/if}}
 
 **A. Analyze the last message in the CONVERSATION HISTORY.** Is it from them or from me? What was the topic? Is there an unanswered question?
 **B. Consider their current Lead Status: "{{leadStatus}}".**

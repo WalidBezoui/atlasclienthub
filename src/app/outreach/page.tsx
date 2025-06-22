@@ -695,7 +695,8 @@ export default function OutreachPage() {
     setCurrentProspectForScript(prospect);
 
     const handleConfirm = async (scriptContent: string) => {
-        const currentHistory = prospect.conversationHistory || '';
+      if (!currentProspectForScript) return;
+        const currentHistory = currentProspectForScript.conversationHistory || '';
         const newHistory = `${currentHistory}\nMe: ${scriptContent}`.trim();
 
         const updates: Partial<OutreachProspect> = {
@@ -704,12 +705,12 @@ export default function OutreachPage() {
             lastScriptSent: input.scriptType,
         };
 
-        if (prospect.status === 'To Contact') {
+        if (currentProspectForScript.status === 'To Contact') {
             updates.status = 'Cold';
         }
 
         try {
-            await updateProspect(prospect.id, updates);
+            await updateProspect(currentProspectForScript.id, updates);
             toast({ title: "History Updated", description: "Script sent and logged in conversation history." });
             setIsScriptModalOpen(false);
             fetchProspects();
@@ -761,7 +762,8 @@ export default function OutreachPage() {
         showConfirmButton: true,
         confirmButtonText: "Send & Update Status",
         onConfirm: async (scriptContent: string) => {
-            await handleSendQualifier(prospect.id, scriptContent);
+            if (!currentProspectForScript) return;
+            await handleSendQualifier(currentProspectForScript.id, scriptContent);
         }
     });
 
@@ -786,7 +788,7 @@ export default function OutreachPage() {
     }
   };
   
-  const handleGenerateNextReply = async (prospect: OutreachProspect): Promise<string> => {
+  const handleGenerateNextReply = async (prospect: OutreachProspect, customInstructions: string): Promise<string> => {
     if (!prospect) {
         toast({ title: "Error", description: "No prospect context available.", variant: "destructive" });
         return '';
@@ -824,6 +826,7 @@ export default function OutreachPage() {
         carouselOffered: prospect.carouselOffered || false,
         nextStep: prospect.nextStep?.trim() || null,
         conversationHistory: prospect.conversationHistory?.trim() || null,
+        customInstructions: customInstructions || null,
     };
     
     try {
@@ -993,13 +996,12 @@ export default function OutreachPage() {
                             <DropdownMenuItem onClick={() => handleOpenConversationModal(prospect)}>
                                 <MessagesSquare className="mr-2 h-4 w-4" /> Manage Conversation
                             </DropdownMenuItem>
-
                              <Tooltip>
                                 <TooltipTrigger asChild>
                                     <div className={cn(!canCreateAudit && "cursor-not-allowed w-full")}>
                                          <DropdownMenuItem
                                             disabled={!canCreateAudit}
-                                            className={cn("w-full", !canCreateAudit && "cursor-not-allowed")}
+                                            className={cn(!canCreateAudit && "cursor-not-allowed")}
                                             onClick={() => {
                                                 if (canCreateAudit) {
                                                     const buildQuestionnaireFromProspect = (p: OutreachProspect) => {
