@@ -11,7 +11,6 @@ import { User, Bot, MoreHorizontal, Edit, Trash2, Repeat, Loader2, Sparkles } fr
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
 import type { OutreachProspect } from '@/lib/types';
-import { Separator } from '../ui/separator';
 import { Input } from '../ui/input';
 
 
@@ -31,28 +30,36 @@ const parseMessages = (value: string | null): Message[] => {
   if (!value) return [];
   const lines = value.split('\n');
   const messages: Message[] = [];
+  let currentMessage: Message | null = null;
 
   lines.forEach(line => {
     const trimmedLine = line.trim();
     if (trimmedLine === '') return;
 
     if (line.startsWith('Me: ') || line.startsWith('Them: ')) {
+      if (currentMessage) {
+          messages.push(currentMessage);
+      }
       const isMe = line.startsWith('Me: ');
-      messages.push({
+      currentMessage = {
         sender: isMe ? 'Me' : 'Prospect',
         content: isMe ? line.substring(4) : line.substring(6),
-      });
-    } else if (messages.length > 0) {
+      };
+    } else if (currentMessage) {
       // It's a continuation of the last message
-      messages[messages.length - 1].content += '\n' + line;
+      currentMessage.content += '\n' + line;
     } else {
       // It's the very first line and has no prefix, assume it's the prospect
-      messages.push({
+      currentMessage = {
         sender: 'Prospect',
         content: line,
-      });
+      };
     }
   });
+
+  if (currentMessage) {
+    messages.push(currentMessage);
+  }
 
   return messages;
 };
@@ -61,8 +68,9 @@ const parseMessages = (value: string | null): Message[] => {
 const serializeMessages = (messages: Message[]): string => {
   return messages.map(msg => {
     const prefix = msg.sender === 'Me' ? 'Me' : 'Them';
-    return `${prefix}: ${msg.content}`;
-  }).join('\n\n'); // Use double newline for better separation in raw text
+    const content = msg.content.replace(/\n/g, `\n`);
+    return `${prefix}: ${content}`;
+  }).join('\n\n'); 
 };
 
 
@@ -159,11 +167,10 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
         const reply = await onGenerateReply(prospect, customInstructions);
         if (reply) {
             setNewMessage(reply);
-            setSender('Me'); // Default to sending as 'Me'
-            setCustomInstructions(''); // Clear instructions after use
+            setSender('Me'); 
+            setCustomInstructions(''); 
         }
     } catch (e) {
-        // Error toast will be handled by the calling component
         console.error("Failed to generate reply", e);
     } finally {
         setIsGenerating(false);
@@ -172,8 +179,8 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
 
 
   return (
-    <div className="flex flex-col h-full bg-background border rounded-lg">
-      <ScrollArea className="flex-grow p-4 bg-muted/20" ref={scrollAreaRef}>
+    <div className="flex flex-col h-full bg-background rounded-lg">
+      <ScrollArea className="flex-grow p-4" ref={scrollAreaRef}>
         <div className="space-y-4">
           {messages.length > 0 ? (
             messages.map((message, index) => (
@@ -186,7 +193,7 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
               >
                 {message.sender === 'Prospect' && <User className="h-6 w-6 text-muted-foreground shrink-0" />}
 
-                <div className={cn("flex flex-col items-start w-full", { "items-end": message.sender === 'Me' })}>
+                <div className={cn("flex flex-col w-full max-w-[80%] md:max-w-[70%]", { "items-end": message.sender === 'Me', "items-start": message.sender === 'Prospect' })}>
                     <div className="flex items-center gap-2">
                         { message.sender === 'Me' &&
                             <DropdownMenu>
@@ -203,7 +210,7 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
                             </DropdownMenu>
                         }
                         <div
-                          className={cn('rounded-lg px-3 py-2 text-sm break-words whitespace-pre-wrap shadow-sm max-w-[80%] md:max-w-[70%]', {
+                          className={cn('rounded-lg px-3 py-2 text-sm break-words whitespace-pre-wrap shadow-sm', {
                             'bg-primary text-primary-foreground rounded-br-none': message.sender === 'Me',
                             'bg-card border rounded-bl-none': message.sender === 'Prospect',
                           })}
@@ -215,7 +222,7 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
                                 onChange={(e) => setEditingText(e.target.value)}
                                 onKeyDown={handleKeyPress}
                                 autoFocus
-                                rows={4}
+                                rows={Math.max(4, editingText.split('\n').length)}
                                 className="bg-background text-foreground"
                               />
                               <div className="flex justify-end gap-2">
@@ -255,40 +262,31 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
           )}
         </div>
       </ScrollArea>
-      <div className="p-4 border-t flex-col items-start gap-4 bg-background rounded-b-lg">
+      <div className="p-4 border-t shrink-0 space-y-4">
         {onGenerateReply && prospect && (
-            <div className="w-full space-y-2">
-                <Label htmlFor="custom-instructions" className="text-xs font-semibold flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-primary" />
-                    AI Reply Generation
-                </Label>
-                <div className="flex gap-2">
-                    <Input 
-                        id="custom-instructions"
-                        placeholder="Optional: custom instructions for the AI..."
-                        value={customInstructions}
-                        onChange={(e) => setCustomInstructions(e.target.value)}
-                        disabled={isGenerating}
-                    />
-                    <Button onClick={handleGenerateClick} disabled={isGenerating || !prospect}>
-                        {isGenerating ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                           <Sparkles className="mr-2 h-4 w-4" />
-                        )}
-                        Generate
-                    </Button>
-                </div>
+            <div className="flex gap-2">
+                <Input 
+                    id="custom-instructions"
+                    placeholder="Optional: custom instructions for the AI..."
+                    value={customInstructions}
+                    onChange={(e) => setCustomInstructions(e.target.value)}
+                    disabled={isGenerating}
+                />
+                <Button onClick={handleGenerateClick} disabled={isGenerating || !prospect} className="shrink-0">
+                    {isGenerating ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                       <Sparkles className="mr-2 h-4 w-4" />
+                    )}
+                    Generate
+                </Button>
             </div>
         )}
-
-        <Separator className={cn((!onGenerateReply || !prospect) && "hidden", 'my-4')} />
         
-        <div className="w-full space-y-2">
-            <Label htmlFor="manual-message" className="text-xs font-semibold">Manual Message Entry</Label>
+        <div className="space-y-2">
             <Textarea
                 id="manual-message"
-                placeholder="Type message... (Shift+Enter for new line)"
+                placeholder="Type message, or generate one above and edit... (Shift+Enter for new line)"
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyDown={handleKeyPress}
