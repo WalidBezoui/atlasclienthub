@@ -33,7 +33,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     title: 'History',
-    href: '/snippets',
+    href: '/history',
     icon: MessagesSquare,
   },
   {

@@ -5,7 +5,6 @@ import React from 'react';
 import { SidebarProvider, Sidebar, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from './app-sidebar';
 import { AppHeader } from './app-header';
-import { ScriptProvider } from '@/contexts/ScriptContext'; // Import ScriptProvider
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [defaultOpen, setDefaultOpen] = React.useState(true);
@@ -22,18 +21,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
 
   return (
-    <ScriptProvider> {/* Wrap with ScriptProvider */}
-      <SidebarProvider defaultOpen={defaultOpen} open={defaultOpen} onOpenChange={(open) => setDefaultOpen(open)}>
-        <Sidebar collapsible="icon" variant="sidebar" side="left">
-          <AppSidebar />
-        </Sidebar>
-        <SidebarInset className="flex flex-col">
-          <AppHeader />
-          <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-background">
-            {children}
-          </main>
-        </SidebarInset>
-      </SidebarProvider>
-    </ScriptProvider>
+    <SidebarProvider defaultOpen={defaultOpen} open={defaultOpen} onOpenChange={(open) => setDefaultOpen(open)}>
+      <Sidebar collapsible="icon" variant="sidebar" side="left">
+        <AppSidebar />
+      </Sidebar>
+      <SidebarInset className="flex flex-col">
+        <AppHeader />
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-background">
+          {children}
+        </main>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

@@ -4,6 +4,7 @@ import './globals.css';
 import { AppLayout } from '@/components/layout/app-layout';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/hooks/useAuth'; 
+import { ScriptProvider } from '@/contexts/ScriptContext';
 
 export const metadata: Metadata = {
   title: 'Atlas Social Studio',
@@ -25,10 +26,12 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased">
         <AuthProvider>
-          <AppLayout>
-            {children}
-          </AppLayout>
-          <Toaster />
+          <ScriptProvider>
+            <AppLayout>
+              {children}
+            </AppLayout>
+            <Toaster />
+          </ScriptProvider>
         </AuthProvider>
       </body>
     </html>

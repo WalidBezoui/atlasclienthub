@@ -651,6 +651,7 @@ export default function OutreachPage() {
   };
 
   const handleGenerateScript = async (prospect: OutreachProspect, scriptType: GenerateContextualScriptInput['scriptType']) => {
+    setCurrentProspectForScript(prospect); // Set prospect first
     setIsGeneratingScript(true);
     setIsScriptModalOpen(true);
     setGeneratedScript('');
@@ -690,39 +691,34 @@ export default function OutreachPage() {
         conversationHistory: prospect.conversationHistory?.trim() || null,
     };
     
-    // Set state for regeneration purposes
     setCurrentScriptGenerationInput(input);
-    setCurrentProspectForScript(prospect);
-
-    const handleConfirm = async (scriptContent: string) => {
-      if (!currentProspectForScript) return;
-        const currentHistory = currentProspectForScript.conversationHistory || '';
-        const newHistory = `${currentHistory}\nMe: ${scriptContent}`.trim();
-
-        const updates: Partial<OutreachProspect> = {
-            conversationHistory: newHistory,
-            lastContacted: new Date().toISOString(),
-            lastScriptSent: input.scriptType,
-        };
-
-        if (currentProspectForScript.status === 'To Contact') {
-            updates.status = 'Cold';
-        }
-
-        try {
-            await updateProspect(currentProspectForScript.id, updates);
-            toast({ title: "History Updated", description: "Script sent and logged in conversation history." });
-            setIsScriptModalOpen(false);
-            fetchProspects();
-        } catch (error: any) {
-            toast({ title: "Update Failed", description: error.message || 'Could not update prospect history.', variant: 'destructive' });
-        }
-    };
-    
     setScriptModalConfig({
         showConfirmButton: true,
         confirmButtonText: "Send & Add to History",
-        onConfirm: handleConfirm,
+        onConfirm: async (scriptContent: string) => {
+            if (!currentProspectForScript) return; // Guard against stale state
+            const currentHistory = currentProspectForScript.conversationHistory || '';
+            const newHistory = `${currentHistory}${currentHistory ? '\n' : ''}Me: ${scriptContent}`.trim();
+
+            const updates: Partial<OutreachProspect> = {
+                conversationHistory: newHistory,
+                lastContacted: new Date().toISOString(),
+                lastScriptSent: input.scriptType,
+            };
+
+            if (currentProspectForScript.status === 'To Contact') {
+                updates.status = 'Cold';
+            }
+
+            try {
+                await updateProspect(currentProspectForScript.id, updates);
+                toast({ title: "History Updated", description: "Script sent and logged in conversation history." });
+                setIsScriptModalOpen(false);
+                fetchProspects();
+            } catch (error: any) {
+                toast({ title: "Update Failed", description: error.message || 'Could not update prospect history.', variant: 'destructive' });
+            }
+        },
     });
     
     try {
@@ -753,11 +749,12 @@ export default function OutreachPage() {
   };
 
   const handleGenerateQualifier = async (prospect: OutreachProspect) => {
+    setCurrentProspectForScript(prospect);
     setIsGeneratingScript(true);
     setIsScriptModalOpen(true);
     setGeneratedScript('');
     setScriptModalTitle(`Generating Qualifier for ${prospect.name}...`);
-    setCurrentProspectForScript(prospect);
+    
     setScriptModalConfig({
         showConfirmButton: true,
         confirmButtonText: "Send & Update Status",
@@ -991,7 +988,7 @@ export default function OutreachPage() {
                     <DropdownMenuContent align="end">
                         <DropdownMenuGroup>
                             <DropdownMenuItem onClick={() => handleOpenEditProspectForm(prospect)}>
-                                <Edit className="mr-2 h-4 w-4" /> Edit
+                                <Edit className="mr-2 h-4 w-4" /> Edit Prospect
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleOpenConversationModal(prospect)}>
                                 <MessagesSquare className="mr-2 h-4 w-4" /> Manage Conversation
@@ -1042,6 +1039,7 @@ export default function OutreachPage() {
                                     <div className={cn(!canAskQualifier && "cursor-not-allowed w-full")}>
                                         <DropdownMenuItem
                                             disabled={!canAskQualifier}
+                                            className={cn(!canAskQualifier && "cursor-not-allowed")}
                                             onClick={() => canAskQualifier && handleGenerateQualifier(prospect)}
                                         >
                                             <FileQuestion className="mr-2 h-4 w-4" /> Ask Qualifier Question
@@ -1060,7 +1058,7 @@ export default function OutreachPage() {
 
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => handleDeleteProspect(prospect.id, prospect.name)} className="text-destructive">
-                            <Trash2 className="mr-2 h-4 w-4" /> Delete
+                            <Trash2 className="mr-2 h-4 w-4" /> Delete Prospect
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
@@ -1292,12 +1290,14 @@ export default function OutreachPage() {
       </Card>
       <ScriptModal
         isOpen={isScriptModalOpen}
-        onClose={() => setIsScriptModalOpen(false)}
+        onClose={() => {
+            setIsScriptModalOpen(false);
+            setCurrentProspectForScript(null); // Clear prospect on close
+        }}
         scriptContent={generatedScript}
         title={scriptModalTitle}
         onRegenerate={handleRegenerateScript}
         isLoadingInitially={isGeneratingScript && !generatedScript}
-        // Configurable props
         showConfirmButton={scriptModalConfig.showConfirmButton}
         confirmButtonText={scriptModalConfig.confirmButtonText}
         onConfirm={scriptModalConfig.onConfirm}
