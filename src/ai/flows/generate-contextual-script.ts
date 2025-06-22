@@ -21,6 +21,7 @@ const GenerateContextualScriptInputSchema = z.object({
     "Audit Delivery Message",
     "Send Reminder",
     "Soft Close",
+    "Generate Next Reply",
   ]).describe("The type of script to generate."),
 
   // Section 1: Basic Prospect Info (from guide)
@@ -117,6 +118,21 @@ No conversation history provided.
 {{/if}}
 ---
 **SCRIPT GENERATION LOGIC**
+
+**IF the script type is "Generate Next Reply", your task is to act as an expert conversational assistant. Analyze the entire CONVERSATION HISTORY and the prospect's current Lead Status. Your goal is to suggest the most logical and effective next message from "Me" to move the conversation forward towards a successful outcome (e.g., getting them to agree to an audit, closing a deal).**
+
+**A. Analyze the last message in the CONVERSATION HISTORY.** Is it from them or from me? What was the topic? Is there an unanswered question?
+**B. Consider their current Lead Status: "{{leadStatus}}".**
+   - If 'Replied' or 'Interested', they are engaged. Suggest a message that transitions to the next logical step. If a qualifier question hasn't been asked, suggest that. If it has, guide them towards the audit.
+   - If 'Qualifier Sent' and their last message is a reply, analyze their reply and suggest how to confirm you're ready to start the audit.
+   - If 'Audit Delivered', suggest a follow-up asking for their thoughts or feedback.
+   - If 'Cold' or 'Warm' and they haven't replied for a while, suggest a gentle, non-pushy follow-up. Avoid being repetitive.
+   - If 'Not Interested', suggest a graceful closing message that leaves the door open for the future.
+**C. Review all other prospect details** (Pain Points, Goals, Industry) to add personalization and relevance.
+**D. Keep the tone consistent with the preferred tone: {{#if tonePreference}}{{tonePreference}}{{else}}Friendly & Confident{{/if}}.**
+**E. Formulate a concise, natural-sounding DM. The message should be ready to copy and paste.**
+
+---
 
 **IF the script type is "Cold Outreach DM" OR the lead status is 'To Contact' or 'Cold' (this is a NEW lead), follow this structure:**
 

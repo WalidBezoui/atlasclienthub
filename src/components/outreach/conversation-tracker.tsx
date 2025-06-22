@@ -8,13 +8,17 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { User, Bot, MoreHorizontal, Edit, Trash2, Repeat } from 'lucide-react';
+import { User, Bot, MoreHorizontal, Edit, Trash2, Repeat, Loader2, Sparkles } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
+import type { OutreachProspect } from '@/lib/types';
+
 
 interface ConversationTrackerProps {
   value: string | null;
   onChange: (newValue: string) => void;
+  prospect: OutreachProspect | null;
+  onGenerateReply: (prospect: OutreachProspect) => Promise<string>;
 }
 
 type Message = {
@@ -34,6 +38,7 @@ const parseMessages = (value: string | null): Message[] => {
       if (line.startsWith('Them: ')) {
         return { sender: 'Prospect', content: line.substring(6) };
       }
+      // Fallback for lines without a prefix, assuming it's from the prospect
       return { sender: 'Prospect', content: line };
     })
     .filter(msg => msg.content.trim() !== '');
@@ -47,12 +52,13 @@ const serializeMessages = (messages: Message[]): string => {
 };
 
 
-export function ConversationTracker({ value, onChange }: ConversationTrackerProps) {
+export function ConversationTracker({ value, onChange, prospect, onGenerateReply }: ConversationTrackerProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [sender, setSender] = useState<'Me' | 'Prospect'>('Me');
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingText, setEditingText] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -131,6 +137,24 @@ export function ConversationTracker({ value, onChange }: ConversationTrackerProp
     setEditingText('');
   };
 
+  const handleGenerateClick = async () => {
+    if (!prospect || !onGenerateReply) return;
+    setIsGenerating(true);
+    try {
+        const reply = await onGenerateReply(prospect);
+        if (reply) {
+            setNewMessage(reply);
+            setSender('Me'); // Default to sending as 'Me'
+        }
+    } catch (e) {
+        // Error toast will be handled by the calling component
+        console.error("Failed to generate reply", e);
+    } finally {
+        setIsGenerating(false);
+    }
+  };
+
+
   return (
     <Card className="flex flex-col h-full">
       <CardHeader className="p-4 border-b">
@@ -147,7 +171,6 @@ export function ConversationTracker({ value, onChange }: ConversationTrackerProp
                   'justify-start': message.sender === 'Prospect',
                 })}
               >
-                {/* For "Prospect" messages, the order is Menu -> Icon -> Bubble */}
                 {message.sender === 'Prospect' && (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -158,22 +181,6 @@ export function ConversationTracker({ value, onChange }: ConversationTrackerProp
                         <DropdownMenuContent align="start">
                             <DropdownMenuItem onClick={() => handleStartEdit(index)}><Edit className="mr-2 h-4 w-4"/>Edit</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleSwitchSender(index)}><Repeat className="mr-2 h-4 w-4"/>Switch to Me</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDeleteMessage(index)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4"/>Delete</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                )}
-
-                 {/* For "Me" messages, the order is Menu -> Bubble -> Icon */}
-                {message.sender === 'Me' && (
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleStartEdit(index)}><Edit className="mr-2 h-4 w-4"/>Edit</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleSwitchSender(index)}><Repeat className="mr-2 h-4 w-4"/>Switch to Prospect</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleDeleteMessage(index)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4"/>Delete</DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
@@ -208,6 +215,21 @@ export function ConversationTracker({ value, onChange }: ConversationTrackerProp
                 </div>
 
                  {message.sender === 'Me' && <Bot className="h-6 w-6 text-muted-foreground shrink-0" />}
+                
+                 {message.sender === 'Me' && (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleStartEdit(index)}><Edit className="mr-2 h-4 w-4"/>Edit</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleSwitchSender(index)}><Repeat className="mr-2 h-4 w-4"/>Switch to Prospect</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDeleteMessage(index)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4"/>Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
               </div>
             ))
           ) : (
@@ -225,21 +247,37 @@ export function ConversationTracker({ value, onChange }: ConversationTrackerProp
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyDown={handleKeyPress}
                 className="flex-grow"
-                disabled={editingIndex !== null}
+                disabled={editingIndex !== null || isGenerating}
             />
-            <Button onClick={handleAddMessage} disabled={editingIndex !== null}>Add</Button>
+            <Button onClick={handleAddMessage} disabled={editingIndex !== null || isGenerating}>Add</Button>
         </div>
-        <RadioGroup value={sender} onValueChange={(val: 'Me' | 'Prospect') => setSender(val)} className="flex items-center space-x-4">
-            <Label>Sender:</Label>
-            <div className="flex items-center space-x-2">
-                <RadioGroupItem value="Me" id="sender-me" />
-                <Label htmlFor="sender-me" className="font-normal">Me (Atlas Studio)</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-                <RadioGroupItem value="Prospect" id="sender-them" />
-                <Label htmlFor="sender-them" className="font-normal">Prospect</Label>
-            </div>
-        </RadioGroup>
+         <div className="flex w-full justify-between items-center">
+             <RadioGroup value={sender} onValueChange={(val: 'Me' | 'Prospect') => setSender(val)} className="flex items-center space-x-4">
+                <Label>Sender:</Label>
+                <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="Me" id="sender-me" />
+                    <Label htmlFor="sender-me" className="font-normal">Me (Atlas Studio)</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="Prospect" id="sender-them" />
+                    <Label htmlFor="sender-them" className="font-normal">Prospect</Label>
+                </div>
+            </RadioGroup>
+            
+            <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleGenerateClick} 
+                disabled={isGenerating || !prospect}
+            >
+                {isGenerating ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                    <Sparkles className="mr-2 h-4 w-4" />
+                )}
+                Generate Reply
+            </Button>
+        </div>
       </CardFooter>
     </Card>
   );

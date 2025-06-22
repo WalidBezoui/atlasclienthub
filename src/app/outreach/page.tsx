@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
-import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, Bot, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileText, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare, MoreHorizontal, Save, FileQuestion, GraduationCap } from 'lucide-react';
+import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, Bot, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileText, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare, Save, FileQuestion, GraduationCap } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardDescription as CardFormDescription } from '@/components/ui/card';
@@ -785,6 +785,62 @@ export default function OutreachPage() {
         setIsGeneratingScript(false);
     }
   };
+  
+  const handleGenerateNextReply = async (prospect: OutreachProspect): Promise<string> => {
+    if (!prospect) {
+        toast({ title: "Error", description: "No prospect context available.", variant: "destructive" });
+        return '';
+    }
+
+    const input: GenerateContextualScriptInput = {
+        scriptType: "Generate Next Reply",
+        clientName: prospect.name?.trim() || null,
+        clientHandle: prospect.instagramHandle?.trim() || null,
+        businessName: prospect.businessName?.trim() || null,
+        website: prospect.website?.trim() || null,
+        prospectLocation: prospect.prospectLocation || null,
+        clientIndustry: prospect.industry?.trim() || null,
+        visualStyle: prospect.visualStyle?.trim() || null, 
+        bioSummary: prospect.bioSummary?.trim() || null, 
+        businessType: prospect.businessType || null,
+        businessTypeOther: prospect.businessTypeOther?.trim() || null,
+        accountStage: prospect.accountStage || null,
+        followerCount: prospect.followerCount,
+        postCount: prospect.postCount,
+        avgLikes: prospect.avgLikes,
+        avgComments: prospect.avgComments,
+        painPoints: prospect.painPoints || [],
+        goals: prospect.goals || [],
+        leadStatus: prospect.status,
+        source: prospect.source || null,
+        lastTouch: prospect.lastContacted ? `Last contacted on ${new Date(prospect.lastContacted).toLocaleDateString()}` : 'No prior contact recorded',
+        followUpNeeded: prospect.followUpNeeded || false,
+        offerInterest: prospect.offerInterest || [],
+        tonePreference: prospect.tonePreference || null,
+        additionalNotes: prospect.notes?.trim() || null,
+        lastMessageSnippet: prospect.lastMessageSnippet?.trim() || null,
+        lastScriptSent: prospect.lastScriptSent?.trim() || null,
+        linkSent: prospect.linkSent || false,
+        carouselOffered: prospect.carouselOffered || false,
+        nextStep: prospect.nextStep?.trim() || null,
+        conversationHistory: prospect.conversationHistory?.trim() || null,
+    };
+    
+    try {
+      const result = await generateContextualScript(input);
+      toast({ title: "Reply Generated", description: "Review the suggestion below." });
+      return result.script;
+    } catch (error) {
+      console.error("Error generating next reply:", error);
+      toast({
+        title: "Error Generating Reply",
+        description: (error as Error).message || "An unexpected error occurred.",
+        variant: "destructive",
+      });
+      return '';
+    }
+  };
+
 
   const handleSendQualifier = async (prospectId: string, question: string) => {
       try {
@@ -941,7 +997,7 @@ export default function OutreachPage() {
                              <Tooltip>
                                 <TooltipTrigger asChild>
                                     <div className={cn(!canCreateAudit && "cursor-not-allowed w-full")}>
-                                        <DropdownMenuItem
+                                         <DropdownMenuItem
                                             disabled={!canCreateAudit}
                                             className={cn("w-full", !canCreateAudit && "cursor-not-allowed")}
                                             onClick={() => {
@@ -1058,6 +1114,8 @@ export default function OutreachPage() {
             <ConversationTracker
               value={conversationHistoryContent}
               onChange={(newValue) => setConversationHistoryContent(newValue)}
+              prospect={currentProspectForConversation}
+              onGenerateReply={handleGenerateNextReply}
             />
           </div>
           <DialogFooter>
@@ -1237,7 +1295,6 @@ export default function OutreachPage() {
         title={scriptModalTitle}
         onRegenerate={handleRegenerateScript}
         isLoadingInitially={isGeneratingScript && !generatedScript}
-        isConfirming={isGeneratingScript}
         // Configurable props
         showConfirmButton={scriptModalConfig.showConfirmButton}
         confirmButtonText={scriptModalConfig.confirmButtonText}
