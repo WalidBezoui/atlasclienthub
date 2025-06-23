@@ -698,7 +698,7 @@ export default function OutreachPage() {
         onConfirm: async (scriptContent: string) => {
             if (!currentProspectForScript) return; // Guard against stale state
             const currentHistory = currentProspectForScript.conversationHistory || '';
-            const newHistory = `${currentHistory}${currentHistory ? '\n' : ''}Me: ${scriptContent}`.trim();
+            const newHistory = `${currentHistory}${currentHistory ? '\n\n' : ''}Me: ${scriptContent}`.trim();
 
             const updates: Partial<OutreachProspect> = {
                 conversationHistory: newHistory,

@@ -34,7 +34,11 @@ const parseMessages = (value: string | null): Message[] => {
 
   lines.forEach(line => {
     const trimmedLine = line.trim();
-    if (trimmedLine === '') return;
+    if (trimmedLine === '' && currentMessage) {
+        // Handle intentional newlines within a message
+        currentMessage.content += '\n';
+        return;
+    }
 
     if (line.startsWith('Me: ') || line.startsWith('Them: ')) {
       if (currentMessage) {
@@ -48,7 +52,7 @@ const parseMessages = (value: string | null): Message[] => {
     } else if (currentMessage) {
       // It's a continuation of the last message
       currentMessage.content += '\n' + line;
-    } else {
+    } else if (trimmedLine !== '') {
       // It's the very first line and has no prefix, assume it's the prospect
       currentMessage = {
         sender: 'Prospect',
@@ -68,8 +72,7 @@ const parseMessages = (value: string | null): Message[] => {
 const serializeMessages = (messages: Message[]): string => {
   return messages.map(msg => {
     const prefix = msg.sender === 'Me' ? 'Me' : 'Them';
-    const content = msg.content.replace(/\n/g, `\n`);
-    return `${prefix}: ${content}`;
+    return `${prefix}: ${msg.content}`;
   }).join('\n\n'); 
 };
 
