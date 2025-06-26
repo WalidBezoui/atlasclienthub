@@ -7,11 +7,12 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { User, Bot, MoreHorizontal, Edit, Trash2, Repeat, Loader2, Sparkles } from 'lucide-react';
+import { User, Bot, MoreHorizontal, Edit, Trash2, Repeat, Loader2, Sparkles, Clipboard, Download } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
 import type { OutreachProspect } from '@/lib/types';
 import { Input } from '../ui/input';
+import { useToast } from '@/hooks/use-toast';
 
 
 interface ConversationTrackerProps {
@@ -86,6 +87,7 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
   const [isGenerating, setIsGenerating] = useState(false);
   const [customInstructions, setCustomInstructions] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     setMessages(parseMessages(value));
@@ -180,9 +182,49 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
     }
   };
 
+  const handleCopy = () => {
+    if (!value) {
+        toast({ title: 'Nothing to copy', description: 'The conversation is empty.' });
+        return;
+    }
+    navigator.clipboard.writeText(value)
+      .then(() => {
+        toast({ title: "Copied!", description: "Full conversation copied to clipboard." });
+      })
+      .catch(err => {
+        console.error("Failed to copy conversation: ", err);
+        toast({ title: "Copy Failed", variant: "destructive" });
+      });
+  };
+
+  const handleExport = () => {
+     if (!value) {
+        toast({ title: 'Nothing to export', description: 'The conversation is empty.' });
+        return;
+    }
+    const blob = new Blob([value], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const prospectName = prospect?.name?.replace(/\s/g, '_') || 'export';
+    link.download = `conversation_${prospectName}_${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
 
   return (
-    <div className="flex flex-col h-full bg-background rounded-lg">
+    <div className="flex flex-col h-full bg-background rounded-lg border">
+       <div className="flex items-center justify-end gap-2 px-4 py-2 border-b shrink-0">
+         <Button variant="outline" size="sm" onClick={handleCopy} disabled={!value}>
+            <Clipboard className="mr-2 h-4 w-4" /> Copy
+        </Button>
+        <Button variant="outline" size="sm" onClick={handleExport} disabled={!value}>
+            <Download className="mr-2 h-4 w-4" /> Export
+        </Button>
+      </div>
       <ScrollArea className="flex-grow p-4" ref={scrollAreaRef}>
         <div className="space-y-4">
           {messages.length > 0 ? (
