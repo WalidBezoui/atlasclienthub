@@ -21,6 +21,16 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ConversationTracker } from '@/components/outreach/conversation-tracker';
 import { generateContextualScript, type GenerateContextualScriptInput } from '@/ai/flows/generate-contextual-script';
 
@@ -35,6 +45,7 @@ export default function ConversationHistoryPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [historyContent, setHistoryContent] = useState<string | null>('');
   const [isSaving, setIsSaving] = useState(false);
+  const [showUnsavedConfirm, setShowUnsavedConfirm] = useState(false);
 
   const { toast } = useToast();
 
@@ -130,7 +141,6 @@ export default function ConversationHistoryPage() {
     }
   };
 
-
   const handleSaveHistory = async () => {
     if (!selectedProspect) return;
     setIsSaving(true);
@@ -148,6 +158,17 @@ export default function ConversationHistoryPage() {
     }
   };
 
+  const isHistoryDirty = selectedProspect ? (selectedProspect.conversationHistory || '') !== (historyContent || '') : false;
+
+  const handleModalCloseAttempt = () => {
+    if (isHistoryDirty) {
+      setShowUnsavedConfirm(true);
+    } else {
+      setIsModalOpen(false);
+    }
+  };
+
+
   if (authLoading || (isLoading && !prospects.length && user)) {
     return <div className="flex justify-center items-center h-screen"><LoadingSpinner text="Loading conversation history..." size="lg"/></div>;
   }
@@ -155,8 +176,6 @@ export default function ConversationHistoryPage() {
   if (!user && !authLoading) {
     return <div className="flex justify-center items-center h-screen"><p>Redirecting to login...</p></div>;
   }
-
-  const isHistoryDirty = (selectedProspect?.conversationHistory || '').trim() !== (historyContent || '').trim();
 
   return (
     <div className="space-y-6">
@@ -166,7 +185,30 @@ export default function ConversationHistoryPage() {
         icon={MessagesSquare}
       />
 
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+      <AlertDialog open={showUnsavedConfirm} onOpenChange={setShowUnsavedConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>You have unsaved changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to discard your changes? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Stay</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              setShowUnsavedConfirm(false);
+              setIsModalOpen(false);
+            }}>
+              Discard
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={isModalOpen} onOpenChange={(open) => {
+        if (!open) handleModalCloseAttempt();
+        else setIsModalOpen(true);
+      }}>
         <DialogContent className="sm:max-w-xl md:max-w-2xl h-[90vh] flex flex-col p-0">
           <DialogTitle className="sr-only">View Conversation History</DialogTitle>
           <DialogDescription className="sr-only">
@@ -182,7 +224,7 @@ export default function ConversationHistoryPage() {
             />
           </div>
           <DialogFooter className="gap-2 p-4 border-t">
-            <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={handleModalCloseAttempt}>Cancel</Button>
             <Button onClick={handleSaveHistory} disabled={isSaving || !isHistoryDirty}>
               {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               Save Changes

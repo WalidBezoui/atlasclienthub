@@ -212,7 +212,7 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
 
   return (
     <div className="flex flex-col h-full bg-muted/30 rounded-lg">
-      <div className="flex items-center justify-between py-3 pl-3 pr-12 border-b shrink-0 bg-card rounded-t-lg">
+      <div className="flex items-center justify-between p-4 pr-16 border-b shrink-0 bg-card rounded-t-lg">
         <h3 className="font-semibold text-foreground truncate flex items-center gap-2" title={prospect?.name}>
             <span>Conversation with {prospect?.name || 'Prospect'}</span>
             <span 

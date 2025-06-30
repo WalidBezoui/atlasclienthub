@@ -30,6 +30,16 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { addProspect, getProspects, updateProspect, deleteProspect as fbDeleteProspect } from '@/lib/firebase/services';
@@ -77,6 +87,7 @@ export default function OutreachPage() {
   const [currentProspectForConversation, setCurrentProspectForConversation] = useState<OutreachProspect | null>(null);
   const [conversationHistoryContent, setConversationHistoryContent] = useState<string | null>(null);
   const [isSavingConversation, setIsSavingConversation] = useState(false);
+  const [showUnsavedConfirm, setShowUnsavedConfirm] = useState(false);
   
   const { toast } = useToast();
 
@@ -507,6 +518,16 @@ export default function OutreachPage() {
     }
   };
   
+  const isConversationDirty = currentProspectForConversation ? (currentProspectForConversation.conversationHistory || '') !== (conversationHistoryContent || '') : false;
+
+  const handleConversationModalCloseAttempt = () => {
+    if (isConversationDirty) {
+      setShowUnsavedConfirm(true);
+    } else {
+      setIsConversationModalOpen(false);
+    }
+  };
+
   const renderActions = (prospect: OutreachProspect) => {
     const canAskQualifier = ['Interested', 'Replied'].includes(prospect.status);
     const canCreateAudit = prospect.status === 'Ready for Audit';
@@ -603,8 +624,6 @@ export default function OutreachPage() {
     );
   };
 
-  const isConversationDirty = (currentProspectForConversation?.conversationHistory || '').trim() !== (conversationHistoryContent || '').trim();
-
   return (
     <div className="space-y-6">
       <PageHeader
@@ -636,7 +655,30 @@ export default function OutreachPage() {
         </DialogContent>
       </Dialog>
       
-      <Dialog open={isConversationModalOpen} onOpenChange={setIsConversationModalOpen}>
+      <AlertDialog open={showUnsavedConfirm} onOpenChange={setShowUnsavedConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>You have unsaved changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to discard them? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Stay</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              setShowUnsavedConfirm(false);
+              setIsConversationModalOpen(false);
+            }}>
+              Discard
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={isConversationModalOpen} onOpenChange={(open) => {
+        if (!open) handleConversationModalCloseAttempt();
+        else setIsConversationModalOpen(true);
+      }}>
         <DialogContent className="sm:max-w-xl md:max-w-2xl h-[90vh] flex flex-col p-0">
            <DialogTitle className="sr-only">Manage Conversation</DialogTitle>
            <DialogDescription className="sr-only">
@@ -652,7 +694,7 @@ export default function OutreachPage() {
             />
           </div>
           <DialogFooter className="p-4 border-t gap-2">
-            <Button variant="outline" onClick={() => setIsConversationModalOpen(false)}>Close</Button>
+            <Button variant="outline" onClick={handleConversationModalCloseAttempt}>Close</Button>
             <Button onClick={handleSaveConversation} disabled={isSavingConversation || !isConversationDirty}>
               {isSavingConversation ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               Save Changes
