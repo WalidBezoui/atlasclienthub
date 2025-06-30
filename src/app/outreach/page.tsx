@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
@@ -25,6 +26,8 @@ import {
   Dialog,
   DialogContent,
   DialogFooter,
+  DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -636,6 +639,10 @@ export default function OutreachPage() {
       
       <Dialog open={isConversationModalOpen} onOpenChange={setIsConversationModalOpen}>
         <DialogContent className="sm:max-w-xl md:max-w-2xl h-[90vh] flex flex-col p-0">
+           <DialogTitle className="sr-only">Manage Conversation</DialogTitle>
+           <DialogDescription className="sr-only">
+            View, edit, and manage the full conversation history with {currentProspectForConversation?.name || 'this prospect'}.
+           </DialogDescription>
           <div className="flex-grow min-h-0">
             <ConversationTracker
               prospect={currentProspectForConversation}

@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -17,6 +18,8 @@ import {
   Dialog,
   DialogContent,
   DialogFooter,
+  DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { ConversationTracker } from '@/components/outreach/conversation-tracker';
 import { generateContextualScript, type GenerateContextualScriptInput } from '@/ai/flows/generate-contextual-script';
@@ -166,6 +169,10 @@ export default function ConversationHistoryPage() {
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-xl md:max-w-2xl h-[90vh] flex flex-col p-0">
+          <DialogTitle className="sr-only">View Conversation History</DialogTitle>
+          <DialogDescription className="sr-only">
+            A dialog to view, edit, and manage the full conversation history with {selectedProspect?.name || 'this prospect'}.
+          </DialogDescription>
            <div className="flex-grow min-h-0">
             <ConversationTracker
               value={historyContent}
