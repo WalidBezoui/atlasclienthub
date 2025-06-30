@@ -104,6 +104,16 @@ export type OutreachProspect = {
   qualifierReply?: string | null;
 
   notes?: string | null;
+  
+  // New Scoring & Qualification Fields
+  leadScore?: number | null;
+  qualificationData?: {
+      isBusiness: 'yes' | 'no' | 'unknown';
+      hasInconsistentGrid: 'yes' | 'no' | 'unknown';
+      hasLowEngagement: 'yes' | 'no' | 'unknown';
+      hasNoClearCTA: 'yes' | 'no' | 'unknown';
+      valueProposition: 'visuals' | 'leads' | 'engagement' | 'unknown';
+  } | null;
 };
 
 

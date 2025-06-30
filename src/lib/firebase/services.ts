@@ -189,6 +189,8 @@ export const addProspect = async (prospectData: Omit<OutreachProspect, 'id' | 'u
     qualifierReply: prospectData.qualifierReply || null,
 
     notes: prospectData.notes || null,
+    leadScore: prospectData.leadScore ?? null,
+    qualificationData: prospectData.qualificationData || null,
   };
   
   const docRef = await addDoc(prospectsCollection, dataForFirestore as any);
@@ -205,43 +207,45 @@ export const getProspects = async (): Promise<OutreachProspect[]> => {
     const prospect: OutreachProspect = {
       id: docSnap.id,
       userId: data.userId,
-      name: data.name,
+      name: data.name || '',
       status: data.status || 'To Contact', 
-      instagramHandle: data.instagramHandle,
-      businessName: data.businessName,
-      website: data.website,
-      prospectLocation: data.prospectLocation,
-      industry: data.industry,
-      email: data.email,
-      visualStyle: data.visualStyle, 
-      bioSummary: data.bioSummary, 
-      businessType: data.businessType,
-      businessTypeOther: data.businessTypeOther,
-      accountStage: data.accountStage,
-      followerCount: data.followerCount,
-      postCount: data.postCount,
-      avgLikes: data.avgLikes,
-      avgComments: data.avgComments,
+      instagramHandle: data.instagramHandle || null,
+      businessName: data.businessName || null,
+      website: data.website || null,
+      prospectLocation: data.prospectLocation || null,
+      industry: data.industry || null,
+      email: data.email || null,
+      visualStyle: data.visualStyle || null, 
+      bioSummary: data.bioSummary || null, 
+      businessType: data.businessType || null,
+      businessTypeOther: data.businessTypeOther || null,
+      accountStage: data.accountStage || null,
+      followerCount: data.followerCount ?? null,
+      postCount: data.postCount ?? null,
+      avgLikes: data.avgLikes ?? null,
+      avgComments: data.avgComments ?? null,
       painPoints: data.painPoints || [],
       goals: data.goals || [],
-      source: data.source,
+      source: data.source || null,
       lastContacted: data.lastContacted ? (data.lastContacted as Timestamp).toDate().toISOString() : undefined,
       followUpDate: data.followUpDate ? (data.followUpDate as Timestamp).toDate().toISOString() : undefined,
       followUpNeeded: data.followUpNeeded || false,
       offerInterest: data.offerInterest || [],
-      uniqueNote: data.uniqueNote,
-      helpStatement: data.helpStatement,
-      tonePreference: data.tonePreference,
-      lastMessageSnippet: data.lastMessageSnippet,
-      lastScriptSent: data.lastScriptSent,
-      linkSent: data.linkSent,
-      carouselOffered: data.carouselOffered,
-      nextStep: data.nextStep,
-      conversationHistory: data.conversationHistory,
-      qualifierQuestion: data.qualifierQuestion,
+      uniqueNote: data.uniqueNote || null,
+      helpStatement: data.helpStatement || null,
+      tonePreference: data.tonePreference || null,
+      lastMessageSnippet: data.lastMessageSnippet || null,
+      lastScriptSent: data.lastScriptSent || null,
+      linkSent: data.linkSent || false,
+      carouselOffered: data.carouselOffered || false,
+      nextStep: data.nextStep || null,
+      conversationHistory: data.conversationHistory || null,
+      qualifierQuestion: data.qualifierQuestion || null,
       qualifierSentAt: data.qualifierSentAt ? (data.qualifierSentAt as Timestamp).toDate().toISOString() : undefined,
-      qualifierReply: data.qualifierReply,
-      notes: data.notes,
+      qualifierReply: data.qualifierReply || null,
+      notes: data.notes || null,
+      leadScore: data.leadScore ?? null,
+      qualificationData: data.qualificationData || null,
     };
     return prospect;
   });
@@ -264,7 +268,7 @@ export const updateProspect = async (id: string, prospectData: Partial<Omit<Outr
     dataToUpdate.qualifierSentAt = processDateForFirestore(prospectData.qualifierSentAt);
   }
   
-  const numericFields: (keyof OutreachProspect)[] = ['followerCount', 'postCount', 'avgLikes', 'avgComments'];
+  const numericFields: (keyof OutreachProspect)[] = ['followerCount', 'postCount', 'avgLikes', 'avgComments', 'leadScore'];
   numericFields.forEach(field => {
     if (prospectData.hasOwnProperty(field)) {
       const value = prospectData[field];
@@ -291,7 +295,7 @@ export const updateProspect = async (id: string, prospectData: Partial<Omit<Outr
   });
 
   const optionalStringFields: (keyof OutreachProspect)[] = [
-      'instagramHandle', 'businessName', 'website', 'industry', 'email', 'visualStyle', 'bioSummary', 
+      'name', 'instagramHandle', 'businessName', 'website', 'industry', 'email', 'visualStyle', 'bioSummary', 
       'businessTypeOther', 'uniqueNote', 'helpStatement', 'notes', 'lastMessageSnippet', 'lastScriptSent', 'nextStep', 'conversationHistory',
       'qualifierQuestion', 'qualifierReply'
   ];
@@ -307,6 +311,10 @@ export const updateProspect = async (id: string, prospectData: Partial<Omit<Outr
           dataToUpdate[field] = prospectData[field] || null;
       }
   });
+  
+  if (prospectData.hasOwnProperty('qualificationData')) {
+    dataToUpdate.qualificationData = prospectData.qualificationData || null;
+  }
   
   const finalUpdateData: Partial<OutreachProspect> = {};
   for (const key of Object.keys(dataToUpdate) as Array<keyof OutreachProspect>) {
