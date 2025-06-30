@@ -260,6 +260,15 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
                             <QualificationDetail label="Inconsistent Grid?" value={analysisResult.qualificationData.hasInconsistentGrid} />
                             <QualificationDetail label="Low Engagement?" value={analysisResult.qualificationData.hasLowEngagement} />
                             <QualificationDetail label="No Clear CTA?" value={analysisResult.qualificationData.hasNoClearCTA} />
+                             <div className="flex justify-between items-center text-xs pt-1">
+                                <span className="text-muted-foreground">Profitability Potential</span>
+                                <Badge variant={
+                                    analysisResult.qualificationData.profitabilityPotential === 'high' ? 'default' :
+                                    analysisResult.qualificationData.profitabilityPotential === 'medium' ? 'secondary' :
+                                    analysisResult.qualificationData.profitabilityPotential === 'low' ? 'destructive' :
+                                    'outline'
+                                } className="capitalize">{analysisResult.qualificationData.profitabilityPotential}</Badge>
+                            </div>
                             <div className="flex justify-between items-center text-xs pt-1">
                                 <span className="text-muted-foreground">#1 Value Prop</span>
                                 <Badge variant="outline" className="capitalize">{analysisResult.qualificationData.valueProposition}</Badge>

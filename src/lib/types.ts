@@ -113,6 +113,7 @@ export type OutreachProspect = {
       hasLowEngagement: 'yes' | 'no' | 'unknown';
       hasNoClearCTA: 'yes' | 'no' | 'unknown';
       valueProposition: 'visuals' | 'leads' | 'engagement' | 'unknown';
+      profitabilityPotential: 'low' | 'medium' | 'high' | 'unknown';
   } | null;
 };
 
