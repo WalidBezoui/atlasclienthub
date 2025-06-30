@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -19,7 +20,7 @@ interface ConversationTrackerProps {
   onChange: (newValue: string) => void;
   prospect?: OutreachProspect | null;
   onGenerateReply?: (prospect: OutreachProspect, customInstructions: string) => Promise<string>;
-  onDirtyChange?: (isDirty: boolean) => void;
+  isDirty?: boolean;
 }
 
 type Message = {
@@ -75,7 +76,7 @@ const serializeMessages = (messages: Message[]): string => {
 };
 
 
-export function ConversationTracker({ value, onChange, prospect, onGenerateReply, onDirtyChange }: ConversationTrackerProps) {
+export function ConversationTracker({ value, onChange, prospect, onGenerateReply, isDirty }: ConversationTrackerProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [sender, setSender] = useState<'Me' | 'Prospect'>('Me');
@@ -85,19 +86,6 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
   const [customInstructions, setCustomInstructions] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-
-  useEffect(() => {
-    setMessages(parseMessages(value));
-  }, [value]);
-
-  useEffect(() => {
-    if (onDirtyChange) {
-      const serialized = serializeMessages(messages);
-      const dirty = serialized.trim() !== (value || '').trim();
-      onDirtyChange(dirty);
-    }
-  }, [messages, value, onDirtyChange]);
-
 
   const scrollToBottom = () => {
     setTimeout(() => {
@@ -109,22 +97,17 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
       }
     }, 100);
   };
-  
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-  
-  const triggerChange = (updatedMessages: Message[]) => {
-      setMessages(updatedMessages);
-      onChange(serializeMessages(updatedMessages));
-  };
 
+  useEffect(() => {
+    setMessages(parseMessages(value));
+    scrollToBottom();
+  }, [value]);
+  
   const handleAddMessage = () => {
     if (!newMessage.trim()) return;
     const newMessages = [...messages, { sender, content: newMessage.trim() }];
-    triggerChange(newMessages);
+    onChange(serializeMessages(newMessages));
     setNewMessage('');
-    scrollToBottom();
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -140,7 +123,7 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
 
   const handleDeleteMessage = (index: number) => {
     const newMessages = messages.filter((_, i) => i !== index);
-    triggerChange(newMessages);
+    onChange(serializeMessages(newMessages));
   };
   
   const handleSwitchSender = (index: number) => {
@@ -150,7 +133,7 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
         }
         return msg;
     });
-    triggerChange(newMessages);
+    onChange(serializeMessages(newMessages));
   };
 
   const handleStartEdit = (index: number) => {
@@ -166,7 +149,7 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
         }
         return msg;
     });
-    triggerChange(newMessages);
+    onChange(serializeMessages(newMessages));
     setEditingIndex(null);
     setEditingText('');
   };
@@ -232,17 +215,15 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
       <div className="flex items-center justify-between py-3 pl-3 pr-12 border-b shrink-0 bg-card rounded-t-lg">
         <h3 className="font-semibold text-foreground truncate flex items-center gap-2" title={prospect?.name}>
             <span>Conversation with {prospect?.name || 'Prospect'}</span>
-            {onDirtyChange && (
-              <span 
-                  className={cn(
-                      "text-amber-500 text-2xl leading-none transition-opacity duration-300",
-                      serializeMessages(messages).trim() !== (value || '').trim() ? "opacity-100 animate-pulse" : "opacity-0"
-                  )} 
-                  title="Unsaved changes"
-              >
-                  *
-              </span>
-            )}
+            <span 
+                className={cn(
+                    "text-amber-500 text-2xl leading-none transition-opacity duration-300",
+                    isDirty ? "opacity-100 animate-pulse" : "opacity-0"
+                )} 
+                title="Unsaved changes"
+            >
+                *
+            </span>
         </h3>
         <div className="flex items-center gap-1">
             <Button variant="ghost" size="sm" onClick={handleCopy} disabled={!serializeMessages(messages)}>
@@ -254,7 +235,7 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
         </div>
       </div>
 
-      <ScrollArea className="flex-grow p-4 bg-background">
+      <ScrollArea className="flex-grow p-4 bg-background" ref={scrollAreaRef}>
         <div className="space-y-6">
           {messages.length > 0 ? (
             messages.map((message, index) => (

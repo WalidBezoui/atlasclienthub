@@ -26,6 +26,7 @@ import {
   Dialog,
   DialogContent,
   DialogFooter,
+  DialogHeader,
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
@@ -76,7 +77,6 @@ export default function OutreachPage() {
   const [currentProspectForConversation, setCurrentProspectForConversation] = useState<OutreachProspect | null>(null);
   const [conversationHistoryContent, setConversationHistoryContent] = useState<string | null>(null);
   const [isSavingConversation, setIsSavingConversation] = useState(false);
-  const [isConversationDirty, setIsConversationDirty] = useState(false);
   
   const { toast } = useToast();
 
@@ -488,7 +488,6 @@ export default function OutreachPage() {
   const handleOpenConversationModal = (prospect: OutreachProspect) => {
     setCurrentProspectForConversation(prospect);
     setConversationHistoryContent(prospect.conversationHistory || null);
-    setIsConversationDirty(false);
     setIsConversationModalOpen(true);
   };
 
@@ -499,7 +498,6 @@ export default function OutreachPage() {
       await updateProspect(currentProspectForConversation.id, { conversationHistory: conversationHistoryContent });
       toast({ title: 'Conversation Saved', description: `History for ${currentProspectForConversation.name} updated.` });
       setIsConversationModalOpen(false);
-      setIsConversationDirty(false);
       setCurrentProspectForConversation(null);
       fetchProspects(); // Refetch to get the latest data
     } catch (error: any) {
@@ -605,6 +603,7 @@ export default function OutreachPage() {
     );
   };
 
+  const isConversationDirty = (currentProspectForConversation?.conversationHistory || '').trim() !== (conversationHistoryContent || '').trim();
 
   return (
     <div className="space-y-6">
@@ -649,7 +648,7 @@ export default function OutreachPage() {
               value={conversationHistoryContent}
               onChange={setConversationHistoryContent}
               onGenerateReply={handleGenerateNextReply}
-              onDirtyChange={setIsConversationDirty}
+              isDirty={isConversationDirty}
             />
           </div>
           <DialogFooter className="p-4 border-t gap-2">

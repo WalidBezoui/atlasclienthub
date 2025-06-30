@@ -35,7 +35,6 @@ export default function ConversationHistoryPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [historyContent, setHistoryContent] = useState<string | null>('');
   const [isSaving, setIsSaving] = useState(false);
-  const [isHistoryDirty, setIsHistoryDirty] = useState(false);
 
   const { toast } = useToast();
 
@@ -72,7 +71,6 @@ export default function ConversationHistoryPage() {
   const handleViewHistory = (prospect: OutreachProspect) => {
     setSelectedProspect(prospect);
     setHistoryContent(prospect.conversationHistory || '');
-    setIsHistoryDirty(false);
     setIsModalOpen(true);
   };
   
@@ -140,7 +138,6 @@ export default function ConversationHistoryPage() {
       await updateProspect(selectedProspect.id, { conversationHistory: historyContent });
       toast({ title: "History Updated", description: "The conversation log has been saved." });
       setIsModalOpen(false);
-      setIsHistoryDirty(false);
       // Refresh the list to show updated content
       fetchProspectsWithHistory();
     } catch (error: any) {
@@ -158,6 +155,8 @@ export default function ConversationHistoryPage() {
   if (!user && !authLoading) {
     return <div className="flex justify-center items-center h-screen"><p>Redirecting to login...</p></div>;
   }
+
+  const isHistoryDirty = (selectedProspect?.conversationHistory || '').trim() !== (historyContent || '').trim();
 
   return (
     <div className="space-y-6">
@@ -179,7 +178,7 @@ export default function ConversationHistoryPage() {
               onChange={setHistoryContent}
               prospect={selectedProspect}
               onGenerateReply={handleGenerateNextReply}
-              onDirtyChange={setIsHistoryDirty}
+              isDirty={isHistoryDirty}
             />
           </div>
           <DialogFooter className="gap-2 p-4 border-t">
