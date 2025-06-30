@@ -186,7 +186,7 @@ export default function OutreachPage() {
   }, [user, fetchProspects, toast]);
 
   const handleGenerateScript = useCallback(async (prospect: OutreachProspect, scriptType: GenerateContextualScriptInput['scriptType']) => {
-    setCurrentProspectForScript(prospect); // Set prospect first
+    setCurrentProspectForScript(prospect);
     setIsGeneratingScript(true);
     setIsScriptModalOpen(true);
     setGeneratedScript('');
@@ -231,8 +231,7 @@ export default function OutreachPage() {
         showConfirmButton: true,
         confirmButtonText: "Send & Add to History",
         onConfirm: async (scriptContent: string) => {
-            if (!currentProspectForScript) return; // Guard against stale state
-            const currentHistory = currentProspectForScript.conversationHistory || '';
+            const currentHistory = prospect.conversationHistory || '';
             const newHistory = `${currentHistory}${currentHistory ? '\n\n' : ''}Me: ${scriptContent}`.trim();
 
             const updates: Partial<OutreachProspect> = {
@@ -241,12 +240,12 @@ export default function OutreachPage() {
                 lastScriptSent: input.scriptType,
             };
 
-            if (currentProspectForScript.status === 'To Contact') {
+            if (prospect.status === 'To Contact') {
                 updates.status = 'Cold';
             }
 
             try {
-                await updateProspect(currentProspectForScript.id, updates);
+                await updateProspect(prospect.id, updates);
                 toast({ title: "History Updated", description: "Script sent and logged in conversation history." });
                 setIsScriptModalOpen(false);
                 fetchProspects();
@@ -265,23 +264,30 @@ export default function OutreachPage() {
     } finally {
         setIsGeneratingScript(false);
     }
-  }, [currentProspectForScript, fetchProspects, toast]);
+  }, [fetchProspects, toast]);
 
-
-  const toggleStatusFilter = (status: OutreachLeadStage) => {
-    setStatusFilters(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(status)) {
-        newSet.delete(status);
-      } else {
-        newSet.add(status);
-      }
-      if (newSet.size === 0) {
-        return new Set(OUTREACH_LEAD_STAGE_OPTIONS);
-      }
-      return newSet;
-    });
+  const handleScriptGenerationError = (error: any, title: string) => {
+    console.error(title, error);
+    toast({ title, description: (error as Error).message || "Could not generate script.", variant: "destructive" });
+    setScriptModalTitle(title);
+    setGeneratedScript("Failed to generate script. Please try again.");
   };
+
+  const handleSendQualifier = useCallback(async (prospectId: string, question: string) => {
+      try {
+          await updateProspect(prospectId, {
+              qualifierQuestion: question,
+              qualifierSentAt: new Date().toISOString(),
+              status: 'Qualifier Sent'
+          });
+          toast({ title: "Qualifier Sent!", description: "Prospect status updated." });
+          fetchProspects();
+          setIsScriptModalOpen(false);
+      } catch (error: any) {
+          console.error("Error sending qualifier:", error);
+          toast({ title: "Update Failed", description: "Could not update the prospect.", variant: "destructive" });
+      }
+  }, [fetchProspects, toast]);
 
   const handleGenerateQualifier = useCallback(async (prospect: OutreachProspect) => {
     setCurrentProspectForScript(prospect);
@@ -294,8 +300,7 @@ export default function OutreachPage() {
         showConfirmButton: true,
         confirmButtonText: "Send & Update Status",
         onConfirm: async (scriptContent: string) => {
-            if (!currentProspectForScript) return;
-            await handleSendQualifier(currentProspectForScript.id, scriptContent);
+            await handleSendQualifier(prospect.id, scriptContent);
         }
     });
 
@@ -318,7 +323,7 @@ export default function OutreachPage() {
     } finally {
         setIsGeneratingScript(false);
     }
-  }, [currentProspectForScript, fetchProspects, toast]);
+  }, [handleSendQualifier, toast]);
   
   const handleGenerateNextReply = useCallback(async (prospect: OutreachProspect, customInstructions: string): Promise<string> => {
     if (!prospect) {
@@ -375,30 +380,6 @@ export default function OutreachPage() {
       return '';
     }
   }, [toast]);
-
-
-  const handleSendQualifier = useCallback(async (prospectId: string, question: string) => {
-      try {
-          await updateProspect(prospectId, {
-              qualifierQuestion: question,
-              qualifierSentAt: new Date().toISOString(),
-              status: 'Qualifier Sent'
-          });
-          toast({ title: "Qualifier Sent!", description: "Prospect status updated." });
-          fetchProspects();
-          setIsScriptModalOpen(false);
-      } catch (error: any) {
-          console.error("Error sending qualifier:", error);
-          toast({ title: "Update Failed", description: "Could not update the prospect.", variant: "destructive" });
-      }
-  }, [fetchProspects, toast]);
-
-  const handleScriptGenerationError = (error: any, title: string) => {
-    console.error(title, error);
-    toast({ title, description: (error as Error).message || "Could not generate script.", variant: "destructive" });
-    setScriptModalTitle(title);
-    setGeneratedScript("Failed to generate script. Please try again.");
-  }
   
   const handleRegenerateScript = useCallback(async (): Promise<string | null> => {
     if (!currentScriptGenerationInput) {
@@ -420,6 +401,21 @@ export default function OutreachPage() {
       return null;
     }
   }, [currentScriptGenerationInput, toast]);
+
+  const toggleStatusFilter = (status: OutreachLeadStage) => {
+    setStatusFilters(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(status)) {
+        newSet.delete(status);
+      } else {
+        newSet.add(status);
+      }
+      if (newSet.size === 0) {
+        return new Set(OUTREACH_LEAD_STAGE_OPTIONS);
+      }
+      return newSet;
+    });
+  };
 
   const filteredProspects = prospects.filter(prospect => {
     const searchTerms = searchTerm.toLowerCase().split(' ').filter(Boolean);
