@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { fetchInstagramMetrics, type InstagramMetrics } from '@/app/actions/fetch-ig-metrics';
 import { qualifyProspect, type QualifyProspectInput, type QualifyProspectOutput } from '@/ai/flows/qualify-prospect';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ArrowRight, ArrowLeft, Wand2, Star, Save, BrainCircuit, CheckCircle } from 'lucide-react';
+import { Loader2, ArrowRight, ArrowLeft, Wand2, Star, Save, BrainCircuit, CheckCircle, HelpCircle } from 'lucide-react';
 import type { OutreachProspect } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +32,10 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
   
   const [fetchedMetrics, setFetchedMetrics] = useState<InstagramMetrics | null>(null);
   const [analysisResult, setAnalysisResult] = useState<QualifyProspectOutput | null>(null);
+  
+  const [clarificationAnswer, setClarificationAnswer] = useState('');
+  const [isReanalyzing, setIsReanalyzing] = useState(false);
+
 
   const { toast } = useToast();
 
@@ -43,6 +47,8 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
     setIsAnalyzing(false);
     setFetchedMetrics(null);
     setAnalysisResult(null);
+    setClarificationAnswer('');
+    setIsReanalyzing(false);
   };
 
   const handleClose = () => {
@@ -94,6 +100,30 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
       setStep(1);
     } finally {
       setIsFetching(false);
+    }
+  };
+  
+  const handleReanalyze = async () => {
+    if (!fetchedMetrics || !clarificationAnswer) return;
+    setIsReanalyzing(true);
+    try {
+      const input: QualifyProspectInput = {
+        instagramHandle: instagramHandle,
+        followerCount: fetchedMetrics.followerCount,
+        postCount: fetchedMetrics.postCount,
+        avgLikes: fetchedMetrics.avgLikes,
+        avgComments: fetchedMetrics.avgComments,
+        biography: fetchedMetrics.biography || null,
+        userClarification: clarificationAnswer, // Add the user's answer
+      };
+      const result = await qualifyProspect(input);
+      setAnalysisResult(result);
+      setClarificationAnswer(''); // Clear the input for next time
+      toast({ title: 'Re-analysis Complete', description: 'The prospect details have been updated with your input.' });
+    } catch (error: any) {
+      toast({ title: 'AI Re-analysis Failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsReanalyzing(false);
     }
   };
 
@@ -204,8 +234,8 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
           </div>
         )}
 
-        {step === 3 && analysisResult && fetchedMetrics && (
-          <div className="space-y-4 py-4">
+        {step === 3 && analysisResult && (
+           <div className="space-y-4 py-4">
               <div className="p-4 border rounded-lg bg-muted/50 space-y-3">
                 <h3 className="font-semibold text-lg text-center mb-2">
                     Analysis for {instagramHandle}: <Badge variant={getLeadScoreBadgeVariant(analysisResult.leadScore)} className="text-lg ml-2">{analysisResult.leadScore}</Badge>
@@ -236,6 +266,29 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
                     </AccordionItem>
                 </Accordion>
               </div>
+
+               {analysisResult.clarificationQuestion && (
+                <div className="mt-4 p-4 border border-dashed border-amber-500 rounded-lg bg-amber-500/10 space-y-2">
+                    <Label htmlFor="clarificationAnswer" className="font-semibold flex items-center">
+                        <HelpCircle className="mr-2 h-4 w-4 text-amber-600" />
+                        AI Needs More Info
+                    </Label>
+                    <p className="text-sm text-muted-foreground italic">"{analysisResult.clarificationQuestion}"</p>
+                    <div className="flex gap-2 items-center">
+                        <Input
+                            id="clarificationAnswer"
+                            placeholder="Provide your answer here..."
+                            value={clarificationAnswer}
+                            onChange={(e) => setClarificationAnswer(e.target.value)}
+                            disabled={isReanalyzing}
+                        />
+                        <Button onClick={handleReanalyze} disabled={!clarificationAnswer || isReanalyzing} size="sm">
+                            {isReanalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                            Re-analyze
+                        </Button>
+                    </div>
+                </div>
+              )}
               
               <DialogFooter className="mt-6">
                  <Button variant="outline" onClick={() => setStep(1)}><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>

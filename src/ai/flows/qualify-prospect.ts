@@ -29,6 +29,7 @@ const QualifyProspectInputSchema = z.object({
   avgLikes: z.number().nullable().describe("Average likes on recent posts."),
   avgComments: z.number().nullable().describe("Average comments on recent posts."),
   biography: z.string().nullable().describe("The prospect's Instagram bio text."),
+  userClarification: z.string().nullable().optional().describe("Additional clarification provided by the user in response to a question from the AI."),
 });
 export type QualifyProspectInput = z.infer<typeof QualifyProspectInputSchema>;
 
@@ -38,6 +39,7 @@ const QualifyProspectOutputSchema = z.object({
   painPoints: z.array(z.enum(PAIN_POINTS)).describe("A list of likely pain points based on the analysis."),
   goals: z.array(z.enum(GOALS)).describe("A list of likely goals based on the analysis."),
   summary: z.string().describe("A concise, 1-2 sentence summary of your analysis and the prospect's primary opportunity."),
+  clarificationQuestion: z.string().nullable().optional().describe("A question to ask the user to get more context for a better analysis if the initial data is ambiguous. If the analysis is clear, this should be null."),
 });
 export type QualifyProspectOutput = z.infer<typeof QualifyProspectOutputSchema>;
 
@@ -59,10 +61,17 @@ const prompt = ai.definePrompt({
 - **Avg. Likes:** {{#if avgLikes}}{{avgLikes}}{{else}}N/A{{/if}}
 - **Avg. Comments:** {{#if avgComments}}{{avgComments}}{{else}}N/A{{/if}}
 
+{{#if userClarification}}
+**ADDITIONAL USER-PROVIDED CONTEXT:**
+{{{userClarification}}}
 ---
+Use this new context to refine your entire analysis.
+---
+{{/if}}
+
 **ANALYSIS & QUALIFICATION TASK:**
 
-1.  **Analyze the Data**: Deeply analyze all the provided data.
+1.  **Analyze the Data**: Deeply analyze all the provided data, including any user clarifications.
     -   Read the bio to understand their niche, what they do, and who they serve. Look for keywords like "coach," "shop," "founder," "e-commerce," "service," etc. This will determine if it's a business.
     -   Check the bio for a clear Call-to-Action (CTA). Is there a link? Does it tell users what to do (e.g., "Shop now," "Book a call")? A missing or vague CTA is a significant pain point.
     -   Evaluate the engagement rate. A rule of thumb is that 1-3% engagement (avg likes / followers) is average. Anything lower suggests a low engagement problem, especially if follower count is high.
@@ -86,6 +95,11 @@ const prompt = ai.definePrompt({
     -   **Maximum Score:** 100 points.
 
 5.  **Write Summary**: Provide a very brief, sharp summary (1-2 sentences) of your findings. Example: "This is an established product brand with a decent following but very low engagement and a weak bio CTA. The primary opportunity is to improve their content strategy to convert existing followers into customers."
+
+6.  **Ask for Clarification (If Needed)**: If the bio is vague, the niche is unclear, or you cannot confidently determine the business model, formulate a single, concise question to ask the user for more information. This question will help you produce a more accurate analysis. If the analysis is clear and you have enough information, set 'clarificationQuestion' to null.
+    -   *Good Example*: "The bio mentions 'wellness,' but it's unclear. What specific products or services does this account offer?"
+    -   *Bad Example*: "Tell me more about this business." (Too generic)
+
 
 Now, perform the analysis and return the complete JSON object.`,
 });
