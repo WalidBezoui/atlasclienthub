@@ -161,16 +161,16 @@ export function ProspectForm({ prospect, onSave, onCancel }: { prospect?: Outrea
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="flex flex-col h-full overflow-hidden">
       
-      <DialogHeader>
+      <DialogHeader className="shrink-0">
         <DialogTitle className="font-headline text-2xl">{prospect ? 'Edit Prospect Details' : 'Add New Prospect'}</DialogTitle>
         <DialogDescription> 
           {prospect ? 'Update the comprehensive details for this prospect.' : 'Fill in the form to add a new prospect with detailed information.'}
         </DialogDescription>
       </DialogHeader>
 
-      <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-4">
+      <div className="flex-grow overflow-y-auto pr-4 -mr-4 space-y-4 py-4">
         {/* Section 1 */}
         <section>
           <h4 className="font-semibold text-lg flex items-center mb-2"><Info className="mr-2 h-5 w-5 text-primary"/>Basic Prospect Info</h4>
@@ -409,7 +409,7 @@ export function ProspectForm({ prospect, onSave, onCancel }: { prospect?: Outrea
         </section>
       </div>
 
-      <DialogFooter className="pt-6 sticky bottom-0 bg-background py-4 z-10 border-t -mx-6 px-6">
+      <DialogFooter className="border-t pt-4 shrink-0">
         <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
         <Button type="submit">{prospect ? 'Update Prospect' : 'Add Prospect'}</Button>
       </DialogFooter>
