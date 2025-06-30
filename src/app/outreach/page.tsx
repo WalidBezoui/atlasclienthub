@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, Bot, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileText, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare, Save, FileQuestion, GraduationCap, MoreHorizontal } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -20,11 +20,15 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import type { OutreachProspect, OutreachLeadStage, BusinessType, PainPoint, Goal, LeadSource, OfferInterest, TonePreference, ProspectLocation, AccountStage } from '@/lib/types';
-import { OUTREACH_LEAD_STAGE_OPTIONS, BUSINESS_TYPES, PAIN_POINTS, GOALS, LEAD_SOURCES, OFFER_INTERESTS, TONE_PREFERENCES, PROSPECT_LOCATIONS, ACCOUNT_STAGES } from '@/lib/types';
+import type { OutreachProspect, OutreachLeadStage } from '@/lib/types';
+import { OUTREACH_LEAD_STAGE_OPTIONS } from '@/lib/types';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -89,7 +93,7 @@ export default function OutreachPage() {
     setIsLoading(true);
     try {
       const fetchedProspects = await getProspects();
-      setProspects(fetchedProspects.sort((a,b) => (b.followUpNeeded ? 1 : -1) - (a.followUpNeeded ? 1 : -1) || new Date(b.lastContacted || 0).getTime() - new Date(a.lastContacted || 0).getTime()));
+      setProspects(fetchedProspects.sort((a,b) => (b.followUpNeeded ? 1 : -1) - (a.followUpNeeded ? 1 : -1) || (new Date(b.lastContacted || 0).getTime() - new Date(a.lastContacted || 0).getTime())));
     } catch (error) {
       console.error("Error fetching prospects:", error);
       toast({ title: "Error", description: "Could not fetch prospects.", variant: "destructive" });
@@ -704,7 +708,7 @@ export default function OutreachPage() {
               <Table>
                   <TableBody>
                     <TableRow>
-                      <TableCell colSpan={7} className="h-24 text-center">
+                      <TableCell colSpan={6} className="h-24 text-center">
                         <LoadingSpinner text="Fetching prospects..." />
                       </TableCell>
                     </TableRow>
