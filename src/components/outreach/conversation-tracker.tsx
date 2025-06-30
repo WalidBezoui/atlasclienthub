@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import type { OutreachProspect } from '@/lib/types';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 
 interface ConversationTrackerProps {
@@ -33,37 +34,38 @@ const parseMessages = (value: string | null): Message[] => {
   const messages: Message[] = [];
   let currentMessage: Message | null = null;
 
-  lines.forEach(line => {
-    const trimmedLine = line.trim();
-    if (trimmedLine === '' && currentMessage) {
-        // Handle intentional newlines within a message
-        currentMessage.content += '\n';
-        return;
-    }
+  for (const line of lines) {
+    const isMePrefix = line.startsWith('Me: ');
+    // Handle "Prospect: " and "Them: " for backward compatibility
+    const isProspectPrefix = line.startsWith('Prospect: ') || line.startsWith('Them: ');
 
-    if (line.startsWith('Me: ') || line.startsWith('Them: ')) {
+    if (isMePrefix || isProspectPrefix) {
       if (currentMessage) {
-          messages.push(currentMessage);
+        messages.push({ ...currentMessage, content: currentMessage.content.trim() });
       }
-      const isMe = line.startsWith('Me: ');
+      let content = '';
+      if (isMePrefix) {
+        content = line.substring(4);
+      } else if (line.startsWith('Prospect: ')) {
+        content = line.substring(10);
+      } else { // 'Them:'
+        content = line.substring(6);
+      }
       currentMessage = {
-        sender: isMe ? 'Me' : 'Prospect',
-        content: isMe ? line.substring(4) : line.substring(6),
+        sender: isMePrefix ? 'Me' : 'Prospect',
+        content: content,
       };
     } else if (currentMessage) {
-      // It's a continuation of the last message
+      // Continuation of the previous message
       currentMessage.content += '\n' + line;
-    } else if (trimmedLine !== '') {
-      // It's the very first line and has no prefix, assume it's the prospect
-      currentMessage = {
-        sender: 'Prospect',
-        content: line,
-      };
+    } else if (line.trim() !== '') {
+      // First message without a prefix, default to Prospect
+      currentMessage = { sender: 'Prospect', content: line };
     }
-  });
+  }
 
   if (currentMessage) {
-    messages.push(currentMessage);
+    messages.push({ ...currentMessage, content: currentMessage.content.trim() });
   }
 
   return messages;
@@ -72,7 +74,7 @@ const parseMessages = (value: string | null): Message[] => {
 
 const serializeMessages = (messages: Message[]): string => {
   return messages.map(msg => {
-    const prefix = msg.sender === 'Me' ? 'Me' : 'Them';
+    const prefix = msg.sender === 'Me' ? 'Me' : 'Prospect';
     return `${prefix}: ${msg.content}`;
   }).join('\n\n'); 
 };
@@ -174,6 +176,10 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
             setNewMessage(reply);
             setSender('Me'); 
             setCustomInstructions(''); 
+             toast({
+                title: 'Reply Generated',
+                description: 'Review the generated message in the text area below.',
+            });
         }
     } catch (e) {
         console.error("Failed to generate reply", e);
@@ -261,14 +267,14 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
                           })}
                         >
                           {editingIndex === index ? (
-                             <div className="flex flex-col gap-2 min-w-64">
+                             <div className="flex flex-col gap-2 w-full">
                               <Textarea 
                                 value={editingText}
                                 onChange={(e) => setEditingText(e.target.value)}
                                 onKeyDown={handleKeyPress}
                                 autoFocus
-                                rows={Math.max(4, editingText.split('\n').length)}
-                                className="bg-background text-foreground"
+                                rows={Math.max(3, editingText.split('\n').length)}
+                                className="bg-background text-foreground text-sm"
                               />
                               <div className="flex justify-end gap-2">
                                   <Button variant="ghost" size="sm" onClick={() => setEditingIndex(null)}>Cancel</Button>
@@ -307,35 +313,47 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
           )}
         </div>
       </ScrollArea>
-      <div className="p-4 border-t shrink-0 space-y-4">
+      <div className="p-4 border-t shrink-0 space-y-2 bg-muted/30">
         {onGenerateReply && prospect && (
-            <div className="flex gap-2">
-                <Input 
-                    id="custom-instructions"
-                    placeholder="Optional: custom instructions for the AI..."
-                    value={customInstructions}
-                    onChange={(e) => setCustomInstructions(e.target.value)}
-                    disabled={isGenerating}
-                />
-                <Button onClick={handleGenerateClick} disabled={isGenerating || !prospect} className="shrink-0">
-                    {isGenerating ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                       <Sparkles className="mr-2 h-4 w-4" />
-                    )}
-                    Generate
-                </Button>
-            </div>
+            <Accordion type="single" collapsible className="w-full">
+                <AccordionItem value="ai-tools" className="border-none">
+                <AccordionTrigger className="text-sm font-semibold py-2 hover:no-underline -mb-2">
+                    <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    AI Assistant
+                    </div>
+                </AccordionTrigger>
+                <AccordionContent className="pt-4 space-y-2">
+                    <Label htmlFor="custom-instructions" className="text-xs">Custom Instructions (Optional)</Label>
+                    <Input 
+                        id="custom-instructions"
+                        placeholder="e.g., 'Keep it short and ask about their main challenge.'"
+                        value={customInstructions}
+                        onChange={(e) => setCustomInstructions(e.target.value)}
+                        disabled={isGenerating}
+                    />
+                    <Button onClick={handleGenerateClick} disabled={isGenerating || !prospect} className="w-full">
+                        {isGenerating ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                        <Sparkles className="mr-2 h-4 w-4" />
+                        )}
+                        Generate Next Reply
+                    </Button>
+                </AccordionContent>
+                </AccordionItem>
+            </Accordion>
         )}
         
-        <div className="space-y-2">
+        <div className="space-y-2 pt-2">
+            <Label htmlFor="manual-message">Add New Message</Label>
             <Textarea
                 id="manual-message"
-                placeholder="Type message, or generate one above and edit... (Shift+Enter for new line)"
+                placeholder="Type message here, or generate one above... (Shift+Enter for new line)"
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyDown={handleKeyPress}
-                className="flex-grow"
+                className="flex-grow bg-background"
                 rows={3}
                 disabled={editingIndex !== null || isGenerating}
             />
@@ -352,7 +370,7 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
                     </div>
                 </RadioGroup>
                 <Button size="sm" onClick={handleAddMessage} disabled={editingIndex !== null || isGenerating || !newMessage.trim()}>
-                    Add Message
+                    Add to History
                 </Button>
             </div>
         </div>
