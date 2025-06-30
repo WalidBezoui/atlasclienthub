@@ -15,6 +15,7 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
+import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 
 
 type RapidProspectDialogProps = {
@@ -33,7 +34,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
   const [fetchedMetrics, setFetchedMetrics] = useState<InstagramMetrics | null>(null);
   const [analysisResult, setAnalysisResult] = useState<QualifyProspectOutput | null>(null);
   
-  const [clarificationAnswer, setClarificationAnswer] = useState('');
+  const [clarificationResponse, setClarificationResponse] = useState<string | undefined>(undefined);
   const [isReanalyzing, setIsReanalyzing] = useState(false);
 
 
@@ -47,7 +48,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
     setIsAnalyzing(false);
     setFetchedMetrics(null);
     setAnalysisResult(null);
-    setClarificationAnswer('');
+    setClarificationResponse(undefined);
     setIsReanalyzing(false);
   };
 
@@ -67,6 +68,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
         avgLikes: metrics.avgLikes,
         avgComments: metrics.avgComments,
         biography: metrics.biography || null,
+        clarificationResponse: null,
       };
       const result = await qualifyProspect(input);
       setAnalysisResult(result);
@@ -104,7 +106,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
   };
   
   const handleReanalyze = async () => {
-    if (!fetchedMetrics || !clarificationAnswer) return;
+    if (!fetchedMetrics || !clarificationResponse) return;
     setIsReanalyzing(true);
     try {
       const input: QualifyProspectInput = {
@@ -114,11 +116,11 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
         avgLikes: fetchedMetrics.avgLikes,
         avgComments: fetchedMetrics.avgComments,
         biography: fetchedMetrics.biography || null,
-        userClarification: clarificationAnswer, // Add the user's answer
+        clarificationResponse: clarificationResponse,
       };
       const result = await qualifyProspect(input);
       setAnalysisResult(result);
-      setClarificationAnswer(''); // Clear the input for next time
+      setClarificationResponse(undefined); // Clear the selection for next time
       toast({ title: 'Re-analysis Complete', description: 'The prospect details have been updated with your input.' });
     } catch (error: any) {
       toast({ title: 'AI Re-analysis Failed', description: error.message, variant: 'destructive' });
@@ -267,22 +269,28 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
                 </Accordion>
               </div>
 
-               {analysisResult.clarificationQuestion && (
-                <div className="mt-4 p-4 border border-dashed border-amber-500 rounded-lg bg-amber-500/10 space-y-2">
+               {analysisResult.clarificationRequest && (
+                <div className="mt-4 p-4 border border-dashed border-amber-500 rounded-lg bg-amber-500/10 space-y-3">
                     <Label htmlFor="clarificationAnswer" className="font-semibold flex items-center">
                         <HelpCircle className="mr-2 h-4 w-4 text-amber-600" />
-                        AI Needs More Info
+                        AI Needs Your Input!
                     </Label>
-                    <p className="text-sm text-muted-foreground italic">"{analysisResult.clarificationQuestion}"</p>
-                    <div className="flex gap-2 items-center">
-                        <Input
-                            id="clarificationAnswer"
-                            placeholder="Provide your answer here..."
-                            value={clarificationAnswer}
-                            onChange={(e) => setClarificationAnswer(e.target.value)}
-                            disabled={isReanalyzing}
-                        />
-                        <Button onClick={handleReanalyze} disabled={!clarificationAnswer || isReanalyzing} size="sm">
+                    <p className="text-sm text-muted-foreground italic">"{analysisResult.clarificationRequest.question}"</p>
+                    <RadioGroup 
+                      value={clarificationResponse} 
+                      onValueChange={setClarificationResponse} 
+                      className="space-y-2"
+                      disabled={isReanalyzing}
+                    >
+                      {analysisResult.clarificationRequest.options.map((option) => (
+                        <div key={option} className="flex items-center space-x-2">
+                          <RadioGroupItem value={option} id={option} />
+                          <Label htmlFor={option} className="font-normal">{option}</Label>
+                        </div>
+                      ))}
+                    </RadioGroup>
+                    <div className="flex justify-end pt-2">
+                        <Button onClick={handleReanalyze} disabled={!clarificationResponse || isReanalyzing} size="sm">
                             {isReanalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
                             Re-analyze
                         </Button>

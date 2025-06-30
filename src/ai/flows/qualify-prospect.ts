@@ -29,7 +29,8 @@ const QualifyProspectInputSchema = z.object({
   avgLikes: z.number().nullable().describe("Average likes on recent posts."),
   avgComments: z.number().nullable().describe("Average comments on recent posts."),
   biography: z.string().nullable().describe("The prospect's Instagram bio text."),
-  userClarification: z.string().nullable().optional().describe("Additional clarification provided by the user in response to a question from the AI."),
+  userClarification: z.string().nullable().optional().describe("DEPRECATED. Use clarificationResponse instead."),
+  clarificationResponse: z.string().nullable().optional().describe("The user's selected answer from a previous multiple-choice clarification request."),
 });
 export type QualifyProspectInput = z.infer<typeof QualifyProspectInputSchema>;
 
@@ -39,7 +40,10 @@ const QualifyProspectOutputSchema = z.object({
   painPoints: z.array(z.enum(PAIN_POINTS)).describe("A list of likely pain points based on the analysis."),
   goals: z.array(z.enum(GOALS)).describe("A list of likely goals based on the analysis."),
   summary: z.string().describe("A concise, 1-2 sentence summary of your analysis and the prospect's primary opportunity."),
-  clarificationQuestion: z.string().nullable().optional().describe("A question to ask the user to get more context for a better analysis if the initial data is ambiguous. If the analysis is clear, this should be null."),
+  clarificationRequest: z.object({
+    question: z.string().describe("The question for the user."),
+    options: z.array(z.string()).min(2).max(4).describe("A list of 2-4 options for the user to choose from."),
+  }).nullable().optional().describe("If the AI needs more info, it will return this object with a multiple-choice question. If not, this will be null."),
 });
 export type QualifyProspectOutput = z.infer<typeof QualifyProspectOutputSchema>;
 
@@ -69,6 +73,15 @@ Use this new context to refine your entire analysis.
 ---
 {{/if}}
 
+{{#if clarificationResponse}}
+**ADDITIONAL USER-PROVIDED CONTEXT (from their choice):**
+The user has clarified that the prospect's business is best described as: "{{clarificationResponse}}".
+---
+Use this new, definitive context to refine your entire analysis. This is the ground truth.
+---
+{{/if}}
+
+
 **ANALYSIS & QUALIFICATION TASK:**
 
 1.  **Analyze the Data**: Deeply analyze all the provided data, including any user clarifications.
@@ -96,9 +109,12 @@ Use this new context to refine your entire analysis.
 
 5.  **Write Summary**: Provide a very brief, sharp summary (1-2 sentences) of your findings. Example: "This is an established product brand with a decent following but very low engagement and a weak bio CTA. The primary opportunity is to improve their content strategy to convert existing followers into customers."
 
-6.  **Ask for Clarification (If Needed)**: If the bio is vague, the niche is unclear, or you cannot confidently determine the business model, formulate a single, concise question to ask the user for more information. This question will help you produce a more accurate analysis. If the analysis is clear and you have enough information, set 'clarificationQuestion' to null.
-    -   *Good Example*: "The bio mentions 'wellness,' but it's unclear. What specific products or services does this account offer?"
-    -   *Bad Example*: "Tell me more about this business." (Too generic)
+6.  **Ask for Clarification (If Needed)**:
+    -   **IF** the bio is vague, the niche is unclear, or you cannot confidently determine the business model (e.g., it just says "Creator | NYC"), you **MUST** ask for clarification.
+    -   **HOW**: Formulate a single, concise multiple-choice question with 2-4 distinct, easy-to-understand options that would best clarify the situation.
+    -   **Example**: For a bio saying "Creative Entrepreneur", your question could be "What best describes their creative business?" with options ["Handmade Jewelry", "Digital Art & Prints", "Brand Consulting", "Photography Services"].
+    -   **Action**: Return this in the \`clarificationRequest\` object.
+    -   **IF** the analysis is clear and you have enough information, set \`clarificationRequest\` to \`null\`. Do not ask a question if you are confident.
 
 
 Now, perform the analysis and return the complete JSON object.`,

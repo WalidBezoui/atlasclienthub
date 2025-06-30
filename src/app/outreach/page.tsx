@@ -503,7 +503,7 @@ export default function OutreachPage() {
   };
 
   const handleSaveConversation = async () => {
-    if (!currentProspectForConversation) return;
+    if (!currentProspectForConversation || !isConversationDirty) return;
     setIsSavingConversation(true);
     try {
       await updateProspect(currentProspectForConversation.id, { conversationHistory: conversationHistoryContent });
@@ -641,7 +641,6 @@ export default function OutreachPage() {
           isOpen={isRapidAddOpen}
           onClose={() => setIsRapidAddOpen(false)}
           onSave={handleSaveProspect}
-          generateScript={handleGenerateScript}
       />
 
       <Dialog open={isEditFormOpen} onOpenChange={setIsEditFormOpen}>
@@ -680,9 +679,9 @@ export default function OutreachPage() {
         else setIsConversationModalOpen(true);
       }}>
         <DialogContent className="sm:max-w-xl md:max-w-2xl h-[90vh] flex flex-col p-0">
-           <DialogTitle className="sr-only">Manage Conversation</DialogTitle>
+           <DialogTitle className="sr-only">Manage Conversation with {currentProspectForConversation?.name}</DialogTitle>
            <DialogDescription className="sr-only">
-            View, edit, and manage the full conversation history with {currentProspectForConversation?.name || 'this prospect'}.
+            View, edit, and manage the full conversation history.
            </DialogDescription>
           <div className="flex-grow min-h-0">
             <ConversationTracker
@@ -694,7 +693,7 @@ export default function OutreachPage() {
             />
           </div>
           <DialogFooter className="p-4 border-t gap-2">
-            <Button variant="outline" onClick={handleConversationModalCloseAttempt}>Close</Button>
+            <Button variant="outline" onClick={handleConversationModalCloseAttempt}>Cancel</Button>
             <Button onClick={handleSaveConversation} disabled={isSavingConversation || !isConversationDirty}>
               {isSavingConversation ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               Save Changes
