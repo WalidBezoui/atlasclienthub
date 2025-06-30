@@ -212,7 +212,7 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
 
   return (
     <div className="flex flex-col h-full bg-muted/30 rounded-lg">
-      <div className="flex items-center p-4 border-b shrink-0 bg-card rounded-t-lg">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b shrink-0 bg-card rounded-t-lg">
         <h3 className="flex-1 font-semibold text-foreground truncate flex items-center gap-2" title={prospect?.name}>
             <span>Conversation with {prospect?.name || 'Prospect'}</span>
             <span 
@@ -225,7 +225,7 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
                 *
             </span>
         </h3>
-        <div className="flex items-center gap-1 ml-4 mr-10">
+        <div className="flex items-center gap-1 mr-8">
             <Button variant="ghost" size="sm" onClick={handleCopy} disabled={!serializeMessages(messages)}>
                 <Clipboard className="mr-2 h-4 w-4" /> Copy
             </Button>
