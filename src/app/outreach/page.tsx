@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
@@ -74,6 +73,7 @@ export default function OutreachPage() {
   const [currentProspectForConversation, setCurrentProspectForConversation] = useState<OutreachProspect | null>(null);
   const [conversationHistoryContent, setConversationHistoryContent] = useState<string | null>(null);
   const [isSavingConversation, setIsSavingConversation] = useState(false);
+  const [isConversationDirty, setIsConversationDirty] = useState(false);
   
   const { toast } = useToast();
 
@@ -485,6 +485,7 @@ export default function OutreachPage() {
   const handleOpenConversationModal = (prospect: OutreachProspect) => {
     setCurrentProspectForConversation(prospect);
     setConversationHistoryContent(prospect.conversationHistory || null);
+    setIsConversationDirty(false);
     setIsConversationModalOpen(true);
   };
 
@@ -495,6 +496,7 @@ export default function OutreachPage() {
       await updateProspect(currentProspectForConversation.id, { conversationHistory: conversationHistoryContent });
       toast({ title: 'Conversation Saved', description: `History for ${currentProspectForConversation.name} updated.` });
       setIsConversationModalOpen(false);
+      setIsConversationDirty(false);
       setCurrentProspectForConversation(null);
       fetchProspects(); // Refetch to get the latest data
     } catch (error: any) {
@@ -638,15 +640,16 @@ export default function OutreachPage() {
             <ConversationTracker
               prospect={currentProspectForConversation}
               value={conversationHistoryContent}
-              onChange={(newValue) => setConversationHistoryContent(newValue)}
+              onChange={setConversationHistoryContent}
               onGenerateReply={handleGenerateNextReply}
+              onDirtyChange={setIsConversationDirty}
             />
           </div>
           <DialogFooter className="p-4 border-t gap-2">
             <Button variant="outline" onClick={() => setIsConversationModalOpen(false)}>Close</Button>
-            <Button onClick={handleSaveConversation} disabled={isSavingConversation}>
+            <Button onClick={handleSaveConversation} disabled={isSavingConversation || !isConversationDirty}>
               {isSavingConversation ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Save & Close
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>

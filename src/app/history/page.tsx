@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -33,6 +32,7 @@ export default function ConversationHistoryPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [historyContent, setHistoryContent] = useState<string | null>('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isHistoryDirty, setIsHistoryDirty] = useState(false);
 
   const { toast } = useToast();
 
@@ -69,6 +69,7 @@ export default function ConversationHistoryPage() {
   const handleViewHistory = (prospect: OutreachProspect) => {
     setSelectedProspect(prospect);
     setHistoryContent(prospect.conversationHistory || '');
+    setIsHistoryDirty(false);
     setIsModalOpen(true);
   };
   
@@ -136,6 +137,7 @@ export default function ConversationHistoryPage() {
       await updateProspect(selectedProspect.id, { conversationHistory: historyContent });
       toast({ title: "History Updated", description: "The conversation log has been saved." });
       setIsModalOpen(false);
+      setIsHistoryDirty(false);
       // Refresh the list to show updated content
       fetchProspectsWithHistory();
     } catch (error: any) {
@@ -167,16 +169,17 @@ export default function ConversationHistoryPage() {
            <div className="flex-grow min-h-0">
             <ConversationTracker
               value={historyContent}
-              onChange={(newValue) => setHistoryContent(newValue)}
+              onChange={setHistoryContent}
               prospect={selectedProspect}
               onGenerateReply={handleGenerateNextReply}
+              onDirtyChange={setIsHistoryDirty}
             />
           </div>
           <DialogFooter className="gap-2 p-4 border-t">
             <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-            <Button onClick={handleSaveHistory} disabled={isSaving}>
+            <Button onClick={handleSaveHistory} disabled={isSaving || !isHistoryDirty}>
               {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Save History
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>

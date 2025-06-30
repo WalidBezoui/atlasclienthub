@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -20,6 +19,7 @@ interface ConversationTrackerProps {
   onChange: (newValue: string) => void;
   prospect?: OutreachProspect | null;
   onGenerateReply?: (prospect: OutreachProspect, customInstructions: string) => Promise<string>;
+  onDirtyChange?: (isDirty: boolean) => void;
 }
 
 type Message = {
@@ -75,7 +75,7 @@ const serializeMessages = (messages: Message[]): string => {
 };
 
 
-export function ConversationTracker({ value, onChange, prospect, onGenerateReply }: ConversationTrackerProps) {
+export function ConversationTracker({ value, onChange, prospect, onGenerateReply, onDirtyChange }: ConversationTrackerProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [sender, setSender] = useState<'Me' | 'Prospect'>('Me');
@@ -89,6 +89,15 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
   useEffect(() => {
     setMessages(parseMessages(value));
   }, [value]);
+
+  useEffect(() => {
+    if (onDirtyChange) {
+      const serialized = serializeMessages(messages);
+      const dirty = serialized.trim() !== (value || '').trim();
+      onDirtyChange(dirty);
+    }
+  }, [messages, value, onDirtyChange]);
+
 
   const scrollToBottom = () => {
     setTimeout(() => {
@@ -184,11 +193,12 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
   };
 
   const handleCopy = () => {
-    if (!value) {
+    const textToCopy = serializeMessages(messages);
+    if (!textToCopy) {
         toast({ title: 'Nothing to copy', description: 'The conversation is empty.' });
         return;
     }
-    navigator.clipboard.writeText(value)
+    navigator.clipboard.writeText(textToCopy)
       .then(() => {
         toast({ title: "Copied!", description: "Full conversation copied to clipboard." });
       })
@@ -199,11 +209,12 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
   };
 
   const handleExport = () => {
-     if (!value) {
+    const textToExport = serializeMessages(messages);
+     if (!textToExport) {
         toast({ title: 'Nothing to export', description: 'The conversation is empty.' });
         return;
     }
-    const blob = new Blob([value], { type: 'text/plain;charset=utf-8' });
+    const blob = new Blob([textToExport], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -219,14 +230,25 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
   return (
     <div className="flex flex-col h-full bg-muted/30 rounded-lg">
       <div className="flex items-center justify-between py-3 pl-3 pr-12 border-b shrink-0 bg-card rounded-t-lg">
-        <h3 className="font-semibold text-foreground truncate" title={prospect?.name}>
-            Conversation with {prospect?.name || 'Prospect'}
+        <h3 className="font-semibold text-foreground truncate flex items-center gap-2" title={prospect?.name}>
+            <span>Conversation with {prospect?.name || 'Prospect'}</span>
+            {onDirtyChange && (
+              <span 
+                  className={cn(
+                      "text-amber-500 text-2xl leading-none transition-opacity duration-300",
+                      serializeMessages(messages).trim() !== (value || '').trim() ? "opacity-100 animate-pulse" : "opacity-0"
+                  )} 
+                  title="Unsaved changes"
+              >
+                  *
+              </span>
+            )}
         </h3>
         <div className="flex items-center gap-1">
-            <Button variant="ghost" size="sm" onClick={handleCopy} disabled={!value}>
+            <Button variant="ghost" size="sm" onClick={handleCopy} disabled={!serializeMessages(messages)}>
                 <Clipboard className="mr-2 h-4 w-4" /> Copy
             </Button>
-            <Button variant="ghost" size="sm" onClick={handleExport} disabled={!value}>
+            <Button variant="ghost" size="sm" onClick={handleExport} disabled={!serializeMessages(messages)}>
                 <Download className="mr-2 h-4 w-4" /> Export
             </Button>
         </div>
