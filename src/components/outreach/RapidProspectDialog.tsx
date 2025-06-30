@@ -133,6 +133,12 @@ export function RapidProspectDialog({ isOpen, onClose, onSave, generateScript }:
       return "destructive"; // Red (low)
   };
 
+  const handleToggleChange = (field: 'isBusiness' | 'hasInconsistentGrid' | 'hasLowEngagement' | 'hasNoClearCTA', value: string) => {
+    setQualificationData(prev => ({
+      ...prev,
+      [field]: value ? (value as 'yes' | 'no') : 'unknown'
+    }));
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -170,28 +176,28 @@ export function RapidProspectDialog({ isOpen, onClose, onSave, generateScript }:
           <div className="space-y-6 py-4">
             <div>
               <Label>1. Is this a business/creator account (not personal)?</Label>
-              <ToggleGroup type="single" value={qualificationData.isBusiness} onValueChange={(value: QualificationData['isBusiness']) => value && setQualificationData(p => ({...p, isBusiness: value}))} className="mt-2">
+              <ToggleGroup type="single" value={qualificationData.isBusiness === 'unknown' ? '' : qualificationData.isBusiness} onValueChange={(value) => handleToggleChange('isBusiness', value)} className="mt-2">
                 <ToggleGroupItem value="yes">Yes</ToggleGroupItem>
                 <ToggleGroupItem value="no">No</ToggleGroupItem>
               </ToggleGroup>
             </div>
             <div>
               <Label>2. Does their grid seem inconsistent or lack clear branding?</Label>
-              <ToggleGroup type="single" value={qualificationData.hasInconsistentGrid} onValueChange={(value: QualificationData['hasInconsistentGrid']) => value && setQualificationData(p => ({...p, hasInconsistentGrid: value}))} className="mt-2">
+              <ToggleGroup type="single" value={qualificationData.hasInconsistentGrid === 'unknown' ? '' : qualificationData.hasInconsistentGrid} onValueChange={(value) => handleToggleChange('hasInconsistentGrid', value)} className="mt-2">
                 <ToggleGroupItem value="yes">Yes</ToggleGroupItem>
                 <ToggleGroupItem value="no">No</ToggleGroupItem>
               </ToggleGroup>
             </div>
             <div>
               <Label>3. Is their engagement low for their follower count?</Label>
-              <ToggleGroup type="single" value={qualificationData.hasLowEngagement} onValueChange={(value: QualificationData['hasLowEngagement']) => value && setQualificationData(p => ({...p, hasLowEngagement: value}))} className="mt-2">
+              <ToggleGroup type="single" value={qualificationData.hasLowEngagement === 'unknown' ? '' : qualificationData.hasLowEngagement} onValueChange={(value) => handleToggleChange('hasLowEngagement', value)} className="mt-2">
                 <ToggleGroupItem value="yes">Yes</ToggleGroupItem>
                 <ToggleGroupItem value="no">No</ToggleGroupItem>
               </ToggleGroup>
             </div>
              <div>
               <Label>4. Does their bio have a weak or missing Call-to-Action?</Label>
-              <ToggleGroup type="single" value={qualificationData.hasNoClearCTA} onValueChange={(value: QualificationData['hasNoClearCTA']) => value && setQualificationData(p => ({...p, hasNoClearCTA: value}))} className="mt-2">
+              <ToggleGroup type="single" value={qualificationData.hasNoClearCTA === 'unknown' ? '' : qualificationData.hasNoClearCTA} onValueChange={(value) => handleToggleChange('hasNoClearCTA', value)} className="mt-2">
                 <ToggleGroupItem value="yes">Yes</ToggleGroupItem>
                 <ToggleGroupItem value="no">No</ToggleGroupItem>
               </ToggleGroup>
