@@ -199,8 +199,8 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md md:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-md md:max-w-lg max-h-[90vh] flex flex-col">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="font-headline text-2xl flex items-center">
             <Wand2 className="mr-2 h-6 w-6 text-primary" />
             Rapid Prospect Creation
@@ -210,111 +210,115 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
           </DialogDescription>
         </DialogHeader>
 
-        {step === 1 && (
-          <div className="space-y-4 py-4">
-            <Label htmlFor="instagramHandle">Instagram Handle</Label>
-            <div className="flex gap-2">
-              <Input
-                id="instagramHandle"
-                placeholder="@username"
-                value={instagramHandle}
-                onChange={(e) => setInstagramHandle(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleFetch()}
-              />
-              <Button onClick={handleFetch} disabled={isFetching || !instagramHandle}>
-                {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Fetch & Analyze'}
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {step === 2 && (
-          <div className="flex flex-col items-center justify-center space-y-4 py-12">
-             <LoadingSpinner text="Fetching metrics & running AI analysis..." size="lg" />
-             <p className="text-sm text-muted-foreground">This may take up to a minute...</p>
-          </div>
-        )}
-
-        {step === 3 && analysisResult && (
-           <div className="space-y-4 py-4">
-              <div className="p-4 border rounded-lg bg-muted/50 space-y-3">
-                <h3 className="font-semibold text-lg text-center mb-2">
-                    Analysis for {instagramHandle}: <Badge variant={getLeadScoreBadgeVariant(analysisResult.leadScore)} className="text-lg ml-2">{analysisResult.leadScore}</Badge>
-                </h3>
-                <Separator/>
-                <div className="text-center">
-                  <p className="text-sm italic text-muted-foreground">"{analysisResult.summary}"</p>
-                </div>
-                
-                 <div className="space-y-2">
-                  {analysisResult.painPoints.length > 0 && <div><Label className="text-xs">Suggested Pain Points</Label><div className="flex flex-wrap gap-1">{analysisResult.painPoints.map(p => <Badge key={p} variant="destructive">{p}</Badge>)}</div></div>}
-                  {analysisResult.goals.length > 0 && <div><Label className="text-xs">Suggested Goals</Label><div className="flex flex-wrap gap-1">{analysisResult.goals.map(g => <Badge key={g} variant="secondary">{g}</Badge>)}</div></div>}
-                 </div>
-
-                 <Accordion type="single" collapsible className="w-full">
-                    <AccordionItem value="details">
-                        <AccordionTrigger className="text-xs pt-2">View Analysis Details</AccordionTrigger>
-                        <AccordionContent className="space-y-2 pt-2">
-                            <QualificationDetail label="Is Business Account?" value={analysisResult.qualificationData.isBusiness} />
-                            <QualificationDetail label="Inconsistent Grid?" value={analysisResult.qualificationData.hasInconsistentGrid} />
-                            <QualificationDetail label="Low Engagement?" value={analysisResult.qualificationData.hasLowEngagement} />
-                            <QualificationDetail label="No Clear CTA?" value={analysisResult.qualificationData.hasNoClearCTA} />
-                             <div className="flex justify-between items-center text-xs pt-1">
-                                <span className="text-muted-foreground">Profitability Potential</span>
-                                <Badge variant={
-                                    analysisResult.qualificationData.profitabilityPotential === 'high' ? 'default' :
-                                    analysisResult.qualificationData.profitabilityPotential === 'medium' ? 'secondary' :
-                                    analysisResult.qualificationData.profitabilityPotential === 'low' ? 'destructive' :
-                                    'outline'
-                                } className="capitalize">{analysisResult.qualificationData.profitabilityPotential}</Badge>
-                            </div>
-                            <div className="flex justify-between items-center text-xs pt-1">
-                                <span className="text-muted-foreground">#1 Value Prop</span>
-                                <Badge variant="outline" className="capitalize">{analysisResult.qualificationData.valueProposition}</Badge>
-                            </div>
-                        </AccordionContent>
-                    </AccordionItem>
-                </Accordion>
+        <div className="flex-grow overflow-y-auto -mx-6 px-6">
+          {step === 1 && (
+            <div className="space-y-4 py-4">
+              <Label htmlFor="instagramHandle">Instagram Handle</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="instagramHandle"
+                  placeholder="@username"
+                  value={instagramHandle}
+                  onChange={(e) => setInstagramHandle(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleFetch()}
+                />
+                <Button onClick={handleFetch} disabled={isFetching || !instagramHandle}>
+                  {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Fetch & Analyze'}
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
               </div>
+            </div>
+          )}
 
-               {analysisResult.clarificationRequest && (
-                <div className="mt-4 p-4 border border-dashed border-amber-500 rounded-lg bg-amber-500/10 space-y-3">
-                    <Label htmlFor="clarificationAnswer" className="font-semibold flex items-center">
-                        <HelpCircle className="mr-2 h-4 w-4 text-amber-600" />
-                        AI Needs Your Input!
-                    </Label>
-                    <p className="text-sm text-muted-foreground italic">"{analysisResult.clarificationRequest.question}"</p>
-                    <RadioGroup 
-                      value={clarificationResponse} 
-                      onValueChange={setClarificationResponse} 
-                      className="space-y-2"
-                      disabled={isReanalyzing}
-                    >
-                      {analysisResult.clarificationRequest.options.map((option) => (
-                        <div key={option} className="flex items-center space-x-2">
-                          <RadioGroupItem value={option} id={option} />
-                          <Label htmlFor={option} className="font-normal">{option}</Label>
-                        </div>
-                      ))}
-                    </RadioGroup>
-                    <div className="flex justify-end pt-2">
-                        <Button onClick={handleReanalyze} disabled={!clarificationResponse || isReanalyzing} size="sm">
-                            {isReanalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                            Re-analyze
-                        </Button>
-                    </div>
+          {step === 2 && (
+            <div className="flex flex-col items-center justify-center space-y-4 py-12">
+               <LoadingSpinner text="Fetching metrics & running AI analysis..." size="lg" />
+               <p className="text-sm text-muted-foreground">This may take up to a minute...</p>
+            </div>
+          )}
+
+          {step === 3 && analysisResult && (
+             <div className="space-y-4 py-4">
+                <div className="p-4 border rounded-lg bg-muted/50 space-y-3">
+                  <h3 className="font-semibold text-lg text-center mb-2">
+                      Analysis for {instagramHandle}: <Badge variant={getLeadScoreBadgeVariant(analysisResult.leadScore)} className="text-lg ml-2">{analysisResult.leadScore}</Badge>
+                  </h3>
+                  <Separator/>
+                  <div className="text-center">
+                    <p className="text-sm italic text-muted-foreground">"{analysisResult.summary}"</p>
+                  </div>
+                  
+                   <div className="space-y-2">
+                    {analysisResult.painPoints.length > 0 && <div><Label className="text-xs">Suggested Pain Points</Label><div className="flex flex-wrap gap-1">{analysisResult.painPoints.map(p => <Badge key={p} variant="destructive">{p}</Badge>)}</div></div>}
+                    {analysisResult.goals.length > 0 && <div><Label className="text-xs">Suggested Goals</Label><div className="flex flex-wrap gap-1">{analysisResult.goals.map(g => <Badge key={g} variant="secondary">{g}</Badge>)}</div></div>}
+                   </div>
+
+                   <Accordion type="single" collapsible className="w-full">
+                      <AccordionItem value="details">
+                          <AccordionTrigger className="text-xs pt-2">View Analysis Details</AccordionTrigger>
+                          <AccordionContent className="space-y-2 pt-2">
+                              <QualificationDetail label="Is Business Account?" value={analysisResult.qualificationData.isBusiness} />
+                              <QualificationDetail label="Inconsistent Grid?" value={analysisResult.qualificationData.hasInconsistentGrid} />
+                              <QualificationDetail label="Low Engagement?" value={analysisResult.qualificationData.hasLowEngagement} />
+                              <QualificationDetail label="No Clear CTA?" value={analysisResult.qualificationData.hasNoClearCTA} />
+                               <div className="flex justify-between items-center text-xs pt-1">
+                                  <span className="text-muted-foreground">Profitability Potential</span>
+                                  <Badge variant={
+                                      analysisResult.qualificationData.profitabilityPotential === 'high' ? 'default' :
+                                      analysisResult.qualificationData.profitabilityPotential === 'medium' ? 'secondary' :
+                                      analysisResult.qualificationData.profitabilityPotential === 'low' ? 'destructive' :
+                                      'outline'
+                                  } className="capitalize">{analysisResult.qualificationData.profitabilityPotential}</Badge>
+                              </div>
+                              <div className="flex justify-between items-center text-xs pt-1">
+                                  <span className="text-muted-foreground">#1 Value Prop</span>
+                                  <Badge variant="outline" className="capitalize">{analysisResult.qualificationData.valueProposition}</Badge>
+                              </div>
+                          </AccordionContent>
+                      </AccordionItem>
+                  </Accordion>
                 </div>
-              )}
-              
-              <DialogFooter className="mt-6">
-                 <Button variant="outline" onClick={() => setStep(1)}><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
-                 <Button onClick={handleSave} disabled={isSaving}>
-                   {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}
-                    Save Prospect
-                 </Button>
-              </DialogFooter>
-          </div>
+
+                 {analysisResult.clarificationRequest && (
+                  <div className="mt-4 p-4 border border-dashed border-amber-500 rounded-lg bg-amber-500/10 space-y-3">
+                      <Label htmlFor="clarificationAnswer" className="font-semibold flex items-center">
+                          <HelpCircle className="mr-2 h-4 w-4 text-amber-600" />
+                          AI Needs Your Input!
+                      </Label>
+                      <p className="text-sm text-muted-foreground italic">"{analysisResult.clarificationRequest.question}"</p>
+                      <RadioGroup 
+                        value={clarificationResponse} 
+                        onValueChange={setClarificationResponse} 
+                        className="space-y-2"
+                        disabled={isReanalyzing}
+                      >
+                        {analysisResult.clarificationRequest.options.map((option) => (
+                          <div key={option} className="flex items-center space-x-2">
+                            <RadioGroupItem value={option} id={option} />
+                            <Label htmlFor={option} className="font-normal">{option}</Label>
+                          </div>
+                        ))}
+                      </RadioGroup>
+                      <div className="flex justify-end pt-2">
+                          <Button onClick={handleReanalyze} disabled={!clarificationResponse || isReanalyzing} size="sm">
+                              {isReanalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                              Re-analyze
+                          </Button>
+                      </div>
+                  </div>
+                )}
+             </div>
+          )}
+        </div>
+        
+        {step === 3 && analysisResult && (
+           <DialogFooter className="mt-auto shrink-0 border-t pt-4">
+             <Button variant="outline" onClick={() => setStep(1)}><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
+             <Button onClick={handleSave} disabled={isSaving}>
+               {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}
+                Save Prospect
+             </Button>
+          </DialogFooter>
         )}
       </DialogContent>
     </Dialog>
