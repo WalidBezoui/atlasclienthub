@@ -15,7 +15,8 @@ const ApifyInstagramProfileSchema = z.object({
   followersCount: z.number().optional().nullable(),
   postsCount: z.number().optional().nullable(),
   latestPosts: z.array(ApifyInstagramPostSchema).optional().nullable(),
-  // Add other profile fields if available and needed, e.g., biography, fullName, isPrivate
+  biography: z.string().optional().nullable(),
+  // Add other profile fields if available and needed, e.g., fullName, isPrivate
 });
 
 // Zod schema for Apify actor run start response
@@ -45,6 +46,7 @@ export type InstagramMetrics = {
   postCount: number;
   avgLikes: number;
   avgComments: number;
+  biography?: string | null;
 };
 
 // --- Apify Configuration ---
@@ -184,6 +186,7 @@ export async function fetchInstagramMetrics(
 
     const followerCount = profileData.followersCount ?? 0;
     const postCount = profileData.postsCount ?? 0;
+    const biography = profileData.biography ?? null;
     // Ensure latestPosts is an array and slice the first 3, or default to empty array
     const recentPosts = Array.isArray(profileData.latestPosts) ? profileData.latestPosts.slice(0, 3) : [];
 
@@ -218,6 +221,7 @@ export async function fetchInstagramMetrics(
         postCount,
         avgLikes,
         avgComments,
+        biography,
       },
     };
 
