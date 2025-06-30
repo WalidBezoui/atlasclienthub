@@ -17,9 +17,6 @@ import { useRouter } from 'next/navigation';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { ConversationTracker } from '@/components/outreach/conversation-tracker';
@@ -166,15 +163,7 @@ export default function ConversationHistoryPage() {
       />
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-xl md:max-w-2xl h-[90vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="font-headline">
-              History for {selectedProspect?.name}
-            </DialogTitle>
-            <DialogDescription>
-              View, edit, and manage the full conversation log.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="sm:max-w-xl md:max-w-2xl h-[90vh] flex flex-col p-0">
            <div className="flex-grow min-h-0">
             <ConversationTracker
               value={historyContent}
@@ -183,7 +172,7 @@ export default function ConversationHistoryPage() {
               onGenerateReply={handleGenerateNextReply}
             />
           </div>
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2 p-4 border-t">
             <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
             <Button onClick={handleSaveHistory} disabled={isSaving}>
               {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}

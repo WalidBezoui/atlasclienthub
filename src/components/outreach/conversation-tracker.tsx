@@ -7,14 +7,13 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { User, Bot, MoreHorizontal, Edit, Trash2, Repeat, Loader2, Sparkles, Clipboard, Download } from 'lucide-react';
+import { User, Bot, MoreHorizontal, Edit, Trash2, Repeat, Loader2, Sparkles, Clipboard, Download, Send } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
 import type { OutreachProspect } from '@/lib/types';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-
 
 interface ConversationTrackerProps {
   value: string | null;
@@ -36,7 +35,6 @@ const parseMessages = (value: string | null): Message[] => {
 
   for (const line of lines) {
     const isMePrefix = line.startsWith('Me: ');
-    // Handle "Prospect: " and "Them: " for backward compatibility
     const isProspectPrefix = line.startsWith('Prospect: ') || line.startsWith('Them: ');
 
     if (isMePrefix || isProspectPrefix) {
@@ -48,7 +46,7 @@ const parseMessages = (value: string | null): Message[] => {
         content = line.substring(4);
       } else if (line.startsWith('Prospect: ')) {
         content = line.substring(10);
-      } else { // 'Them:'
+      } else { 
         content = line.substring(6);
       }
       currentMessage = {
@@ -56,10 +54,8 @@ const parseMessages = (value: string | null): Message[] => {
         content: content,
       };
     } else if (currentMessage) {
-      // Continuation of the previous message
       currentMessage.content += '\n' + line;
     } else if (line.trim() !== '') {
-      // First message without a prefix, default to Prospect
       currentMessage = { sender: 'Prospect', content: line };
     }
   }
@@ -70,7 +66,6 @@ const parseMessages = (value: string | null): Message[] => {
 
   return messages;
 };
-
 
 const serializeMessages = (messages: Message[]): string => {
   return messages.map(msg => {
@@ -222,17 +217,23 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
 
 
   return (
-    <div className="flex flex-col h-full bg-background rounded-lg border">
-       <div className="flex items-center justify-end gap-2 px-4 py-2 border-b shrink-0">
-         <Button variant="outline" size="sm" onClick={handleCopy} disabled={!value}>
-            <Clipboard className="mr-2 h-4 w-4" /> Copy
-        </Button>
-        <Button variant="outline" size="sm" onClick={handleExport} disabled={!value}>
-            <Download className="mr-2 h-4 w-4" /> Export
-        </Button>
+    <div className="flex flex-col h-full bg-muted/30 rounded-lg">
+      <div className="flex items-center justify-between p-3 border-b shrink-0 bg-card rounded-t-lg">
+        <h3 className="font-semibold text-foreground truncate" title={prospect?.name}>
+            Conversation with {prospect?.name || 'Prospect'}
+        </h3>
+        <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" onClick={handleCopy} disabled={!value}>
+                <Clipboard className="mr-2 h-4 w-4" /> Copy
+            </Button>
+            <Button variant="ghost" size="sm" onClick={handleExport} disabled={!value}>
+                <Download className="mr-2 h-4 w-4" /> Export
+            </Button>
+        </div>
       </div>
-      <ScrollArea className="flex-grow p-4" ref={scrollAreaRef}>
-        <div className="space-y-4">
+
+      <ScrollArea className="flex-grow p-4 bg-background">
+        <div className="space-y-6">
           {messages.length > 0 ? (
             messages.map((message, index) => (
               <div
@@ -242,9 +243,12 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
                   'justify-start': message.sender === 'Prospect',
                 })}
               >
-                {message.sender === 'Prospect' && <User className="h-6 w-6 text-muted-foreground shrink-0" />}
+                {message.sender === 'Prospect' && <User className="h-6 w-6 text-muted-foreground shrink-0 self-start mt-5" />}
 
                 <div className={cn("flex flex-col w-full max-w-[80%] md:max-w-[70%]", { "items-end": message.sender === 'Me', "items-start": message.sender === 'Prospect' })}>
+                    <span className={cn('text-xs text-muted-foreground mb-1', { 'pr-2': message.sender === 'Me', 'pl-2': message.sender === 'Prospect' })}>
+                        {message.sender === 'Me' ? 'You' : (prospect?.name || 'Prospect')}
+                    </span>
                     <div className="flex items-center gap-2">
                         { message.sender === 'Me' &&
                             <DropdownMenu>
@@ -303,7 +307,7 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
                     </div>
                 </div>
 
-                {message.sender === 'Me' && <Bot className="h-6 w-6 text-muted-foreground shrink-0" />}
+                {message.sender === 'Me' && <Bot className="h-6 w-6 text-muted-foreground shrink-0 self-start mt-5" />}
               </div>
             ))
           ) : (
@@ -313,18 +317,18 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
           )}
         </div>
       </ScrollArea>
-      <div className="p-4 border-t shrink-0 space-y-2 bg-muted/30">
+      <div className="p-4 border-t shrink-0 space-y-3 bg-card rounded-b-lg">
         {onGenerateReply && prospect && (
-            <Accordion type="single" collapsible className="w-full">
+            <Accordion type="single" collapsible className="w-full -m-2 mb-2 p-2 rounded-lg hover:bg-muted/50 transition-colors">
                 <AccordionItem value="ai-tools" className="border-none">
-                <AccordionTrigger className="text-sm font-semibold py-2 hover:no-underline -mb-2">
+                <AccordionTrigger className="text-sm font-semibold py-0 hover:no-underline">
                     <div className="flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-primary" />
+                    <Sparkles className="h-5 w-5 text-primary" />
                     AI Assistant
                     </div>
                 </AccordionTrigger>
-                <AccordionContent className="pt-4 space-y-2">
-                    <Label htmlFor="custom-instructions" className="text-xs">Custom Instructions (Optional)</Label>
+                <AccordionContent className="pt-4 space-y-3">
+                    <Label htmlFor="custom-instructions" className="text-xs font-medium">Custom Instructions (Optional)</Label>
                     <Input 
                         id="custom-instructions"
                         placeholder="e.g., 'Keep it short and ask about their main challenge.'"
@@ -345,11 +349,10 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
             </Accordion>
         )}
         
-        <div className="space-y-2 pt-2">
-            <Label htmlFor="manual-message">Add New Message</Label>
+        <div className="space-y-2">
             <Textarea
                 id="manual-message"
-                placeholder="Type message here, or generate one above... (Shift+Enter for new line)"
+                placeholder="Type your message here, or generate one above... (Shift+Enter for new line)"
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyDown={handleKeyPress}
@@ -357,7 +360,7 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
                 rows={3}
                 disabled={editingIndex !== null || isGenerating}
             />
-            <div className="flex w-full justify-between items-center">
+            <div className="flex w-full justify-between items-center gap-4">
                  <RadioGroup value={sender} onValueChange={(val: 'Me' | 'Prospect') => setSender(val)} className="flex items-center space-x-4">
                     <Label className="text-xs">Sender:</Label>
                     <div className="flex items-center space-x-2">
@@ -370,7 +373,8 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
                     </div>
                 </RadioGroup>
                 <Button size="sm" onClick={handleAddMessage} disabled={editingIndex !== null || isGenerating || !newMessage.trim()}>
-                    Add to History
+                    <Send className="mr-2 h-4 w-4" />
+                    Add Message
                 </Button>
             </div>
         </div>

@@ -26,9 +26,6 @@ import {
   Dialog,
   DialogContent,
   DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -636,24 +633,20 @@ export default function OutreachPage() {
       </Dialog>
       
       <Dialog open={isConversationModalOpen} onOpenChange={setIsConversationModalOpen}>
-        <DialogContent className="sm:max-w-xl md:max-w-2xl h-[90vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="font-headline">Conversation with {currentProspectForConversation?.name}</DialogTitle>
-            <DialogDescription>Track and manage your conversation history. This context is used by the AI.</DialogDescription>
-          </DialogHeader>
+        <DialogContent className="sm:max-w-xl md:max-w-2xl h-[90vh] flex flex-col p-0">
           <div className="flex-grow min-h-0">
             <ConversationTracker
+              prospect={currentProspectForConversation}
               value={conversationHistoryContent}
               onChange={(newValue) => setConversationHistoryContent(newValue)}
-              prospect={currentProspectForConversation}
               onGenerateReply={handleGenerateNextReply}
             />
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsConversationModalOpen(false)}>Cancel</Button>
+          <DialogFooter className="p-4 border-t gap-2">
+            <Button variant="outline" onClick={() => setIsConversationModalOpen(false)}>Close</Button>
             <Button onClick={handleSaveConversation} disabled={isSavingConversation}>
               {isSavingConversation ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Save Conversation
+              Save & Close
             </Button>
           </DialogFooter>
         </DialogContent>
