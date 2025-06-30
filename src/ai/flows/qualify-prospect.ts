@@ -22,7 +22,7 @@ const QualificationDataSchema = z.object({
     valueProposition: z.enum(['visuals', 'leads', 'engagement', 'unknown']).describe("What is the #1 area we can help them with? (Visuals/Branding, Leads/Sales, or Engagement/Growth)"),
 });
 
-export const QualifyProspectInputSchema = z.object({
+const QualifyProspectInputSchema = z.object({
   instagramHandle: z.string().describe("The prospect's Instagram handle."),
   followerCount: z.number().nullable().describe("The prospect's follower count."),
   postCount: z.number().nullable().describe("The prospect's post count."),
@@ -32,7 +32,7 @@ export const QualifyProspectInputSchema = z.object({
 });
 export type QualifyProspectInput = z.infer<typeof QualifyProspectInputSchema>;
 
-export const QualifyProspectOutputSchema = z.object({
+const QualifyProspectOutputSchema = z.object({
   qualificationData: QualificationDataSchema.describe("The structured qualification assessment."),
   leadScore: z.number().min(0).max(100).describe("A calculated lead score from 0-100 based on the provided scoring model."),
   painPoints: z.array(z.enum(PAIN_POINTS)).describe("A list of likely pain points based on the analysis."),
