@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
@@ -185,6 +184,45 @@ export default function OutreachPage() {
     }
   }, [user, fetchProspects, toast]);
 
+  const handleScriptGenerationError = (error: any, title: string) => {
+    console.error(title, error);
+    toast({ title, description: (error as Error).message || "Could not generate script.", variant: "destructive" });
+    setScriptModalTitle(title);
+    setGeneratedScript("Failed to generate script. Please try again.");
+  };
+  
+  const handleConfirmScript = useCallback(async (scriptContent: string) => {
+    if (!currentProspectForScript) {
+      toast({ title: "Error", description: "Prospect context was lost.", variant: "destructive" });
+      return;
+    }
+
+    const prospect = currentProspectForScript;
+    const scriptType = currentScriptGenerationInput?.scriptType || 'Generated Script';
+
+    const currentHistory = prospect.conversationHistory || '';
+    const newHistory = `${currentHistory}${currentHistory ? '\n\n' : ''}Me: ${scriptContent}`.trim();
+
+    const updates: Partial<OutreachProspect> = {
+      conversationHistory: newHistory,
+      lastContacted: new Date().toISOString(),
+      lastScriptSent: scriptType,
+    };
+
+    if (prospect.status === 'To Contact') {
+      updates.status = 'Cold';
+    }
+
+    try {
+      await updateProspect(prospect.id, updates);
+      toast({ title: "History Updated", description: "Script sent and logged in conversation history." });
+      setIsScriptModalOpen(false);
+      fetchProspects();
+    } catch (error: any) {
+      toast({ title: "Update Failed", description: error.message || 'Could not update prospect history.', variant: 'destructive' });
+    }
+  }, [currentProspectForScript, currentScriptGenerationInput, fetchProspects, toast]);
+
   const handleGenerateScript = useCallback(async (prospect: OutreachProspect, scriptType: GenerateContextualScriptInput['scriptType']) => {
     setCurrentProspectForScript(prospect);
     setIsGeneratingScript(true);
@@ -230,48 +268,24 @@ export default function OutreachPage() {
     setScriptModalConfig({
         showConfirmButton: true,
         confirmButtonText: "Send & Add to History",
-        onConfirm: async (scriptContent: string) => {
-            const currentHistory = prospect.conversationHistory || '';
-            const newHistory = `${currentHistory}${currentHistory ? '\n\n' : ''}Me: ${scriptContent}`.trim();
-
-            const updates: Partial<OutreachProspect> = {
-                conversationHistory: newHistory,
-                lastContacted: new Date().toISOString(),
-                lastScriptSent: input.scriptType,
-            };
-
-            if (prospect.status === 'To Contact') {
-                updates.status = 'Cold';
-            }
-
-            try {
-                await updateProspect(prospect.id, updates);
-                toast({ title: "History Updated", description: "Script sent and logged in conversation history." });
-                setIsScriptModalOpen(false);
-                fetchProspects();
-            } catch (error: any) {
-                toast({ title: "Update Failed", description: error.message || 'Could not update prospect history.', variant: 'destructive' });
-            }
-        },
+        onConfirm: handleConfirmScript,
     });
     
     try {
         const result = await generateContextualScript(input);
         setGeneratedScript(result.script);
         setScriptModalTitle(`${scriptType} for ${prospect.name || 'Prospect'}`);
+        navigator.clipboard.writeText(result.script).then(() => {
+            toast({ title: "Copied to clipboard!", description: "The generated script has been copied automatically." });
+        }).catch(err => {
+            console.error("Auto-copy failed: ", err);
+        });
     } catch (error: any) {
         handleScriptGenerationError(error, "Error Generating Script");
     } finally {
         setIsGeneratingScript(false);
     }
-  }, [fetchProspects, toast]);
-
-  const handleScriptGenerationError = (error: any, title: string) => {
-    console.error(title, error);
-    toast({ title, description: (error as Error).message || "Could not generate script.", variant: "destructive" });
-    setScriptModalTitle(title);
-    setGeneratedScript("Failed to generate script. Please try again.");
-  };
+  }, [fetchProspects, toast, handleConfirmScript]);
 
   const handleSendQualifier = useCallback(async (prospectId: string, question: string) => {
       try {
@@ -318,6 +332,11 @@ export default function OutreachPage() {
         const result = await generateQualifierQuestion(input);
         setGeneratedScript(result.question);
         setScriptModalTitle(`Qualifier Question for ${prospect.name}`);
+        navigator.clipboard.writeText(result.question).then(() => {
+            toast({ title: "Copied to clipboard!", description: "The qualifier question has been copied automatically." });
+        }).catch(err => {
+            console.error("Auto-copy failed: ", err);
+        });
     } catch (error: any) {
         handleScriptGenerationError(error, "Error Generating Qualifier");
     } finally {
@@ -391,6 +410,11 @@ export default function OutreachPage() {
     try {
       const result = await generateContextualScript(currentScriptGenerationInput);
       setGeneratedScript(result.script); 
+      navigator.clipboard.writeText(result.script).then(() => {
+        toast({ title: "Auto-copied to clipboard!" });
+      }).catch(err => {
+        console.error("Failed to auto-copy regenerated script:", err);
+      });
       setIsGeneratingScript(false);
       return result.script;
     } catch (error: any) {
