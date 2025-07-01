@@ -1,8 +1,9 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, Bot, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileText, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare, Save, FileQuestion, GraduationCap, MoreHorizontal } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
@@ -57,9 +58,10 @@ import { RapidProspectDialog } from '@/components/outreach/RapidProspectDialog';
 import { ScriptModal } from '@/components/scripts/script-modal';
 
 
-export default function OutreachPage() {
+function OutreachPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { setClientContext, clearContext: clearScriptContext } = useScriptContext();
   const [prospects, setProspects] = useState<OutreachProspect[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -111,6 +113,13 @@ export default function OutreachPage() {
       setIsLoading(false);
     }
   }, [user, toast]);
+
+  useEffect(() => {
+    const query = searchParams.get('q');
+    if (query) {
+        setSearchTerm(query);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -645,7 +654,7 @@ export default function OutreachPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <>
       <PageHeader
         title="Outreach Manager"
         description="Track and manage your cold outreach efforts with detailed prospect information."
@@ -902,6 +911,14 @@ export default function OutreachPage() {
         confirmButtonText={scriptModalConfig.confirmButtonText}
         onConfirm={scriptModalConfig.onConfirm}
       />
-    </div>
+    </>
   );
+}
+
+export default function OutreachPageWrapper() {
+    return (
+        <Suspense fallback={<div className="flex justify-center items-center h-screen"><LoadingSpinner text="Loading outreach..." size="lg"/></div>}>
+            <OutreachPage/>
+        </Suspense>
+    )
 }
