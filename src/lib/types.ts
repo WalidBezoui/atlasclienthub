@@ -1,4 +1,5 @@
 
+
 export type ClientStatus = "Active" | "On Hold" | "Past";
 export type Client = {
   id: string;
@@ -136,6 +137,14 @@ export type InstagramAudit = {
 };
 
 export type Optional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
+
+export type AgendaItemType = 'FOLLOW_UP' | 'INITIAL_CONTACT' | 'SEND_QUALIFIER';
+
+export type AgendaItem = {
+  type: AgendaItemType;
+  prospect: Pick<OutreachProspect, 'id' | 'name' | 'instagramHandle' | 'status'>;
+  dueDate?: string;
+};
 
 export type MonthlyActivity = {
   month: string;

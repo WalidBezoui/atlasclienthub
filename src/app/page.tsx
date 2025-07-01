@@ -1,7 +1,7 @@
 
 'use client';
 import React, { useEffect, useState, useCallback } from 'react';
-import { LayoutDashboard, Users, Send, ListChecks, Zap, PlusCircle, TrendingUp, AlertTriangle, Compass, CheckSquare, Scaling, Clock, UsersRound, Lightbulb, BrainCircuit, Rocket, HelpCircle } from 'lucide-react';
+import { LayoutDashboard, Users, Send, ListChecks, PlusCircle, TrendingUp, AlertTriangle, Rocket, HelpCircle, Calendar, FileQuestion, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
@@ -11,15 +11,17 @@ import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip as ChartToolt
 import { ChartConfig, ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
-import { getDashboardOverview, getMonthlyActivityData } from '@/lib/firebase/services';
+import { getDashboardOverview, getMonthlyActivityData, getDailyAgendaItems } from '@/lib/firebase/services';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
-import type { MonthlyActivity } from '@/lib/types';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-
+import type { MonthlyActivity, AgendaItem } from '@/lib/types';
+import { Badge } from '@/components/ui/badge';
+import { formatDistanceToNow, isPast } from 'date-fns';
 
 const initialOverviewData = {
   activeClients: 0,
   auditsInProgress: 0,
+  outreachToday: 0,
+  outreachThisWeek: 0,
   outreachSentThisMonth: 0,
   newLeadsThisMonth: 0,
   awaitingQualifierReply: 0,
@@ -50,24 +52,79 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 
+const AgendaItemCard = ({ item }: { item: AgendaItem }) => {
+    const { type, prospect, dueDate } = item;
+    let icon, title, description, badgeText;
+    let badgeVariant: "default" | "secondary" | "outline" | "destructive" = "default";
+
+    switch (type) {
+        case 'FOLLOW_UP':
+            icon = <Clock className="h-5 w-5 text-yellow-500" />;
+            title = `Follow up with ${prospect.name}`;
+            description = `Last status: ${prospect.status}`;
+            const isOverdue = dueDate && isPast(new Date(dueDate));
+            badgeText = dueDate ? `Due ${formatDistanceToNow(new Date(dueDate), { addSuffix: true })}` : 'Follow up';
+            badgeVariant = isOverdue ? 'destructive' : 'secondary';
+            break;
+        case 'INITIAL_CONTACT':
+            icon = <Send className="h-5 w-5 text-blue-500" />;
+            title = `Initial outreach to ${prospect.name}`;
+            description = `New prospect ready for contact.`;
+            badgeText = 'To Contact';
+            badgeVariant = 'outline';
+            break;
+        case 'SEND_QUALIFIER':
+            icon = <FileQuestion className="h-5 w-5 text-purple-500" />;
+            title = `Send qualifier to ${prospect.name}`;
+            description = `Prospect has replied and is interested.`;
+            badgeText = 'Needs Qualifier';
+            badgeVariant = 'default';
+            break;
+        default:
+            return null;
+    }
+
+    return (
+        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md hover:bg-muted transition-colors">
+            <div className="flex items-center gap-4">
+                {icon}
+                <div>
+                    <p className="font-semibold text-sm">{title}</p>
+                    <p className="text-xs text-muted-foreground">{description}</p>
+                </div>
+            </div>
+            <div className="flex items-center gap-2">
+                {badgeText && <Badge variant={badgeVariant} className="hidden sm:inline-flex">{badgeText}</Badge>}
+                <Link href={`/outreach`} passHref>
+                    <Button size="sm" variant="ghost">View</Button>
+                </Link>
+            </div>
+        </div>
+    );
+};
+
+
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
   const [overviewData, setOverviewData] = useState(initialOverviewData);
   const [chartData, setChartData] = useState<MonthlyActivity[]>(initialChartData);
+  const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
 
   const fetchDashboardData = useCallback(async () => {
     if (!user) return;
     setIsLoadingData(true);
     try {
-      const [overview, monthlyActivity] = await Promise.all([
+      const [overview, monthlyActivity, dailyAgenda] = await Promise.all([
         getDashboardOverview(),
         getMonthlyActivityData(),
+        getDailyAgendaItems(),
       ]);
       setOverviewData(overview);
       setChartData(monthlyActivity.length > 0 ? monthlyActivity : initialChartData);
+      setAgendaItems(dailyAgenda);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
       // Optionally set error state and display message
@@ -88,57 +145,16 @@ export default function DashboardPage() {
   }, [user, authLoading, fetchDashboardData, router]);
 
   const displayOverviewData = [
-    { metric: 'Active Clients', value: overviewData.activeClients, icon: Users, color: 'text-blue-500', bgColor: 'bg-blue-100' },
-    { metric: 'Audits In Progress', value: overviewData.auditsInProgress, icon: ListChecks, color: 'text-yellow-500', bgColor: 'bg-yellow-100' },
-    { metric: 'Outreach This Month', value: overviewData.outreachSentThisMonth, icon: Send, color: 'text-green-500', bgColor: 'bg-green-100' },
-    { metric: 'Awaiting Reply', value: overviewData.awaitingQualifierReply, icon: HelpCircle, color: 'text-purple-500', bgColor: 'bg-purple-100' },
+    { metric: 'Outreach Today', value: overviewData.outreachToday, icon: Rocket, color: 'text-green-500' },
+    { metric: 'Outreach This Week', value: overviewData.outreachThisWeek, icon: Calendar, color: 'text-blue-500' },
+    { metric: 'New Leads This Month', value: overviewData.newLeadsThisMonth, icon: TrendingUp, color: 'text-yellow-500' },
+    { metric: 'Awaiting Qualifier Reply', value: overviewData.awaitingQualifierReply, icon: HelpCircle, color: 'text-purple-500' },
   ];
 
-  const fastlaneInsights = [
-    {
-      id: "control",
-      icon: CheckSquare,
-      title: "The Commandment of Control",
-      question: "Are you building systems you own and fully control, or are you dependent on platforms and factors outside your direct influence? (e.g., client platform changes, algorithm shifts). True Fastlane businesses are built on assets you govern.",
-      color: "text-sky-500",
-    },
-    {
-      id: "entry",
-      icon: Rocket,
-      title: "The Commandment of Entry",
-      question: "Is your service offering easily replicable by anyone, or is there a significant barrier to entry? (e.g., specialized skills, unique process, strong brand). A low barrier means high competition and commoditization.",
-      color: "text-amber-500",
-    },
-    {
-      id: "need",
-      icon: Lightbulb,
-      title: "The Commandment of Need",
-      question: "Does your service solve a genuine, significant market need or a burning pain point for your target clients? Businesses that solve real problems thrive and command higher value.",
-      color: "text-emerald-500",
-    },
-    {
-      id: "time",
-      icon: Clock,
-      title: "The Commandment of Time",
-      question: "Can your business operate and generate income detached from your direct time involvement? (e.g., through scalable systems, automation, delegation, productized services). Trading hours for money is the Slowlane.",
-      color: "text-violet-500",
-    },
-    {
-      id: "scale",
-      icon: Scaling,
-      title: "The Commandment of Scale",
-      question: "Can your business effectively serve a larger audience or market (magnitude) or command a higher price point (leverage) without proportionally increasing your effort or costs? Scalability is key to wealth creation.",
-      color: "text-rose-500",
-    },
-  ];
-
-
-  if (authLoading || (isLoadingData && user && !overviewData.activeClients && !overviewData.auditsInProgress)) { // Show loader if auth loading OR data loading for user and overview is still initial
+  if (authLoading || (isLoadingData && user && !overviewData.activeClients && !overviewData.auditsInProgress)) {
     return <div className="flex justify-center items-center h-screen"><LoadingSpinner text="Loading dashboard..." size="lg"/></div>;
   }
   if (!user && !authLoading) {
-     // AuthProvider should handle redirect.
-     // Return null or a minimal placeholder to avoid rendering page content before redirect.
     return null;
   }
 
@@ -146,17 +162,17 @@ export default function DashboardPage() {
     <div className="flex-1 space-y-6">
       <PageHeader
         title="Dashboard"
-        description="Welcome back to Atlas Social Studio! Here's an overview of your agency's activities."
+        description="Welcome back! Here's your smart overview for today."
         icon={LayoutDashboard}
         actions={
-          <Link href="/audits/new" passHref>
+          <Link href="/outreach" passHref>
             <Button>
-              <PlusCircle className="mr-2 h-4 w-4" /> New Audit
+              <PlusCircle className="mr-2 h-4 w-4" /> Add Prospect
             </Button>
           </Link>
         }
       />
-    {isLoadingData && !displayOverviewData.some(item => item.value > 0) ? ( // Show skeleton for overview cards only if data is loading AND no data is yet available
+    {isLoadingData && !displayOverviewData.some(item => item.value > 0) ? (
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             {Array(4).fill(0).map((_, index) => (
                  <Card key={index} className="shadow-lg">
@@ -191,60 +207,34 @@ export default function DashboardPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="font-headline flex items-center">
-            <Compass className="mr-3 h-7 w-7 text-primary" />
-            Atlas Growth Compass: Fastlane Insights
+            <ListChecks className="mr-3 h-7 w-7 text-primary" />
+            Daily Agenda
           </CardTitle>
           <CardDescription>
-            Navigate your agency's growth with these core principles from &quot;The Millionaire Fastlane&quot;. Reflect on these checkpoints to build a scalable and impactful business.
+            Your prioritized list of outreach tasks for today. Let's get to work!
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Accordion type="single" collapsible className="w-full">
-            {fastlaneInsights.map((insight) => (
-              <AccordionItem value={insight.id} key={insight.id}>
-                <AccordionTrigger className="text-base hover:no-underline">
-                  <div className="flex items-center">
-                    <insight.icon className={`mr-3 h-5 w-5 shrink-0 ${insight.color ?? 'text-primary'}`} />
-                    {insight.title}
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="text-sm text-muted-foreground pl-8 pr-2 pb-4">
-                  {insight.question}
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-          <div className="mt-6 space-y-4">
-            <div className="p-4 bg-muted/50 rounded-md">
-              <h4 className="font-semibold text-md flex items-center mb-1">
-                <BrainCircuit className="mr-2 h-5 w-5 text-primary" />
-                Producer Mindset
-              </h4>
-              <p className="text-sm text-muted-foreground">
-                Focus on creating scalable value and systems. Shift from consuming trends to producing high-impact strategies and assets for your clients and your business.
-              </p>
+          {isLoadingData ? (
+            <div className="py-10">
+              <LoadingSpinner text="Building your agenda..."/>
             </div>
-            <div className="p-4 bg-muted/50 rounded-md">
-              <h4 className="font-semibold text-md flex items-center mb-1">
-                <TrendingUp className="mr-2 h-5 w-5 text-primary" />
-                Value Skew
-              </h4>
-              <p className="text-sm text-muted-foreground">
-                Strive to deliver disproportionate value. How can your service be 10x better, faster, or significantly different from alternatives? This is how you command premium pricing and loyalty.
-              </p>
+          ) : agendaItems.length > 0 ? (
+            <div className="space-y-2">
+              {agendaItems.map((item, index) => (
+                <AgendaItemCard key={`${item.prospect.id}-${index}`} item={item} />
+              ))}
             </div>
-            <div className="p-4 bg-muted/50 rounded-md">
-              <h4 className="font-semibold text-md flex items-center mb-1">
-                <UsersRound className="mr-2 h-5 w-5 text-primary" />
-                Process Over Event
-              </h4>
-              <p className="text-sm text-muted-foreground">
-                Build reliable, repeatable processes for client acquisition, onboarding, service delivery, and achieving results. Sustainable success is built on systems, not isolated wins or luck.
-              </p>
+          ) : (
+            <div className="text-center py-10 text-muted-foreground">
+              <CheckSquare className="mx-auto h-12 w-12 text-green-500" />
+              <p className="mt-4 font-semibold">You're all caught up!</p>
+              <p className="text-sm">No high-priority items on your agenda for today. Great work!</p>
             </div>
-          </div>
+          )}
         </CardContent>
       </Card>
+
 
       <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
         <Card className="shadow-lg">
@@ -294,7 +284,7 @@ export default function DashboardPage() {
             </Link>
             <Link href="/outreach" passHref>
               <Button variant="outline" className="w-full justify-start">
-                <Send className="mr-2 h-4 w-4" /> Start Outreach Campaign
+                <Send className="mr-2 h-4 w-4" /> Go to Outreach Board
               </Button>
             </Link>
             <Link href="/audits" passHref>
@@ -310,40 +300,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
-
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle className="font-headline">Feature Spotlight: AI Instagram Audits</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col md:flex-row items-center gap-6">
-          <div className="md:w-1/2">
-            <Image 
-              src="https://placehold.co/600x400.png" 
-              alt="AI Audit Feature" 
-              width={600} 
-              height={400} 
-              className="rounded-lg shadow-md"
-              data-ai-hint="social media analytics" 
-            />
-          </div>
-          <div className="md:w-1/2 space-y-4">
-            <p className="text-muted-foreground">
-              Leverage our AI-powered tool to generate comprehensive Instagram audits. Simply fill out a quick questionnaire, and our system will provide detailed insights on:
-            </p>
-            <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-              <li>Profile Performance & Optimization</li>
-              <li>Audience Demographics & Engagement</li>
-              <li>Content Effectiveness & Strategy</li>
-              <li>Actionable Areas for Improvement</li>
-            </ul>
-            <Link href="/audits/new" passHref>
-              <Button variant="secondary">
-                <TrendingUp className="mr-2 h-4 w-4" /> Try AI Audit Now
-              </Button>
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
 
     </div>
   );

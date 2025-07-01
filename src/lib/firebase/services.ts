@@ -13,11 +13,12 @@ import {
   Timestamp,
   orderBy,
   serverTimestamp,
-  getCountFromServer
+  getCountFromServer,
+  limit
 } from 'firebase/firestore';
-import { subMonths, format, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
+import { subMonths, format, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from 'date-fns';
 
-import type { Client, InstagramAudit, OutreachProspect, MonthlyActivity, OutreachLeadStage } from '@/lib/types';
+import type { Client, InstagramAudit, OutreachProspect, MonthlyActivity, OutreachLeadStage, AgendaItem } from '@/lib/types';
 
 // Generic function to get current user ID
 const getCurrentUserId = (): string | null => {
@@ -443,59 +444,147 @@ export const deleteAudit = async (id: string): Promise<void> => {
 export const getDashboardOverview = async (): Promise<{
   activeClients: number;
   auditsInProgress: number;
+  outreachToday: number;
+  outreachThisWeek: number;
   outreachSentThisMonth: number;
-  newLeadsThisMonth: number; 
+  newLeadsThisMonth: number;
   awaitingQualifierReply: number;
 }> => {
   const userId = getCurrentUserId();
-  if (!userId) return { activeClients: 0, auditsInProgress: 0, outreachSentThisMonth: 0, newLeadsThisMonth: 0, awaitingQualifierReply: 0 };
+  if (!userId) return { activeClients: 0, auditsInProgress: 0, outreachToday: 0, outreachThisWeek: 0, outreachSentThisMonth: 0, newLeadsThisMonth: 0, awaitingQualifierReply: 0 };
 
   const now = new Date();
-  const currentMonthStartBoundary = startOfDay(startOfMonth(now));
-  const currentMonthEndBoundary = endOfDay(endOfMonth(now));
-  
-  const currentMonthStartTimestamp = Timestamp.fromDate(currentMonthStartBoundary);
-  const currentMonthEndTimestamp = Timestamp.fromDate(currentMonthEndBoundary);
 
+  // Boundaries
+  const todayStartTimestamp = Timestamp.fromDate(startOfDay(now));
+  const todayEndTimestamp = Timestamp.fromDate(endOfDay(now));
+  const weekStartTimestamp = Timestamp.fromDate(startOfWeek(now));
+  const weekEndTimestamp = Timestamp.fromDate(endOfWeek(now));
+  const monthStartTimestamp = Timestamp.fromDate(startOfMonth(now));
+  const monthEndTimestamp = Timestamp.fromDate(endOfMonth(now));
+
+  // Queries
   const clientsQuery = query(clientsCollection, where('userId', '==', userId), where('status', '==', 'Active'));
   const auditsQuery = query(auditsCollection, where('userId', '==', userId), where('status', '==', 'In Progress'));
-  
-  const outreachSentQuery = query(prospectsCollection, 
-    where('userId', '==', userId), 
-    where('lastContacted', '>=', currentMonthStartTimestamp),
-    where('lastContacted', '<=', currentMonthEndTimestamp)
-  );
-  
-  const newLeadsQuery = query(prospectsCollection, 
-    where('userId', '==', userId), 
-    where('status', '==', 'Interested'), 
-    where('lastContacted', '>=', currentMonthStartTimestamp), 
-    where('lastContacted', '<=', currentMonthEndTimestamp)
+
+  const outreachTodayQuery = query(prospectsCollection, where('userId', '==', userId), where('lastContacted', '>=', todayStartTimestamp), where('lastContacted', '<=', todayEndTimestamp));
+  const outreachThisWeekQuery = query(prospectsCollection, where('userId', '==', userId), where('lastContacted', '>=', weekStartTimestamp), where('lastContacted', '<=', weekEndTimestamp));
+  const outreachSentThisMonthQuery = query(prospectsCollection, where('userId', '==', userId), where('lastContacted', '>=', monthStartTimestamp), where('lastContacted', '<=', monthEndTimestamp));
+
+  // For new leads, consider any positive engagement this month as a "lead"
+  const newLeadsThisMonthQuery = query(prospectsCollection,
+    where('userId', '==', userId),
+    where('status', 'in', ['Interested', 'Replied', 'Ready for Audit', 'Closed - Won']),
+    where('lastContacted', '>=', monthStartTimestamp),
+    where('lastContacted', '<=', monthEndTimestamp)
   );
 
   const awaitingQualifierQuery = query(prospectsCollection, where('userId', '==', userId), where('status', '==', 'Qualifier Sent'));
 
   const [
-    clientsSnapshot, 
-    auditsSnapshot, 
-    outreachSentSnapshot, 
+    clientsSnapshot,
+    auditsSnapshot,
+    outreachTodaySnapshot,
+    outreachThisWeekSnapshot,
+    outreachSentThisMonthSnapshot,
     newLeadsSnapshot,
     awaitingQualifierSnapshot
   ] = await Promise.all([
     getCountFromServer(clientsQuery),
     getCountFromServer(auditsQuery),
-    getCountFromServer(outreachSentQuery),
-    getCountFromServer(newLeadsQuery),
-    getCountFromServer(awaitingQualifierQuery),
+    getCountFromServer(outreachTodayQuery),
+    getCountFromServer(outreachThisWeekQuery),
+    getCountFromServer(outreachSentThisMonthQuery),
+    getCountFromServer(newLeadsThisMonthQuery),
+    getCountFromServer(awaitingQualifierSnapshot),
   ]);
 
   return {
     activeClients: clientsSnapshot.data().count,
     auditsInProgress: auditsSnapshot.data().count,
-    outreachSentThisMonth: outreachSentSnapshot.data().count,
+    outreachToday: outreachTodaySnapshot.data().count,
+    outreachThisWeek: outreachThisWeekSnapshot.data().count,
+    outreachSentThisMonth: outreachSentThisMonthSnapshot.data().count,
     newLeadsThisMonth: newLeadsSnapshot.data().count,
     awaitingQualifierReply: awaitingQualifierSnapshot.data().count,
   };
+};
+
+export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
+    const userId = getCurrentUserId();
+    if (!userId) return [];
+
+    const now = new Date();
+    const todayEndTimestamp = Timestamp.fromDate(endOfDay(now));
+    let agendaItems: AgendaItem[] = [];
+    const processedIds = new Set<string>();
+
+    // Query 1: Overdue or due today follow-ups
+    const followUpQuery = query(
+        prospectsCollection,
+        where('userId', '==', userId),
+        where('followUpNeeded', '==', true),
+        where('followUpDate', '<=', todayEndTimestamp),
+        orderBy('followUpDate', 'asc'),
+        limit(5)
+    );
+    
+    // Query 2: Needs qualifier (important)
+    const needsQualifierQuery = query(
+        prospectsCollection,
+        where('userId', '==', userId),
+        where('status', 'in', ['Interested', 'Replied']),
+        where('qualifierQuestion', '==', null),
+        limit(5)
+    );
+
+    // Query 3: New prospects to contact
+    const toContactQuery = query(
+        prospectsCollection,
+        where('userId', '==', userId),
+        where('status', '==', 'To Contact'),
+        orderBy('leadScore', 'desc'),
+        limit(5)
+    );
+
+    const [followUpSnapshot, needsQualifierSnapshot, toContactSnapshot] = await Promise.all([
+        getDocs(followUpQuery),
+        getDocs(needsQualifierQuery),
+        getDocs(toContactQuery)
+    ]);
+
+    followUpSnapshot.forEach(doc => {
+        if (processedIds.has(doc.id)) return;
+        const prospect = doc.data() as OutreachProspect;
+        agendaItems.push({
+            type: 'FOLLOW_UP',
+            prospect: { id: doc.id, name: prospect.name, instagramHandle: prospect.instagramHandle, status: prospect.status },
+            dueDate: prospect.followUpDate,
+        });
+        processedIds.add(doc.id);
+    });
+
+    needsQualifierSnapshot.forEach(doc => {
+        if (processedIds.has(doc.id)) return;
+        const prospect = doc.data() as OutreachProspect;
+        agendaItems.push({
+            type: 'SEND_QUALIFIER',
+            prospect: { id: doc.id, name: prospect.name, instagramHandle: prospect.instagramHandle, status: prospect.status },
+        });
+        processedIds.add(doc.id);
+    });
+
+    toContactSnapshot.forEach(doc => {
+        if (processedIds.has(doc.id)) return;
+        const prospect = doc.data() as OutreachProspect;
+        agendaItems.push({
+            type: 'INITIAL_CONTACT',
+            prospect: { id: doc.id, name: prospect.name, instagramHandle: prospect.instagramHandle, status: prospect.status },
+        });
+        processedIds.add(doc.id);
+    });
+
+    return agendaItems;
 };
 
 export const getMonthlyActivityData = async (): Promise<MonthlyActivity[]> => {
