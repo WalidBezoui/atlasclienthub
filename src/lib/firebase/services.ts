@@ -496,7 +496,7 @@ export const getDashboardOverview = async (): Promise<{
     getCountFromServer(outreachThisWeekQuery),
     getCountFromServer(outreachSentThisMonthQuery),
     getCountFromServer(newLeadsThisMonthQuery),
-    getCountFromServer(awaitingQualifierSnapshot),
+    getCountFromServer(awaitingQualifierQuery),
   ]);
 
   return {
