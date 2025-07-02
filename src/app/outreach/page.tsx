@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import type { OutreachProspect, OutreachLeadStage } from '@/lib/types';
+import type { OutreachProspect, OutreachLeadStage, StatusHistoryItem } from '@/lib/types';
 import { OUTREACH_LEAD_STAGE_OPTIONS } from '@/lib/types';
 import {
   Dialog,
@@ -56,6 +56,41 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { ProspectForm } from '@/components/outreach/prospect-form';
 import { RapidProspectDialog } from '@/components/outreach/RapidProspectDialog';
 import { ScriptModal } from '@/components/scripts/script-modal';
+import { formatDistanceToNow } from 'date-fns';
+
+
+const ProspectTimelineTooltip = ({ prospect }: { prospect: OutreachProspect }) => {
+    if (!prospect.createdAt) return null;
+
+    const history = [
+        { status: 'Added' as const, date: prospect.createdAt },
+        ...(prospect.statusHistory || [])
+    ];
+    
+    const uniqueHistory = history.reduce((acc, current) => {
+        const x = acc.find(item => item.status === current.status && new Date(item.date).toLocaleDateString() === new Date(current.date).toLocaleDateString());
+        if (!x) {
+            return acc.concat([current]);
+        } else {
+            return acc;
+        }
+    }, [] as {status: OutreachLeadStage | 'Added', date: string}[]);
+
+    return (
+        <TooltipContent>
+            <div className="p-2 space-y-1.5 text-xs w-56">
+                <p className="font-bold mb-1">Prospect Timeline</p>
+                <Separator />
+                {uniqueHistory.map((event, index) => (
+                    <div key={index} className="flex justify-between gap-4">
+                        <span className="text-muted-foreground">{event.status}</span>
+                        <span className="font-medium">{new Date(event.date).toLocaleDateString()}</span>
+                    </div>
+                ))}
+            </div>
+        </TooltipContent>
+    );
+};
 
 
 function OutreachPage() {
@@ -105,7 +140,7 @@ function OutreachPage() {
     setIsLoading(true);
     try {
       const fetchedProspects = await getProspects();
-      setProspects(fetchedProspects.sort((a,b) => (b.followUpNeeded ? 1 : -1) - (a.followUpNeeded ? 1 : -1) || (new Date(b.lastContacted || 0).getTime() - new Date(a.lastContacted || 0).getTime())));
+      setProspects(fetchedProspects.sort((a,b) => (b.followUpNeeded ? 1 : -1) - (a.followUpNeeded ? 1 : -1) || new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() ));
     } catch (error) {
       console.error("Error fetching prospects:", error);
       toast({ title: "Error", description: "Could not fetch prospects.", variant: "destructive" });
@@ -138,7 +173,7 @@ function OutreachPage() {
             await updateProspect(prospectData.id, prospectData as Partial<OutreachProspect>);
             toast({ title: "Success", description: `Prospect ${prospectData.name} updated.` });
         } else {
-            await addProspect(prospectData as Omit<OutreachProspect, 'id'|'userId'>);
+            await addProspect(prospectData as Omit<OutreachProspect, 'id'|'userId' | 'createdAt'>);
             toast({ title: "Success", description: `Prospect ${prospectData.name} added.` });
         }
         
@@ -167,14 +202,21 @@ function OutreachPage() {
 
   const handleStatusChange = useCallback(async (prospectId: string, newStatus: OutreachLeadStage) => {
     if (!user) return;
+    const prospectToUpdate = prospects.find(p => p.id === prospectId);
+    if (!prospectToUpdate) return;
+    
     const newLastContacted = new Date().toISOString();
+    const newHistoryEntry: StatusHistoryItem = { status: newStatus, date: newLastContacted };
+    const newStatusHistory = [...(prospectToUpdate.statusHistory || []), newHistoryEntry];
+    
     try {
       await updateProspect(prospectId, { 
         status: newStatus,
         lastContacted: newLastContacted,
+        statusHistory: newStatusHistory
       });
       setProspects(prevProspects => 
-        prevProspects.map(p => p.id === prospectId ? { ...p, status: newStatus, lastContacted: newLastContacted } : p)
+        prevProspects.map(p => p.id === prospectId ? { ...p, status: newStatus, lastContacted: newLastContacted, statusHistory: newStatusHistory } : p)
       );
       toast({ title: "Status Updated", description: `Prospect status changed to ${newStatus}.` });
     } catch (error) {
@@ -182,7 +224,7 @@ function OutreachPage() {
       toast({ title: "Error", description: "Failed to update status.", variant: "destructive" });
       fetchProspects(); 
     }
-  }, [user, fetchProspects, toast]);
+  }, [user, prospects, fetchProspects, toast]);
 
   const handleFollowUpToggle = useCallback(async (prospectId: string, currentFollowUpStatus: boolean) => {
     if (!user) return;
@@ -250,20 +292,32 @@ function OutreachPage() {
     const onConfirmScript = async (scriptContent: string) => {
         const currentHistory = prospect.conversationHistory || '';
         const newHistory = `${currentHistory}${currentHistory ? '\n\n' : ''}Me: ${scriptContent}`.trim();
+        const contactDate = new Date().toISOString();
 
         const updates: Partial<OutreachProspect> = {
             conversationHistory: newHistory,
-            lastContacted: new Date().toISOString(),
+            lastContacted: contactDate,
             lastScriptSent: scriptType,
         };
 
-        if (prospect.status === 'To Contact') {
-            updates.status = 'Cold';
+        let newStatus: OutreachLeadStage | undefined;
+        if (prospect.status === 'To Contact' && scriptType === 'Cold Outreach DM') {
+            newStatus = 'Cold';
+        } else if (prospect.status === 'Cold' && scriptType === 'Warm Follow-Up DM') {
+            newStatus = 'Warm';
+        } else if (scriptType === 'Audit Delivery Message') {
+            newStatus = 'Audit Delivered';
+            updates.linkSent = true;
+        }
+        
+        if (newStatus) {
+            updates.status = newStatus;
+            updates.statusHistory = [...(prospect.statusHistory || []), { status: newStatus, date: contactDate }];
         }
         
         try {
             await updateProspect(prospect.id, updates);
-            toast({ title: "Conversation Updated", description: "Script has been saved to the conversation history." });
+            toast({ title: "Conversation Updated", description: "Script has been saved to the conversation history and status updated." });
             setIsScriptModalOpen(false);
             fetchProspects();
         } catch (error: any) {
@@ -293,13 +347,16 @@ function OutreachPage() {
     }
   }, [fetchProspects, toast]);
 
-  const handleSendQualifier = useCallback(async (prospectId: string, question: string) => {
+  const handleSendQualifier = useCallback(async (prospect: OutreachProspect, question: string) => {
       try {
-          await updateProspect(prospectId, {
+          const contactDate = new Date().toISOString();
+          const newStatus = 'Qualifier Sent';
+          await updateProspect(prospect.id, {
               qualifierQuestion: question,
-              qualifierSentAt: new Date().toISOString(),
-              status: 'Qualifier Sent',
-              lastContacted: new Date().toISOString(),
+              qualifierSentAt: contactDate,
+              status: newStatus,
+              lastContacted: contactDate,
+              statusHistory: [...(prospect.statusHistory || []), { status: newStatus, date: contactDate }],
           });
           toast({ title: "Qualifier Sent!", description: "Prospect status updated." });
           fetchProspects();
@@ -321,7 +378,7 @@ function OutreachPage() {
         showConfirmButton: true,
         confirmButtonText: "Send & Update Status",
         onConfirm: async (scriptContent: string) => {
-            await handleSendQualifier(prospect.id, scriptContent);
+            await handleSendQualifier(prospect, scriptContent);
         }
     });
 
@@ -489,22 +546,26 @@ function OutreachPage() {
       return "destructive";
   };
 
-  const getDaysSinceText = (lastContacted?: string | null): string => {
-      if (!lastContacted) return '-';
+  const getLastActivityText = (prospect: OutreachProspect): string => {
+      const lastStatusEvent = prospect.statusHistory?.[prospect.statusHistory.length - 1];
+      let lastEventDateString: string | undefined | null = lastStatusEvent?.date;
+
+      if (prospect.lastContacted) {
+          if (!lastEventDateString || new Date(prospect.lastContacted) > new Date(lastEventDateString)) {
+              lastEventDateString = prospect.lastContacted;
+          }
+      }
+
+      if (!lastEventDateString) {
+          lastEventDateString = prospect.createdAt;
+      }
+      
+      if (!lastEventDateString) return '-';
+      
       try {
-        const lastContactDate = new Date(lastContacted);
-        if (isNaN(lastContactDate.getTime())) return '-';
-
-        const today = new Date();
-        today.setHours(0,0,0,0);
-        lastContactDate.setHours(0,0,0,0);
-        
-        const diffTime = today.getTime() - lastContactDate.getTime();
-        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-        if (diffDays === 0) return 'Today';
-        if (diffDays === 1) return 'Yesterday';
-        return `${diffDays} days ago`;
+        const lastEventDate = new Date(lastEventDateString);
+        if (isNaN(lastEventDate.getTime())) return '-';
+        return formatDistanceToNow(lastEventDate, { addSuffix: true });
       } catch {
         return '-';
       }
@@ -533,7 +594,10 @@ function OutreachPage() {
     if (!currentProspectForConversation || !isConversationDirty) return;
     setIsSavingConversation(true);
     try {
-      await updateProspect(currentProspectForConversation.id, { conversationHistory: conversationHistoryContent });
+      await updateProspect(currentProspectForConversation.id, { 
+        conversationHistory: conversationHistoryContent,
+        lastContacted: new Date().toISOString()
+      });
       toast({ title: 'Conversation Saved', description: `History for ${currentProspectForConversation.name} updated.` });
       setIsConversationModalOpen(false);
       setCurrentProspectForConversation(null);
@@ -794,7 +858,7 @@ function OutreachPage() {
                     <TableHead>Name</TableHead>
                     <TableHead className="hidden sm:table-cell">Status</TableHead>
                     <TableHead className="hidden md:table-cell">Score</TableHead>
-                    <TableHead className="hidden lg:table-cell">Days Since</TableHead>
+                    <TableHead className="hidden lg:table-cell">Last Activity</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -865,7 +929,14 @@ function OutreachPage() {
                           )}
                         </TableCell>
                         <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">
-                          {getDaysSinceText(prospect.lastContacted)}
+                           <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <span className="cursor-help">{getLastActivityText(prospect)}</span>
+                                    </TooltipTrigger>
+                                    <ProspectTimelineTooltip prospect={prospect} />
+                                </Tooltip>
+                            </TooltipProvider>
                         </TableCell>
                         {renderActions(prospect)}
                       </TableRow>

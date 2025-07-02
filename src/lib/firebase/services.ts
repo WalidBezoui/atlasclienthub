@@ -14,11 +14,12 @@ import {
   orderBy,
   serverTimestamp,
   getCountFromServer,
-  limit
+  limit,
+  arrayUnion,
 } from 'firebase/firestore';
 import { subMonths, format, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from 'date-fns';
 
-import type { Client, InstagramAudit, OutreachProspect, MonthlyActivity, OutreachLeadStage, AgendaItem } from '@/lib/types';
+import type { Client, InstagramAudit, OutreachProspect, MonthlyActivity, OutreachLeadStage, AgendaItem, StatusHistoryItem } from '@/lib/types';
 
 // Generic function to get current user ID
 const getCurrentUserId = (): string | null => {
@@ -126,27 +127,31 @@ export const deleteClient = async (id: string): Promise<void> => {
 // --- Outreach Prospect Services ---
 const prospectsCollection = collection(db, 'prospects');
 
-const processDateForFirestore = (dateInput: any, defaultToTimestamp: boolean = false): Timestamp | null => {
+const processDateForFirestore = (dateInput: any, defaultToNow: boolean = false): Timestamp | null => {
+    if (dateInput instanceof Timestamp) {
+      return dateInput;
+    }
     if (typeof dateInput === 'string' && dateInput.trim() !== '') {
         const parsedDate = new Date(dateInput);
         if (!isNaN(parsedDate.getTime())) {
             return Timestamp.fromDate(parsedDate);
         }
     }
-    // @ts-ignore
-    if (defaultToTimestamp) return serverTimestamp();
+    if (defaultToNow) return Timestamp.now();
     return null;
 };
 
 
-export const addProspect = async (prospectData: Omit<OutreachProspect, 'id' | 'userId'>): Promise<string> => {
+export const addProspect = async (prospectData: Omit<OutreachProspect, 'id' | 'userId' | 'createdAt'>): Promise<string> => {
   const userId = getCurrentUserId();
   if (!userId) throw new Error('User not authenticated');
   
   const dataForFirestore = {
     userId,
+    createdAt: serverTimestamp(),
     name: prospectData.name,
     status: prospectData.status || 'To Contact' as OutreachLeadStage,
+    statusHistory: [],
     instagramHandle: prospectData.instagramHandle || null,
     businessName: prospectData.businessName || null,
     website: prospectData.website || null,
@@ -168,7 +173,7 @@ export const addProspect = async (prospectData: Omit<OutreachProspect, 'id' | 'u
     goals: prospectData.goals || [],
     
     source: prospectData.source || null,
-    lastContacted: processDateForFirestore(prospectData.lastContacted, true), // Default to now if not provided
+    lastContacted: processDateForFirestore(prospectData.lastContacted),
     followUpDate: processDateForFirestore(prospectData.followUpDate),
     followUpNeeded: prospectData.followUpNeeded || false,
     
@@ -201,15 +206,20 @@ export const addProspect = async (prospectData: Omit<OutreachProspect, 'id' | 'u
 export const getProspects = async (): Promise<OutreachProspect[]> => {
   const userId = getCurrentUserId();
   if (!userId) return [];
-  const q = query(prospectsCollection, where('userId', '==', userId), orderBy('name'));
+  const q = query(prospectsCollection, where('userId', '==', userId), orderBy('createdAt', 'desc'));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(docSnap => {
     const data = docSnap.data();
     const prospect: OutreachProspect = {
       id: docSnap.id,
       userId: data.userId,
+      createdAt: data.createdAt ? (data.createdAt as Timestamp).toDate().toISOString() : new Date().toISOString(),
       name: data.name || '',
-      status: data.status || 'To Contact', 
+      status: data.status || 'To Contact',
+      statusHistory: (data.statusHistory || []).map((item: any) => ({
+          ...item,
+          date: item.date ? (item.date as Timestamp).toDate().toISOString() : new Date().toISOString(),
+      })),
       instagramHandle: data.instagramHandle || null,
       businessName: data.businessName || null,
       website: data.website || null,
@@ -252,7 +262,7 @@ export const getProspects = async (): Promise<OutreachProspect[]> => {
   });
 };
 
-export const updateProspect = async (id: string, prospectData: Partial<Omit<OutreachProspect, 'id' | 'userId'>>): Promise<void> => {
+export const updateProspect = async (id: string, prospectData: Partial<Omit<OutreachProspect, 'id' | 'userId' | 'createdAt'>>): Promise<void> => {
   const userId = getCurrentUserId();
   if (!userId) throw new Error('User not authenticated');
   const prospectDoc = doc(db, 'prospects', id);
@@ -267,6 +277,17 @@ export const updateProspect = async (id: string, prospectData: Partial<Omit<Outr
   }
   if (prospectData.hasOwnProperty('qualifierSentAt')) {
     dataToUpdate.qualifierSentAt = processDateForFirestore(prospectData.qualifierSentAt);
+  }
+  if (prospectData.hasOwnProperty('statusHistory')) {
+    const history = prospectData.statusHistory || [];
+    if (Array.isArray(history)) {
+      dataToUpdate.statusHistory = history.map(item => ({
+        status: item.status,
+        date: processDateForFirestore(item.date, true)
+      }));
+    } else {
+      dataToUpdate.statusHistory = [];
+    }
   }
   
   const numericFields: (keyof OutreachProspect)[] = ['followerCount', 'postCount', 'avgLikes', 'avgComments', 'leadScore'];

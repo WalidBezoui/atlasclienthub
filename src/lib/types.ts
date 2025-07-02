@@ -43,10 +43,15 @@ export type TonePreference = typeof TONE_PREFERENCES[number];
 export type OutreachLeadStage = "To Contact" | "Cold" | "Warm" | "Replied" | "Interested" | "Qualifier Sent" | "Ready for Audit" | "Audit Delivered" | "Closed - Won" | "Closed - Lost" | "Not Interested";
 export const OUTREACH_LEAD_STAGE_OPTIONS: OutreachLeadStage[] = ["To Contact", "Cold", "Warm", "Replied", "Interested", "Qualifier Sent", "Ready for Audit", "Audit Delivered", "Closed - Won", "Closed - Lost", "Not Interested"];
 
+export type StatusHistoryItem = {
+  status: OutreachLeadStage;
+  date: string; // ISO date string
+};
 
 export type OutreachProspect = {
   id: string;
   userId: string; 
+  createdAt: string; // ISO date string for when prospect was added
   
   // Section 1: Basic Prospect Info
   name: string; 
@@ -78,6 +83,7 @@ export type OutreachProspect = {
 
   // Section 5: Lead Warmth / Status
   status: OutreachLeadStage; // Using the refined lead stages
+  statusHistory?: StatusHistoryItem[]; // Tracks every status change
   source?: LeadSource | null;
   lastContacted?: string | null; // ISO date string
   followUpDate?: string | null; // ISO date string
