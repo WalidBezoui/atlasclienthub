@@ -71,7 +71,8 @@ const ProspectTimelineTooltip = ({ prospect }: { prospect: OutreachProspect }) =
     
     const uniqueHistoryMap = new Map<string, {status: OutreachLeadStage | 'Added', date: string}>();
     history.forEach(event => {
-        const key = `${event.status}_${new Date(event.date).toLocaleDateString()}`;
+        // Use a more robust key to avoid merging events on the same day with the same status
+        const key = `${event.status}_${new Date(event.date).toISOString()}`;
         if (!uniqueHistoryMap.has(key)) {
             uniqueHistoryMap.set(key, event);
         }
@@ -129,7 +130,7 @@ function OutreachPage() {
   const [showUnsavedConfirm, setShowUnsavedConfirm] = useState(false);
   
   // State for Undo Delete
-  const [pendingDeletes, setPendingDeletes] = useState<Map<string, { prospect: OutreachProspect; timeoutId: NodeJS.Timeout }>>(new Map());
+  const [pendingDeletes, setPendingDeletes] = useState<Map<string, { prospect: OutreachProspect; timeoutId: NodeJS.Timeout; dismissToast: () => void;}>>(new Map());
 
   const { toast } = useToast();
 
@@ -140,19 +141,23 @@ function OutreachPage() {
     { label: "Send Reminder", type: "Send Reminder" },
     { label: "Soft Close", type: "Soft Close" },
   ];
-
+  
   const sortProspects = (prospectList: OutreachProspect[]) => {
-    return prospectList.sort((a, b) => {
-      const aFollowUp = a.followUpNeeded || false;
-      const bFollowUp = b.followUpNeeded || false;
-      if (aFollowUp !== bFollowUp) {
-        return aFollowUp ? -1 : 1;
-      }
-      const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
-      const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
-      return dateB.getTime() - dateA.getTime();
+    return [...prospectList].sort((a, b) => {
+        const aFollowUp = a.followUpNeeded || false;
+        const bFollowUp = b.followUpNeeded || false;
+        if (aFollowUp !== bFollowUp) {
+            return aFollowUp ? -1 : 1;
+        }
+        
+        // Handle cases where createdAt might be missing for very old prospects
+        const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+        const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+        
+        return dateB.getTime() - dateA.getTime();
     });
   };
+
 
   const fetchProspects = useCallback(async () => {
     if (!user) return;
@@ -209,54 +214,66 @@ function OutreachPage() {
         toast({ title: "Error", description: error.message || "Could not save prospect.", variant: "destructive"});
     }
   }, [user, fetchProspects, toast]);
-  
-  const handleUndoDelete = (prospectToRestore: OutreachProspect) => {
-    const pendingDelete = pendingDeletes.get(prospectToRestore.id);
-    if (pendingDelete) {
-      clearTimeout(pendingDelete.timeoutId);
-      setPendingDeletes(current => {
-        const newMap = new Map(current);
-        newMap.delete(prospectToRestore.id);
-        return newMap;
-      });
-    }
 
-    setProspects(current => sortProspects([...current, prospectToRestore]));
-    toast({ title: "Deletion Canceled", description: `"${prospectToRestore.name}" has been restored.` });
-  };
+    const handleUndoDelete = (prospectId: string) => {
+        const pendingDelete = pendingDeletes.get(prospectId);
+        if (pendingDelete) {
+            const { prospect, timeoutId, dismissToast } = pendingDelete;
+            clearTimeout(timeoutId);
+            dismissToast(); // Dismiss the "deleted" toast
+
+            // Add the prospect back to the list and re-sort
+            setProspects(current => sortProspects([...current, prospect]));
+            toast({ title: "Deletion Canceled", description: `"${prospect.name}" has been restored.` });
+
+            // Clean up from pending deletes map
+            setPendingDeletes(current => {
+                const newMap = new Map(current);
+                newMap.delete(prospectId);
+                return newMap;
+            });
+        }
+    };
   
  const confirmDeleteProspect = () => {
     if (!prospectToDelete) return;
 
-    const prospect = prospectToDelete;
+    const DELETION_UNDO_DELAY = 8000; // 8 seconds
+    const prospect = { ...prospectToDelete };
     setProspectToDelete(null); // Close dialog
 
+    // Optimistically remove from UI
     setProspects(current => current.filter(p => p.id !== prospect.id));
 
-    toast({
+    // Show toast with Undo action
+    const { dismiss } = toast({
       title: "Prospect Deleted",
-      description: `"${prospect.name}" has been removed.`,
+      description: `"${prospect.name}" will be removed permanently.`,
+      duration: DELETION_UNDO_DELAY,
       action: (
-        <ToastAction altText="Undo" onClick={() => handleUndoDelete(prospect)}>
+        <ToastAction altText="Undo" onClick={() => handleUndoDelete(prospect.id)}>
           Undo
         </ToastAction>
       ),
     });
 
-    const deleteTimeout = setTimeout(() => {
+    // Set a timeout to perform the permanent delete
+    const timeoutId = setTimeout(() => {
       fbDeleteProspect(prospect.id)
         .catch(err => {
           toast({ title: "Final Deletion Failed", description: `Could not delete "${prospect.name}". Restoring.`, variant: "destructive" });
-          handleUndoDelete(prospect);
+          handleUndoDelete(prospect.id); // Automatically restore on failure
         });
+      // Clean up from pending deletes map
       setPendingDeletes(current => {
         const newMap = new Map(current);
         newMap.delete(prospect.id);
         return newMap;
       });
-    }, 5000); // 5-second window to undo
+    }, DELETION_UNDO_DELAY);
 
-    setPendingDeletes(current => new Map(current).set(prospect.id, { prospect, timeoutId: deleteTimeout }));
+    // Add to pending deletes map so it can be undone
+    setPendingDeletes(current => new Map(current).set(prospect.id, { prospect, timeoutId, dismissToast: dismiss }));
   };
 
   const handleStatusChange = useCallback(async (prospectId: string, newStatus: OutreachLeadStage) => {
@@ -362,7 +379,7 @@ function OutreachPage() {
       let newStatus: OutreachLeadStage | undefined;
       if (prospect.status === 'To Contact' && scriptType === 'Cold Outreach DM') {
           newStatus = 'Cold';
-      } else if (prospect.status === 'Cold' && scriptType.includes('Follow-Up')) {
+      } else if (prospect.status === 'Cold' && (scriptType.includes('Follow-Up') || scriptType.includes('Reminder'))) {
           newStatus = 'Warm';
       } else if (scriptType === 'Audit Delivery Message') {
           newStatus = 'Audit Delivered';
@@ -405,20 +422,22 @@ function OutreachPage() {
     } finally {
         setIsGeneratingScript(false);
     }
-  }, [prospects, fetchProspects, toast]);
+  }, [fetchProspects, toast]);
 
   const handleSendQualifier = useCallback(async (prospect: OutreachProspect, question: string) => {
       try {
           const contactDate = new Date().toISOString();
           const newStatus = 'Qualifier Sent';
+          const newHistory = `${prospect.conversationHistory || ''}${prospect.conversationHistory ? '\n\n' : ''}Me: ${question}`.trim();
           await updateProspect(prospect.id, {
               qualifierQuestion: question,
               qualifierSentAt: contactDate,
               status: newStatus,
               lastContacted: contactDate,
               statusHistory: [...(prospect.statusHistory || []), { status: newStatus, date: contactDate }],
+              conversationHistory: newHistory,
           });
-          toast({ title: "Qualifier Sent!", description: "Prospect status updated." });
+          toast({ title: "Qualifier Sent!", description: "Prospect status and conversation history updated." });
           fetchProspects();
           setIsScriptModalOpen(false);
       } catch (error: any) {
@@ -436,7 +455,7 @@ function OutreachPage() {
     
     setScriptModalConfig({
         showConfirmButton: true,
-        confirmButtonText: "Send & Update Status",
+        confirmButtonText: "Save to Conversation",
         prospect: prospect,
         onConfirm: async (scriptContent: string) => {
            if (currentProspectForScript) {
@@ -671,6 +690,20 @@ function OutreachPage() {
     }
   };
 
+  const handleFixTimestamps = async () => {
+    if (!user) return;
+    try {
+      const count = await updateMissingProspectTimestamps();
+      if (count > 0) {
+        toast({ title: 'Legacy Prospects Updated', description: `${count} older prospects have been updated and are now visible.` });
+        fetchProspects();
+      } else {
+        toast({ title: 'No Updates Needed', description: 'All prospects already have creation dates.' });
+      }
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  };
 
   if (authLoading || (isLoading && !prospects.length && user)) {
     return <div className="flex justify-center items-center h-screen"><LoadingSpinner text="Loading outreach prospects..." size="lg"/></div>;
@@ -826,111 +859,113 @@ function OutreachPage() {
         </TableRow>
       );
     }
-    if (prospects.length === 0) {
+    if (filteredProspects.length > 0) {
+      return filteredProspects.map((prospect) => (
+        <TableRow key={prospect.id} data-follow-up={!!prospect.followUpNeeded} className="data-[follow-up=true]:bg-primary/10">
+          <TableCell>
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Checkbox
+                            checked={!!prospect.followUpNeeded}
+                            onCheckedChange={() => handleFollowUpToggle(prospect.id, !!prospect.followUpNeeded)}
+                            aria-label={`Mark ${prospect.name} as needs follow-up`}
+                            className="h-5 w-5"
+                        />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>Mark for Follow-up</p>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
+          </TableCell>
+          <TableCell className="font-medium">
+            <div className="flex items-center gap-2">
+              <div>
+                {prospect.name}
+                <br/>
+                {prospect.instagramHandle ? (
+                  <a 
+                    href={`https://instagram.com/${prospect.instagramHandle.replace('@', '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-muted-foreground hover:text-primary hover:underline inline-flex items-center gap-1"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {prospect.instagramHandle}
+                    <LinkIcon className="h-3 w-3" />
+                  </a>
+                ) : (
+                  <span className="text-xs text-muted-foreground italic">No handle</span>
+                )}
+              </div>
+            </div>
+          </TableCell>
+          <TableCell className="hidden sm:table-cell">
+            <Select 
+              value={prospect.status} 
+              onValueChange={(newStatus: OutreachLeadStage) => handleStatusChange(prospect.id, newStatus)}
+            >
+              <SelectTrigger className="h-auto py-0.5 px-2.5 border-none shadow-none [&>span]:flex [&>span]:items-center text-xs w-auto min-w-[100px]">
+                <SelectValue asChild>
+                  <Badge variant={getStatusBadgeVariant(prospect.status)} className="cursor-pointer text-xs whitespace-nowrap">
+                    {prospect.status}
+                  </Badge>
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {OUTREACH_LEAD_STAGE_OPTIONS.map(s => <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </TableCell>
+           <TableCell className="hidden md:table-cell">
+            {prospect.leadScore !== null && prospect.leadScore !== undefined ? (
+              <Badge variant={getLeadScoreBadgeVariant(prospect.leadScore)}>{prospect.leadScore}</Badge>
+            ) : (
+              <Badge variant="outline">-</Badge>
+            )}
+          </TableCell>
+          <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">
+             <TooltipProvider>
+                  <Tooltip>
+                      <TooltipTrigger asChild>
+                          <span className="cursor-help">{getLastActivityText(prospect)}</span>
+                      </TooltipTrigger>
+                      <ProspectTimelineTooltip prospect={prospect} />
+                  </Tooltip>
+              </TooltipProvider>
+          </TableCell>
+          {renderActions(prospect)}
+        </TableRow>
+      ));
+    }
+    // This case handles when there are prospects, but the filter returns none
+    if (prospects.length > 0 && filteredProspects.length === 0) {
         return (
             <TableRow>
-              <TableCell colSpan={6} className="text-center h-24">
-                 <div className="flex flex-col items-center justify-center">
-                  <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
-                  <p className="font-semibold">No prospects found.</p>
-                  <p className="text-sm text-muted-foreground">
-                    Start building your outreach list by <Button variant="link" className="p-0 h-auto" onClick={() => setIsRapidAddOpen(true)}>adding your first prospect</Button>!
-                  </p>
-                </div>
-              </TableCell>
+                <TableCell colSpan={6} className="text-center h-24">
+                    <div className="flex flex-col items-center justify-center">
+                        <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
+                        <p className="font-semibold">No prospects found matching your criteria.</p>
+                    </div>
+                </TableCell>
             </TableRow>
         );
     }
-    if (filteredProspects.length === 0) {
-      return (
+    // This is the initial state when there are no prospects at all
+    return (
         <TableRow>
-          <TableCell colSpan={6} className="text-center h-24">
-             <div className="flex flex-col items-center justify-center">
-              <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
-              <p className="font-semibold">No prospects found matching your criteria.</p>
-            </div>
-          </TableCell>
+            <TableCell colSpan={6} className="text-center h-24">
+                <div className="flex flex-col items-center justify-center">
+                    <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
+                    <p className="font-semibold">No prospects found.</p>
+                    <p className="text-sm text-muted-foreground">
+                        Start building your outreach list by <Button variant="link" className="p-0 h-auto" onClick={() => setIsRapidAddOpen(true)}>adding your first prospect</Button>!
+                    </p>
+                </div>
+            </TableCell>
         </TableRow>
-      );
-    }
-    return filteredProspects.map((prospect) => (
-      <TableRow key={prospect.id} data-follow-up={!!prospect.followUpNeeded} className="data-[follow-up=true]:bg-primary/10">
-        <TableCell>
-          <TooltipProvider>
-              <Tooltip>
-                  <TooltipTrigger asChild>
-                      <Checkbox
-                          checked={!!prospect.followUpNeeded}
-                          onCheckedChange={() => handleFollowUpToggle(prospect.id, !!prospect.followUpNeeded)}
-                          aria-label={`Mark ${prospect.name} as needs follow-up`}
-                          className="h-5 w-5"
-                      />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                      <p>Mark for Follow-up</p>
-                  </TooltipContent>
-              </Tooltip>
-          </TooltipProvider>
-        </TableCell>
-        <TableCell className="font-medium">
-          <div className="flex items-center gap-2">
-            <div>
-              {prospect.name}
-              <br/>
-              {prospect.instagramHandle ? (
-                <a 
-                  href={`https://instagram.com/${prospect.instagramHandle.replace('@', '')}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-muted-foreground hover:text-primary hover:underline inline-flex items-center gap-1"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {prospect.instagramHandle}
-                  <LinkIcon className="h-3 w-3" />
-                </a>
-              ) : (
-                <span className="text-xs text-muted-foreground italic">No handle</span>
-              )}
-            </div>
-          </div>
-        </TableCell>
-        <TableCell className="hidden sm:table-cell">
-          <Select 
-            value={prospect.status} 
-            onValueChange={(newStatus: OutreachLeadStage) => handleStatusChange(prospect.id, newStatus)}
-          >
-            <SelectTrigger className="h-auto py-0.5 px-2.5 border-none shadow-none [&>span]:flex [&>span]:items-center text-xs w-auto min-w-[100px]">
-              <SelectValue asChild>
-                <Badge variant={getStatusBadgeVariant(prospect.status)} className="cursor-pointer text-xs whitespace-nowrap">
-                  {prospect.status}
-                </Badge>
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {OUTREACH_LEAD_STAGE_OPTIONS.map(s => <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </TableCell>
-         <TableCell className="hidden md:table-cell">
-          {prospect.leadScore !== null && prospect.leadScore !== undefined ? (
-            <Badge variant={getLeadScoreBadgeVariant(prospect.leadScore)}>{prospect.leadScore}</Badge>
-          ) : (
-            <Badge variant="outline">-</Badge>
-          )}
-        </TableCell>
-        <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">
-           <TooltipProvider>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <span className="cursor-help">{getLastActivityText(prospect)}</span>
-                    </TooltipTrigger>
-                    <ProspectTimelineTooltip prospect={prospect} />
-                </Tooltip>
-            </TooltipProvider>
-        </TableCell>
-        {renderActions(prospect)}
-      </TableRow>
-    ));
+    );
   };
 
 
@@ -1007,6 +1042,27 @@ function OutreachPage() {
         </DialogContent>
       </Dialog>
 
+       <AlertDialog open={showUnsavedConfirm} onOpenChange={setShowUnsavedConfirm}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    You have unsaved changes in the conversation history. Are you sure you want to discard them?
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setShowUnsavedConfirm(false)}>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => {
+                    setShowUnsavedConfirm(false);
+                    setIsConversationModalOpen(false);
+                    setCurrentProspectForConversation(null);
+                }}>
+                    Discard
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
@@ -1031,6 +1087,17 @@ function OutreachPage() {
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>Export current view to CSV</p>
+                  </TooltipContent>
+                </Tooltip>
+                 <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" size="icon" onClick={handleFixTimestamps} disabled={isLoading}>
+                      <Wrench className="h-4 w-4" />
+                      <span className="sr-only">Fix Legacy Prospects</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Fix missing data on old prospects</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -1110,3 +1177,5 @@ export default function OutreachPageWrapper() {
         </Suspense>
     )
 }
+
+    
