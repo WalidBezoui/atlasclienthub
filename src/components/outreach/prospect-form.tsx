@@ -10,9 +10,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
-import { fetchInstagramMetrics, type InstagramMetrics } from '@/app/actions/fetch-ig-metrics';
+import { fetchInstagramMetrics } from '@/app/actions/fetch-ig-metrics';
 import type { OutreachProspect, OutreachLeadStage, BusinessType, PainPoint, Goal, LeadSource, OfferInterest, TonePreference, ProspectLocation, AccountStage } from '@/lib/types';
 import { OUTREACH_LEAD_STAGE_OPTIONS, BUSINESS_TYPES, PAIN_POINTS, GOALS, LEAD_SOURCES, OFFER_INTERESTS, TONE_PREFERENCES, PROSPECT_LOCATIONS, ACCOUNT_STAGES } from '@/lib/types';
 import { RefreshCw, Loader2, Info, Briefcase, BarChart3, AlertCircle, Target, MessageSquare, Settings2, FileQuestion, Star } from 'lucide-react';
@@ -132,6 +131,8 @@ export function ProspectForm({ prospect, onSave, onCancel }: { prospect?: Outrea
         const metricsResult = await fetchInstagramMetrics(formData.instagramHandle.trim());
         if (metricsResult.error || !metricsResult.data) {
             toast({ title: "Metrics Fetch Failed", description: metricsResult.error || "The profile may be private or invalid.", variant: "destructive", duration: 8000 });
+            setIsFetchingMetrics(false);
+            setIsQualifying(false);
             return;
         }
         
@@ -160,7 +161,7 @@ export function ProspectForm({ prospect, onSave, onCancel }: { prospect?: Outrea
                 goals: qualifyResult.goals,
                 helpStatement: qualifyResult.summary,
             }));
-            toast({ title: "Prospect Qualified!", description: `Data for @${formData.instagramHandle} has been fetched and analyzed.` });
+            toast({ title: "Prospect Re-qualified!", description: `Data for @${formData.instagramHandle} has been fetched and analyzed.` });
         }
     } catch (error: any) {
         toast({ title: "Error During Process", description: error.message || "An unexpected error occurred.", variant: "destructive" });
@@ -200,44 +201,50 @@ export function ProspectForm({ prospect, onSave, onCancel }: { prospect?: Outrea
         <section>
           <h4 className="font-semibold text-lg flex items-center mb-2"><Info className="mr-2 h-5 w-5 text-primary"/>Basic Prospect Info</h4>
           <div className="space-y-3 p-4 border rounded-md">
-            <div>
-              <Label htmlFor="name">Prospect Name *</Label>
-              <Input id="name" name="name" value={formData.name || ''} onChange={handleChange} required />
-            </div>
-            <div>
-              <Label htmlFor="instagramHandle">IG Handle (Required if no Email)</Label>
-              <Input id="instagramHandle" name="instagramHandle" placeholder="@username" value={formData.instagramHandle || ''} onChange={handleChange} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="name">Prospect Name *</Label>
+                <Input id="name" name="name" value={formData.name || ''} onChange={handleChange} required />
+              </div>
+              <div>
+                <Label htmlFor="instagramHandle">IG Handle</Label>
+                <Input id="instagramHandle" name="instagramHandle" placeholder="@username" value={formData.instagramHandle || ''} onChange={handleChange} />
+              </div>
             </div>
             <div>
               <Label htmlFor="businessName">Business Name (Optional)</Label>
               <Input id="businessName" name="businessName" value={formData.businessName || ''} onChange={handleChange} />
             </div>
-            <div>
-              <Label htmlFor="website">Website (Optional)</Label>
-              <Input id="website" name="website" type="url" placeholder="https://example.com" value={formData.website || ''} onChange={handleChange} />
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="website">Website (Optional)</Label>
+                <Input id="website" name="website" type="url" placeholder="https://example.com" value={formData.website || ''} onChange={handleChange} />
+              </div>
+               <div>
+                <Label htmlFor="email">Email (Optional)</Label>
+                <Input id="email" name="email" type="email" value={formData.email || ''} onChange={handleChange} />
+              </div>
+            </div>
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="prospectLocation">Prospect Location</Label>
+                <Select value={formData.prospectLocation || undefined} onValueChange={(value: ProspectLocation) => handleSelectChange('prospectLocation', value)}>
+                  <SelectTrigger id="prospectLocation"><SelectValue placeholder="Select location" /></SelectTrigger>
+                  <SelectContent>{PROSPECT_LOCATIONS.map(loc => <SelectItem key={loc} value={loc}>{loc}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="industry">Industry</Label>
+                <Input id="industry" name="industry" placeholder="e.g., Fashion, SaaS" value={formData.industry || ''} onChange={handleChange} />
+              </div>
             </div>
             <div>
-              <Label htmlFor="prospectLocation">Prospect Location (Optional)</Label>
-              <Select value={formData.prospectLocation || undefined} onValueChange={(value: ProspectLocation) => handleSelectChange('prospectLocation', value)}>
-                <SelectTrigger id="prospectLocation"><SelectValue placeholder="Select location" /></SelectTrigger>
-                <SelectContent>{PROSPECT_LOCATIONS.map(loc => <SelectItem key={loc} value={loc}>{loc}</SelectItem>)}</SelectContent>
-              </Select>
+              <Label htmlFor="visualStyle">Visual Style Notes</Label>
+              <Input id="visualStyle" name="visualStyle" placeholder="e.g., Luxe, clean, messy..." value={formData.visualStyle || ''} onChange={handleChange} />
             </div>
             <div>
-              <Label htmlFor="industry">Industry (e.g., Fashion, SaaS, Coaching)</Label>
-              <Input id="industry" name="industry" value={formData.industry || ''} onChange={handleChange} />
-            </div>
-            <div>
-              <Label htmlFor="visualStyle">Visual Style Notes (Optional)</Label>
-              <Input id="visualStyle" name="visualStyle" placeholder="e.g., Luxe, clean, messy, vibrant..." value={formData.visualStyle || ''} onChange={handleChange} />
-            </div>
-            <div>
-              <Label htmlFor="bioSummary">Bio Summary (Optional)</Label>
+              <Label htmlFor="bioSummary">Bio Summary</Label>
               <Textarea id="bioSummary" name="bioSummary" placeholder="Summary of their Instagram bio" value={formData.bioSummary || ''} onChange={handleChange} rows={3}/>
-            </div>
-            <div>
-              <Label htmlFor="email">Email (Required if no IG Handle)</Label>
-              <Input id="email" name="email" type="email" value={formData.email || ''} onChange={handleChange} />
             </div>
           </div>
         </section>
@@ -265,12 +272,21 @@ export function ProspectForm({ prospect, onSave, onCancel }: { prospect?: Outrea
 
         {/* Section 3 */}
         <section>
-          <h4 className="font-semibold text-lg flex items-center mb-2"><BarChart3 className="mr-2 h-5 w-5 text-primary"/>Engagement Metrics</h4>
+          <h4 className="font-semibold text-lg flex items-center mb-2"><BarChart3 className="mr-2 h-5 w-5 text-primary"/>Metrics & Qualification</h4>
           <div className="p-4 border rounded-md space-y-3">
-              <Button type="button" variant="outline" onClick={handleFetchAndQualify} disabled={isFetchingMetrics || isQualifying || !formData.instagramHandle} className="text-xs">
-                  {isFetchingMetrics || isQualifying ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <RefreshCw className="mr-2 h-3 w-3" />}
-                  {isFetchingMetrics ? 'Fetching...' : isQualifying ? 'Qualifying...' : 'Fetch & Qualify'}
+              <Button type="button" variant="outline" onClick={handleFetchAndQualify} disabled={isFetchingMetrics || isQualifying || !formData.instagramHandle}>
+                  {isFetchingMetrics || isQualifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                  {isFetchingMetrics ? 'Fetching...' : isQualifying ? 'Re-qualifying...' : 'Fetch & Re-qualify'}
               </Button>
+              {formData.leadScore !== null && formData.leadScore !== undefined && (
+                <div className="p-3 bg-muted/50 rounded-md">
+                  <Label>Lead Score</Label>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="text-base">{formData.leadScore}</Badge>
+                    <p className="text-xs text-muted-foreground">This score was automatically calculated.</p>
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                       <Label htmlFor="accountStage">Account Stage</Label>
@@ -288,11 +304,11 @@ export function ProspectForm({ prospect, onSave, onCancel }: { prospect?: Outrea
                       <Input id="postCount" name="postCount" type="number" value={formData.postCount ?? ''} onChange={handleChange} />
                   </div>
                   <div>
-                      <Label htmlFor="avgLikes">Avg Likes (last 3 posts)</Label>
+                      <Label htmlFor="avgLikes">Avg Likes</Label>
                       <Input id="avgLikes" name="avgLikes" type="number" step="0.1" value={formData.avgLikes ?? ''} onChange={handleChange} />
                   </div>
                   <div>
-                      <Label htmlFor="avgComments">Avg Comments (last 3 posts)</Label>
+                      <Label htmlFor="avgComments">Avg Comments</Label>
                       <Input id="avgComments" name="avgComments" type="number" step="0.1" value={formData.avgComments ?? ''} onChange={handleChange} />
                   </div>
               </div>
@@ -329,40 +345,35 @@ export function ProspectForm({ prospect, onSave, onCancel }: { prospect?: Outrea
         <section>
           <h4 className="font-semibold text-lg flex items-center mb-2"><Star className="mr-2 h-5 w-5 text-primary"/>Lead & Interaction Status</h4>
            <div className="p-4 border rounded-md space-y-3">
-              {formData.leadScore !== null && formData.leadScore !== undefined && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <Label>Lead Score</Label>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="text-base">{formData.leadScore}</Badge>
-                    <p className="text-xs text-muted-foreground">This score was automatically calculated.</p>
-                  </div>
+                    <Label htmlFor="status">Lead Stage *</Label>
+                    <Select value={formData.status} onValueChange={(value: OutreachLeadStage) => handleSelectChange('status', value)} required>
+                      <SelectTrigger id="status"><SelectValue placeholder="Select lead stage" /></SelectTrigger>
+                      <SelectContent>{OUTREACH_LEAD_STAGE_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                    </Select>
                 </div>
-              )}
-              <div>
-                  <Label htmlFor="status">Lead Stage *</Label>
-                  <Select value={formData.status} onValueChange={(value: OutreachLeadStage) => handleSelectChange('status', value)} required>
-                    <SelectTrigger id="status"><SelectValue placeholder="Select lead stage" /></SelectTrigger>
-                    <SelectContent>{OUTREACH_LEAD_STAGE_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                  </Select>
-              </div>
-              <div>
-                  <Label htmlFor="source">Source</Label>
-                  <Select value={formData.source || undefined} onValueChange={(value: LeadSource) => handleSelectChange('source', value)}>
-                    <SelectTrigger id="source"><SelectValue placeholder="Select source" /></SelectTrigger>
-                    <SelectContent>{LEAD_SOURCES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                  </Select>
+                <div>
+                    <Label htmlFor="source">Source</Label>
+                    <Select value={formData.source || undefined} onValueChange={(value: LeadSource) => handleSelectChange('source', value)}>
+                      <SelectTrigger id="source"><SelectValue placeholder="Select source" /></SelectTrigger>
+                      <SelectContent>{LEAD_SOURCES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                    </Select>
+                </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div><Label htmlFor="lastContacted">Last Contacted</Label><Input id="lastContacted" name="lastContacted" type="date" value={formData.lastContacted || ''} onChange={handleChange} /></div>
                   <div><Label htmlFor="followUpDate">Follow-up Date</Label><Input id="followUpDate" name="followUpDate" type="date" value={formData.followUpDate || ''} onChange={handleChange} /></div>
               </div>
               <div>
-                  <Label htmlFor="lastMessageSnippet">Last Message from Prospect (Optional)</Label>
+                  <Label htmlFor="lastMessageSnippet">Last Message from Prospect</Label>
                   <Textarea id="lastMessageSnippet" name="lastMessageSnippet" placeholder="e.g., 'Thanks, I'll check it out'" value={formData.lastMessageSnippet || ''} onChange={handleChange} rows={2}/>
               </div>
-              <div className="flex items-center space-x-2 pt-2"><Checkbox id="followUpNeeded" checked={!!formData.followUpNeeded} onCheckedChange={(checked) => handleSingleCheckboxChange('followUpNeeded', !!checked)} /><Label htmlFor="followUpNeeded" className="font-normal">Follow-Up Needed?</Label></div>
-              <div className="flex items-center space-x-2"><Checkbox id="linkSent" checked={!!formData.linkSent} onCheckedChange={(checked) => handleSingleCheckboxChange('linkSent', !!checked)} /><Label htmlFor="linkSent" className="font-normal">Link Sent? (e.g., Audit)</Label></div>
-              <div className="flex items-center space-x-2"><Checkbox id="carouselOffered" checked={!!formData.carouselOffered} onCheckedChange={(checked) => handleSingleCheckboxChange('carouselOffered', !!checked)} /><Label htmlFor="carouselOffered" className="font-normal">Carousel Offered?</Label></div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2">
+                <div className="flex items-center space-x-2"><Checkbox id="followUpNeeded" checked={!!formData.followUpNeeded} onCheckedChange={(checked) => handleSingleCheckboxChange('followUpNeeded', !!checked)} /><Label htmlFor="followUpNeeded" className="font-normal">Follow-Up?</Label></div>
+                <div className="flex items-center space-x-2"><Checkbox id="linkSent" checked={!!formData.linkSent} onCheckedChange={(checked) => handleSingleCheckboxChange('linkSent', !!checked)} /><Label htmlFor="linkSent" className="font-normal">Link Sent?</Label></div>
+                <div className="flex items-center space-x-2"><Checkbox id="carouselOffered" checked={!!formData.carouselOffered} onCheckedChange={(checked) => handleSingleCheckboxChange('carouselOffered', !!checked)} /><Label htmlFor="carouselOffered" className="font-normal">Carousel Offered?</Label></div>
+              </div>
           </div>
         </section>
 
@@ -400,11 +411,11 @@ export function ProspectForm({ prospect, onSave, onCancel }: { prospect?: Outrea
           <h4 className="font-semibold text-lg flex items-center mb-2"><Settings2 className="mr-2 h-5 w-5 text-primary"/>Smart Prompts & Notes</h4>
            <div className="p-4 border rounded-md space-y-3">
               <div>
-                  <Label htmlFor="uniqueNote">Unique/Interesting observation about this brand? (1-2 sentences)</Label>
+                  <Label htmlFor="uniqueNote">Unique observation about this brand? (1-2 sentences)</Label>
                   <Textarea id="uniqueNote" name="uniqueNote" placeholder="e.g., They post skincare tips in Darija" value={formData.uniqueNote || ''} onChange={handleChange} rows={2}/>
               </div>
               <div>
-                  <Label htmlFor="helpStatement">If you had to help them in 1 sentence, what would it be?</Label>
+                  <Label htmlFor="helpStatement">Help statement (AI-generated summary)</Label>
                   <Textarea id="helpStatement" name="helpStatement" placeholder="e.g., Their highlights and bio confuse visitors." value={formData.helpStatement || ''} onChange={handleChange} rows={2}/>
               </div>
               <div>
@@ -427,7 +438,7 @@ export function ProspectForm({ prospect, onSave, onCancel }: { prospect?: Outrea
                 <Input id="lastScriptSent" name="lastScriptSent" placeholder="e.g., 'Initial Cold DM'" value={formData.lastScriptSent || ''} onChange={handleChange} />
               </div>
               <div className="pt-2">
-                <Label htmlFor="notes">General Notes (Optional)</Label>
+                <Label htmlFor="notes">General Notes</Label>
                 <Textarea id="notes" name="notes" value={formData.notes || ''} onChange={handleChange} />
               </div>
           </div>
