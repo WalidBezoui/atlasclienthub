@@ -34,6 +34,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
   const [fetchedMetrics, setFetchedMetrics] = useState<InstagramMetrics | null>(null);
   const [analysisResult, setAnalysisResult] = useState<QualifyProspectOutput | null>(null);
   
+  const [lastQuestionAsked, setLastQuestionAsked] = useState<string | null>(null);
   const [clarificationResponse, setClarificationResponse] = useState<string | undefined>(undefined);
   const [isReanalyzing, setIsReanalyzing] = useState(false);
 
@@ -48,6 +49,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
     setIsAnalyzing(false);
     setFetchedMetrics(null);
     setAnalysisResult(null);
+    setLastQuestionAsked(null);
     setClarificationResponse(undefined);
     setIsReanalyzing(false);
   };
@@ -68,10 +70,14 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
         avgLikes: metrics.avgLikes,
         avgComments: metrics.avgComments,
         biography: metrics.biography || null,
+        lastQuestion: null,
         clarificationResponse: null,
       };
       const result = await qualifyProspect(input);
       setAnalysisResult(result);
+      if (result.clarificationRequest) {
+        setLastQuestionAsked(result.clarificationRequest.question);
+      }
       setStep(3);
     } catch (error: any) {
       toast({ title: 'AI Analysis Failed', description: error.message, variant: 'destructive' });
@@ -116,12 +122,20 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
         avgLikes: fetchedMetrics.avgLikes,
         avgComments: fetchedMetrics.avgComments,
         biography: fetchedMetrics.biography || null,
+        lastQuestion: lastQuestionAsked,
         clarificationResponse: clarificationResponse,
       };
       const result = await qualifyProspect(input);
       setAnalysisResult(result);
-      setClarificationResponse(undefined); // Clear the selection for next time
-      toast({ title: 'Re-analysis Complete', description: 'The prospect details have been updated with your input.' });
+      
+      if (result.clarificationRequest) {
+        setLastQuestionAsked(result.clarificationRequest.question);
+      } else {
+        setLastQuestionAsked(null);
+      }
+      
+      setClarificationResponse(undefined); 
+      toast({ title: 'Analysis Updated', description: 'The prospect details have been updated with your input.' });
     } catch (error: any) {
       toast({ title: 'AI Re-analysis Failed', description: error.message, variant: 'destructive' });
     } finally {

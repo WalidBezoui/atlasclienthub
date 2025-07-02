@@ -32,7 +32,10 @@ const QualifyProspectInputSchema = z.object({
   avgLikes: z.number().nullable().describe("Average likes on recent posts."),
   avgComments: z.number().nullable().describe("Average comments on recent posts."),
   biography: z.string().nullable().describe("The prospect's Instagram bio text."),
-  clarificationResponse: z.string().nullable().optional().describe("The user's selected answer from a previous multiple-choice clarification request. This is the key to proceeding with the final analysis."),
+  
+  // CONTEXT FOR INTERACTIVE QUALIFICATION
+  lastQuestion: z.string().nullable().optional().describe("The previous question that the AI asked the user. This helps the AI know which piece of information the user is providing."),
+  clarificationResponse: z.string().nullable().optional().describe("The user's selected answer to the AI's most recent question. This is the key to proceeding."),
 });
 export type QualifyProspectInput = z.infer<typeof QualifyProspectInputSchema>;
 
@@ -57,7 +60,7 @@ const prompt = ai.definePrompt({
   name: 'qualifyProspectPrompt',
   input: {schema: QualifyProspectInputSchema},
   output: {schema: QualifyProspectOutputSchema},
-  prompt: `You are a senior Instagram growth strategist. Your goal is to qualify a prospect by analyzing their data and asking for essential visual context from the user.
+  prompt: `You are a senior Instagram growth strategist executing a strict, step-by-step qualification process.
 
 **PROSPECT DATA:**
 - **Handle:** {{instagramHandle}}
@@ -67,65 +70,67 @@ const prompt = ai.definePrompt({
 - **Avg. Likes:** {{#if avgLikes}}{{avgLikes}}{{else}}N/A{{/if}}
 - **Avg. Comments:** {{#if avgComments}}{{avgComments}}{{else}}N/A{{/if}}
 
+**INTERNAL KNOWLEDGE BASE (Your current understanding of the prospect):**
+- isBusiness: **unknown**
+- hasInconsistentGrid: **unknown**
+- hasLowEngagement: **unknown**
+- hasNoClearCTA: **unknown**
+- valueProposition: **unknown**
+- profitabilityPotential: **unknown**
+- contentPillarClarity: **unknown**
+- salesFunnelStrength: **unknown**
+
 **STANDARD OPERATING PROCEDURE (SOP):**
 
-Your entire task is one of two things: either ask a question, or provide a final analysis.
+**Step 1: Update Knowledge Base**
+- First, perform a quick analysis of the raw prospect data to fill in what you can.
+  - Based on bio, is there a CTA? Is the funnel weak (linktree) or strong (sales page)?
+  - Is the engagement rate low? (e.g., likes are < 1% of followers).
+  - Can you determine if it's a business from the bio?
+- **IF \`lastQuestion\` and \`clarificationResponse\` are provided, you MUST use them to update your knowledge base.** This is the user's input.
+  - IF \`lastQuestion\` contains "make money", update \`profitabilityPotential\`.
+    - "Selling high-ticket" -> high
+    - "Selling physical products" -> medium
+    - "Affiliate marketing" -> medium
+    - "hobby account" -> low
+  - IF \`lastQuestion\` contains "visual branding" or "feed", update \`hasInconsistentGrid\`.
+    - "Polished & On-Brand" -> no
+    - "Clean but Generic" -> yes
+    - "Messy & Inconsistent" -> yes
+    - "Not Enough Content" -> unknown
+  - IF \`lastQuestion\` contains "content strategy", update \`valueProposition\`.
+    - "Reaching a wider audience" -> engagement
+    - "Increasing engagement" -> engagement
+    - "Converting followers" -> leads
 
-**IF \`clarificationResponse\` IS NOT PROVIDED:**
-This is the first run. Your job is to ask the FIRST and MOST IMPORTANT question.
-1. Analyze the data.
-2. Determine the highest-priority question based on the priority list below (start with Profitability).
-3. Generate the question and options.
-4. **Return a "Paused State":**
+**Step 2: Ask Next Question (If Necessary)**
+- After updating, check your knowledge base in this **strict priority order**:
+  1. Is \`profitabilityPotential\` 'unknown'? If YES, ask the Profitability Question and **STOP**.
+  2. Is \`hasInconsistentGrid\` 'unknown'? If YES, ask the Visual Feed Question and **STOP**.
+  3. Is \`valueProposition\` 'unknown'? If YES, ask the Content Strategy Question and **STOP**.
+
+- To ask a question, you MUST return a "Paused State":
    - Set \`clarificationRequest\` to the question object.
    - Set \`leadScore\`, \`painPoints\`, \`goals\` to \`null\`.
    - Set \`summary\` to a message like "Awaiting input to complete qualification."
-   - Fill out \`qualificationData\` with 'unknown' for fields that are not yet known.
-   - **STOP HERE.** Do not proceed.
+   - Fill out the \`qualificationData\` object with your current knowledge base.
 
-**IF \`clarificationResponse\` IS PROVIDED:**
-The user has answered a question. Your job is to decide whether to ask the NEXT question or FINISH the analysis.
-1. Use the \`clarificationResponse\` as a fact to update your understanding of the prospect.
-2. Look at the priority list again. Is there another question you need to ask?
-   - **If YES (e.g., they answered Profitability, now you must ask about Visual Feed):**
-     - Generate the NEXT question and options.
-     - Return another "Paused State" exactly as described above.
-     - **STOP HERE.**
-   - **If NO (all necessary questions have been answered):**
-     - Perform a **Final Analysis**.
-     - Set \`clarificationRequest\` to \`null\`.
-     - Calculate the final \`leadScore\`.
-     - Determine the \`painPoints\` and \`goals\`.
-     - Write the final, comprehensive \`summary\`.
-     - Fill out the complete \`qualificationData\` object.
+**Step 3: Final Analysis (Only if all questions are answered)**
+- If you have answers for all priority questions (profitability, visuals, strategy), then and only then do you perform the Final Analysis.
+- Set \`clarificationRequest\` to \`null\`.
+- Fill out the complete \`qualificationData\` object.
+- Calculate the final \`leadScore\` based on the scoring model.
+- Determine the \`painPoints\` and \`goals\` based on your complete knowledge base.
+- Write the final, comprehensive \`summary\`.
 
 ---
-**QUESTION PRIORITY ORDER (Strict):**
-1.  **Profitability**: Is it clear how they make money?
-2.  **Visual Feed**: Have you received the user's visual assessment? This is mandatory.
-3.  **Content Strategy**: What is their biggest content opportunity? (Lower priority)
-
----
-**Question Generation Examples:**
-
-- **A. Profitability Question (Priority 1)**:
-  - *Scenario*: Bio is vague ("Spreading good vibes").
-  - *Good Question*: "What's the primary way this account seems to make money (or plans to)?"
-  - *Good Options*: ["Selling high-ticket services (coaching, consulting)", "Selling physical products", "Affiliate marketing / brand deals", "It seems to be a personal blog or hobby account"]
-
-- **B. Visual Feed Question (Priority 2 - MANDATORY)**:
-  - This is the MOST common and important question. You MUST ask this if profitability is clear.
-  - *Good Question*: "Based on their feed, how would you describe their visual branding?"
-  - *Good Options*: ["Polished & On-Brand (Strong visuals, consistent aesthetic)", "Clean but Generic (Lacks personality, looks like a template)", "Messy & Inconsistent (No clear style, feels unplanned)", "Not Enough Content (Too new or inactive to judge)"]
-
-- **C. Content Strategy Question (Priority 3)**:
-  - *Scenario*: Profitability is clear, user has said feed is "Polished & On-Brand".
-  - *Good Question*: "What is the biggest strategic opportunity for their content?"
-  - *Good Options*: ["Reaching a wider audience (Top of Funnel)", "Increasing engagement with current followers (Middle of Funnel)", "Converting followers into clients (Bottom of Funnel)"]
+**Question Templates:**
+- **Profitability Question**: "What's the primary way this account seems to make money (or plans to)?" with options ["Selling high-ticket services (coaching, consulting)", "Selling physical products", "Affiliate marketing / brand deals", "It's a personal blog or hobby account"]
+- **Visual Feed Question**: "Based on their feed, how would you describe their visual branding?" with options ["Polished & On-Brand (Strong visuals, consistent aesthetic)", "Clean but Generic (Lacks personality, looks like a template)", "Messy & Inconsistent (No clear style, feels unplanned)", "Not Enough Content (Too new or inactive to judge)"]
+- **Content Strategy Question**: "What is the biggest strategic opportunity for their content?" with options ["Reaching a wider audience (Top of Funnel)", "Increasing engagement with current followers (Middle of Funnel)", "Converting followers into clients (Bottom of Funnel)"]
 
 ---
 **Scoring Model (Max 100 - ONLY calculate if analysis is complete):**
-
 - **Part 1: Foundation Score (Business Viability)**
   - Base Score: 10
   - Is a Business: 'yes' (+15)
@@ -140,9 +145,9 @@ The user has answered a question. Your job is to decide whether to ask the NEXT 
 - **Final Score = Foundation Score + Opportunity Score**
 
 ---
-Now, perform the analysis for **{{instagramHandle}}** according to the SOP.
+Now, execute the SOP for **{{instagramHandle}}**.
 `,
-}));
+});
 
 const qualifyProspectFlow = ai.defineFlow(
   {
