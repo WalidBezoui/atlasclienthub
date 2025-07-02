@@ -97,7 +97,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
         setFetchedMetrics(result.data);
         await handleAnalyze(result.data); // Immediately analyze after fetching
       }
-    } catch (error: any) {
+    } catch (error: any) => {
       toast({ title: 'An error occurred', description: error.message, variant: 'destructive' });
       setStep(1);
     } finally {
@@ -182,10 +182,11 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
     setIsSaving(false);
   };
   
-  const getLeadScoreBadgeVariant = (score: number): "default" | "secondary" | "destructive" => {
-      if (score >= 60) return "default"; // Green (good)
-      if (score >= 30) return "secondary"; // Yellow (medium)
-      return "destructive"; // Red (low)
+  const getLeadScoreBadgeVariant = (score: number | null | undefined): "default" | "secondary" | "destructive" => {
+      if (score === null || score === undefined) return "secondary";
+      if (score >= 60) return "default";
+      if (score >= 30) return "secondary";
+      return "destructive";
   };
   
   const GenericQualificationDetail = ({ label, value, variantMap }: { label: string, value: string, variantMap: any }) => {
@@ -265,7 +266,10 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
              <div className="space-y-4 py-4">
                 <div className="p-4 border rounded-lg bg-muted/50 space-y-3">
                   <h3 className="font-semibold text-lg text-center mb-2">
-                      Analysis for {instagramHandle}: <Badge variant={getLeadScoreBadgeVariant(analysisResult.leadScore)} className="text-lg ml-2">{analysisResult.leadScore}</Badge>
+                      Analysis for {instagramHandle}:
+                      {analysisResult.leadScore !== null && analysisResult.leadScore !== undefined && (
+                        <Badge variant={getLeadScoreBadgeVariant(analysisResult.leadScore)} className="text-lg ml-2">{analysisResult.leadScore}</Badge>
+                      )}
                   </h3>
                   <Separator/>
                   <div className="text-center">
@@ -273,8 +277,8 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
                   </div>
                   
                    <div className="space-y-2">
-                    {analysisResult.painPoints.length > 0 && <div><Label className="text-xs">Suggested Pain Points</Label><div className="flex flex-wrap gap-1">{analysisResult.painPoints.map(p => <Badge key={p} variant="destructive">{p}</Badge>)}</div></div>}
-                    {analysisResult.goals.length > 0 && <div><Label className="text-xs">Suggested Goals</Label><div className="flex flex-wrap gap-1">{analysisResult.goals.map(g => <Badge key={g} variant="secondary">{g}</Badge>)}</div></div>}
+                    {analysisResult.painPoints && analysisResult.painPoints.length > 0 && <div><Label className="text-xs">Suggested Pain Points</Label><div className="flex flex-wrap gap-1">{analysisResult.painPoints.map(p => <Badge key={p} variant="destructive">{p}</Badge>)}</div></div>}
+                    {analysisResult.goals && analysisResult.goals.length > 0 && <div><Label className="text-xs">Suggested Goals</Label><div className="flex flex-wrap gap-1">{analysisResult.goals.map(g => <Badge key={g} variant="secondary">{g}</Badge>)}</div></div>}
                    </div>
 
                    <Accordion type="single" collapsible className="w-full">
@@ -322,7 +326,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
         {step === 3 && analysisResult && (
            <DialogFooter className="mt-auto shrink-0 border-t pt-4">
              <Button variant="outline" onClick={() => setStep(1)}><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
-             <Button onClick={handleSave} disabled={isSaving}>
+             <Button onClick={handleSave} disabled={isSaving || !!analysisResult.clarificationRequest}>
                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}
                 Save Prospect
              </Button>
@@ -332,4 +336,3 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
     </Dialog>
   );
 }
-
