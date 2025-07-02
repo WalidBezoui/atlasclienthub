@@ -67,14 +67,14 @@ const ProspectTimelineTooltip = ({ prospect }: { prospect: OutreachProspect }) =
         ...(prospect.statusHistory || [])
     ];
     
-    const uniqueHistory = history.reduce((acc, current) => {
-        const x = acc.find(item => item.status === current.status && new Date(item.date).toLocaleDateString() === new Date(current.date).toLocaleDateString());
-        if (!x) {
-            return acc.concat([current]);
-        } else {
-            return acc;
+    const uniqueHistoryMap = new Map<string, {status: OutreachLeadStage | 'Added', date: string}>();
+    history.forEach(event => {
+        const key = `${event.status}_${new Date(event.date).toLocaleDateString()}`;
+        if (!uniqueHistoryMap.has(key)) {
+            uniqueHistoryMap.set(key, event);
         }
-    }, [] as {status: OutreachLeadStage | 'Added', date: string}[]);
+    });
+    const uniqueHistory = Array.from(uniqueHistoryMap.values());
 
     return (
         <TooltipContent>
