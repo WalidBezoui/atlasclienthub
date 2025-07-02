@@ -2,8 +2,9 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
-import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, Bot, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileText, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare, Save, FileQuestion, GraduationCap, MoreHorizontal, Wrench } from 'lucide-react';
+import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, Bot, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileText, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare, Save, FileQuestion, GraduationCap, MoreHorizontal } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import * as papa from 'papaparse';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
@@ -42,7 +43,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { addProspect, getProspects, updateProspect, deleteProspect as fbDeleteProspect, updateMissingProspectTimestamps } from '@/lib/firebase/services';
+import { addProspect, getProspects, updateProspect, deleteProspect as fbDeleteProspect } from '@/lib/firebase/services';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
 import { cn } from '@/lib/utils';
 import { useScriptContext } from '@/contexts/ScriptContext';
@@ -100,7 +101,6 @@ function OutreachPage() {
   const { setClientContext, clearContext: clearScriptContext } = useScriptContext();
   const [prospects, setProspects] = useState<OutreachProspect[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isUpdatingLegacy, setIsUpdatingLegacy] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilters, setStatusFilters] = useState<Set<OutreachLeadStage>>(new Set(OUTREACH_LEAD_STAGE_OPTIONS));
   const [showOnlyNeedsFollowUp, setShowOnlyNeedsFollowUp] = useState(false);
@@ -141,7 +141,17 @@ function OutreachPage() {
     setIsLoading(true);
     try {
       const fetchedProspects = await getProspects();
-      setProspects(fetchedProspects);
+       const sortedProspects = fetchedProspects.sort((a, b) => {
+            const aFollowUp = a.followUpNeeded || false;
+            const bFollowUp = b.followUpNeeded || false;
+            if (aFollowUp !== bFollowUp) {
+                return aFollowUp ? -1 : 1;
+            }
+            const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+            const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+            return dateB.getTime() - dateA.getTime();
+        });
+      setProspects(sortedProspects);
     } catch (error) {
       console.error("Error fetching prospects:", error);
       toast({ title: "Error", description: "Could not fetch prospects.", variant: "destructive" });
@@ -149,24 +159,7 @@ function OutreachPage() {
       setIsLoading(false);
     }
   }, [user, toast]);
-
-  const handleUpdateLegacy = async () => {
-    setIsUpdatingLegacy(true);
-    toast({ title: "Fixing legacy prospects...", description: "This may take a moment." });
-    try {
-        const count = await updateMissingProspectTimestamps();
-        if (count > 0) {
-            toast({ title: "Success!", description: `Updated ${count} legacy prospect(s). Refreshing list.` });
-        } else {
-            toast({ title: "No action needed.", description: "All prospects seem to be up-to-date." });
-        }
-        await fetchProspects(); // Refresh the list
-    } catch (error: any) {
-        toast({ title: "Error", description: error.message || "Failed to update prospects.", variant: "destructive" });
-    } finally {
-        setIsUpdatingLegacy(false);
-    }
-};
+  
 
   useEffect(() => {
     const query = searchParams.get('q');
@@ -234,9 +227,7 @@ function OutreachPage() {
         lastContacted: newLastContacted,
         statusHistory: newStatusHistory
       });
-      setProspects(prevProspects => 
-        prevProspects.map(p => p.id === prospectId ? { ...p, status: newStatus, lastContacted: newLastContacted, statusHistory: newStatusHistory } : p)
-      );
+      fetchProspects();
       toast({ title: "Status Updated", description: `Prospect status changed to ${newStatus}.` });
     } catch (error) {
       console.error("Error updating status:", error);
@@ -309,39 +300,45 @@ function OutreachPage() {
     setCurrentScriptGenerationInput(input);
 
     const onConfirmScript = async (scriptContent: string) => {
-        const currentHistory = prospect.conversationHistory || '';
-        const newHistory = `${currentHistory}${currentHistory ? '\n\n' : ''}Me: ${scriptContent}`.trim();
-        const contactDate = new Date().toISOString();
+      const prospectToUpdate = prospects.find(p => p.id === prospect.id);
+      if (!prospectToUpdate) {
+        toast({ title: "Error", description: "Could not find prospect to update.", variant: "destructive" });
+        return;
+      }
 
-        const updates: Partial<OutreachProspect> = {
-            conversationHistory: newHistory,
-            lastContacted: contactDate,
-            lastScriptSent: scriptType,
-        };
+      const currentHistory = prospectToUpdate.conversationHistory || '';
+      const newHistory = `${currentHistory}${currentHistory ? '\n\n' : ''}Me: ${scriptContent}`.trim();
+      const contactDate = new Date().toISOString();
 
-        let newStatus: OutreachLeadStage | undefined;
-        if (prospect.status === 'To Contact' && scriptType === 'Cold Outreach DM') {
-            newStatus = 'Cold';
-        } else if (prospect.status === 'Cold' && scriptType === 'Warm Follow-Up DM') {
-            newStatus = 'Warm';
-        } else if (scriptType === 'Audit Delivery Message') {
-            newStatus = 'Audit Delivered';
-            updates.linkSent = true;
-        }
-        
-        if (newStatus) {
-            updates.status = newStatus;
-            updates.statusHistory = [...(prospect.statusHistory || []), { status: newStatus, date: contactDate }];
-        }
-        
-        try {
-            await updateProspect(prospect.id, updates);
-            toast({ title: "Conversation Updated", description: "Script has been saved to the conversation history and status updated." });
-            setIsScriptModalOpen(false);
-            fetchProspects();
-        } catch (error: any) {
-            toast({ title: "Update Failed", description: error.message || 'Could not update prospect history.', variant: 'destructive' });
-        }
+      const updates: Partial<OutreachProspect> = {
+          conversationHistory: newHistory,
+          lastContacted: contactDate,
+          lastScriptSent: scriptType,
+      };
+
+      let newStatus: OutreachLeadStage | undefined;
+      if (prospectToUpdate.status === 'To Contact' && scriptType === 'Cold Outreach DM') {
+          newStatus = 'Cold';
+      } else if (prospectToUpdate.status === 'Cold' && scriptType.includes('Follow-Up')) {
+          newStatus = 'Warm';
+      } else if (scriptType === 'Audit Delivery Message') {
+          newStatus = 'Audit Delivered';
+          updates.linkSent = true;
+      }
+      
+      if (newStatus) {
+          updates.status = newStatus;
+          updates.statusHistory = [...(prospectToUpdate.statusHistory || []), { status: newStatus, date: contactDate }];
+      }
+      
+      try {
+          await updateProspect(prospectToUpdate.id, updates);
+          toast({ title: "Conversation Updated", description: "Script has been saved to the conversation history and status updated." });
+          setIsScriptModalOpen(false);
+          fetchProspects();
+      } catch (error: any) {
+          toast({ title: "Update Failed", description: error.message || 'Could not update prospect history.', variant: 'destructive' });
+      }
     };
     
     setScriptModalConfig({
@@ -364,7 +361,7 @@ function OutreachPage() {
     } finally {
         setIsGeneratingScript(false);
     }
-  }, [fetchProspects, toast]);
+  }, [prospects, fetchProspects, toast]);
 
   const handleSendQualifier = useCallback(async (prospect: OutreachProspect, question: string) => {
       try {
@@ -587,6 +584,47 @@ function OutreachPage() {
       }
   };
 
+  const handleExportToCSV = () => {
+    if (filteredProspects.length === 0) {
+      toast({
+        title: "No Data to Export",
+        description: "The current view has no prospects to export.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const dataForCSV = filteredProspects.map(p => ({
+      "Name": p.name,
+      "Instagram Handle": p.instagramHandle,
+      "Status": p.status,
+      "Lead Score": p.leadScore,
+      "Followers": p.followerCount,
+      "Email": p.email,
+      "Website": p.website,
+      "Last Contacted": p.lastContacted ? new Date(p.lastContacted).toLocaleDateString() : 'N/A',
+      "Follow-up Date": p.followUpDate ? new Date(p.followUpDate).toLocaleDateString() : 'N/A',
+      "Created At": new Date(p.createdAt).toLocaleDateString(),
+      "Pain Points": p.painPoints?.join(', '),
+      "Goals": p.goals?.join(', '),
+      "Notes": p.notes,
+    }));
+
+    const csv = papa.unparse(dataForCSV);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", `prospects_export_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
+
   if (authLoading || (isLoading && !prospects.length && user)) {
     return <div className="flex justify-center items-center h-screen"><LoadingSpinner text="Loading outreach prospects..." size="lg"/></div>;
   }
@@ -745,7 +783,7 @@ function OutreachPage() {
       return (
         <TableRow>
           <TableCell colSpan={6} className="text-center h-24">
-            <div className="flex flex-col items-center justify-center">
+             <div className="flex flex-col items-center justify-center">
               <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
               <p className="font-semibold">
                 {prospects.length === 0 && searchTerm === ''
@@ -939,13 +977,13 @@ function OutreachPage() {
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="outline" size="icon" onClick={handleUpdateLegacy} disabled={isUpdatingLegacy || isLoading}>
-                      {isUpdatingLegacy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wrench className="h-4 w-4" />}
-                      <span className="sr-only">Fix legacy prospects</span>
+                    <Button variant="outline" size="icon" onClick={handleExportToCSV} disabled={isLoading}>
+                      <FileUp className="h-4 w-4" />
+                      <span className="sr-only">Export to CSV</span>
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Fix prospects missing a creation date.</p>
+                    <p>Export current view to CSV</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
