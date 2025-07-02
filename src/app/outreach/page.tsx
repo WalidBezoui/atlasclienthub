@@ -167,10 +167,14 @@ function OutreachPage() {
 
   const handleStatusChange = useCallback(async (prospectId: string, newStatus: OutreachLeadStage) => {
     if (!user) return;
+    const newLastContacted = new Date().toISOString();
     try {
-      await updateProspect(prospectId, { status: newStatus });
+      await updateProspect(prospectId, { 
+        status: newStatus,
+        lastContacted: newLastContacted,
+      });
       setProspects(prevProspects => 
-        prevProspects.map(p => p.id === prospectId ? { ...p, status: newStatus } : p)
+        prevProspects.map(p => p.id === prospectId ? { ...p, status: newStatus, lastContacted: newLastContacted } : p)
       );
       toast({ title: "Status Updated", description: `Prospect status changed to ${newStatus}.` });
     } catch (error) {
@@ -199,38 +203,6 @@ function OutreachPage() {
     setScriptModalTitle(title);
     setGeneratedScript("Failed to generate script. Please try again.");
   };
-  
-  const handleConfirmScript = useCallback(async (scriptContent: string) => {
-    if (!currentProspectForScript) {
-      toast({ title: "Error", description: "Prospect context was lost.", variant: "destructive" });
-      return;
-    }
-
-    const prospect = currentProspectForScript;
-    const scriptType = currentScriptGenerationInput?.scriptType || 'Generated Script';
-
-    const currentHistory = prospect.conversationHistory || '';
-    const newHistory = `${currentHistory}${currentHistory ? '\n\n' : ''}Me: ${scriptContent}`.trim();
-
-    const updates: Partial<OutreachProspect> = {
-      conversationHistory: newHistory,
-      lastContacted: new Date().toISOString(),
-      lastScriptSent: scriptType,
-    };
-
-    if (prospect.status === 'To Contact') {
-      updates.status = 'Cold';
-    }
-
-    try {
-      await updateProspect(prospect.id, updates);
-      toast({ title: "History Updated", description: "Script sent and logged in conversation history." });
-      setIsScriptModalOpen(false);
-      fetchProspects();
-    } catch (error: any) {
-      toast({ title: "Update Failed", description: error.message || 'Could not update prospect history.', variant: 'destructive' });
-    }
-  }, [currentProspectForScript, currentScriptGenerationInput, fetchProspects, toast]);
 
   const handleGenerateScript = useCallback(async (prospect: OutreachProspect, scriptType: GenerateContextualScriptInput['scriptType']) => {
     setCurrentProspectForScript(prospect);
@@ -274,10 +246,35 @@ function OutreachPage() {
     };
     
     setCurrentScriptGenerationInput(input);
+
+    const onConfirmScript = async (scriptContent: string) => {
+        const currentHistory = prospect.conversationHistory || '';
+        const newHistory = `${currentHistory}${currentHistory ? '\n\n' : ''}Me: ${scriptContent}`.trim();
+
+        const updates: Partial<OutreachProspect> = {
+            conversationHistory: newHistory,
+            lastContacted: new Date().toISOString(),
+            lastScriptSent: scriptType,
+        };
+
+        if (prospect.status === 'To Contact') {
+            updates.status = 'Cold';
+        }
+        
+        try {
+            await updateProspect(prospect.id, updates);
+            toast({ title: "Conversation Updated", description: "Script has been saved to the conversation history." });
+            setIsScriptModalOpen(false);
+            fetchProspects();
+        } catch (error: any) {
+            toast({ title: "Update Failed", description: error.message || 'Could not update prospect history.', variant: 'destructive' });
+        }
+    };
+    
     setScriptModalConfig({
         showConfirmButton: true,
-        confirmButtonText: "Send & Add to History",
-        onConfirm: handleConfirmScript,
+        confirmButtonText: "Save to Conversation",
+        onConfirm: onConfirmScript,
     });
     
     try {
@@ -294,14 +291,15 @@ function OutreachPage() {
     } finally {
         setIsGeneratingScript(false);
     }
-  }, [fetchProspects, toast, handleConfirmScript]);
+  }, [fetchProspects, toast]);
 
   const handleSendQualifier = useCallback(async (prospectId: string, question: string) => {
       try {
           await updateProspect(prospectId, {
               qualifierQuestion: question,
               qualifierSentAt: new Date().toISOString(),
-              status: 'Qualifier Sent'
+              status: 'Qualifier Sent',
+              lastContacted: new Date().toISOString(),
           });
           toast({ title: "Qualifier Sent!", description: "Prospect status updated." });
           fetchProspects();
