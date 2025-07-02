@@ -71,7 +71,7 @@ const prompt = ai.definePrompt({
 **USER-PROVIDED CONTEXT:**
 The user has provided this definitive clarification: "{{clarificationResponse}}".
 ---
-**ACTION:** Use this new ground-truth context to refine your entire analysis. This overrides any previous assumptions. If the clarification was about profitability, visuals, or content, update the relevant field (\`profitabilityPotential\`, \`hasInconsistentGrid\`, etc.). Recalculate and regenerate the entire output based on this new information.
+**ACTION:** Use this new ground-truth context to refine your entire analysis. This overrides any previous assumptions. Recalculate and regenerate the entire output based on this new information. Then, check if another question is needed based on the priority order.
 ---
 {{/if}}
 
@@ -114,22 +114,21 @@ The user has provided this definitive clarification: "{{clarificationResponse}}"
 - *Example Good Summary*: "This is a high-ticket coaching business with a large but disengaged audience. The primary opportunity is to improve their content strategy to convert existing followers into clients, making them a strong potential lead."
 
 **Step 7: Prioritized Clarification Questions**
-- **YOUR GOAL**: Identify the single most important ambiguity and ask a clarifying question to resolve it. If you have no important ambiguities, return null for \`clarificationRequest\`.
+- **YOUR GOAL**: Identify the single most important ambiguity and ask a clarifying question to resolve it. If you have no important ambiguities after getting user input, return null for \`clarificationRequest\`.
 - **PRIORITY ORDER**:
-    1. Profitability (If unknown, ask this first).
-    2. Visuals (If profitability is clear, ask this next).
-    3. Content Strategy (If both profitability and visuals are clear, ask this).
+    1.  **Profitability (If unknown, ask this first)**. This is the most important question to determine if the lead is viable.
+    2.  **Visual Feed (ALWAYS ask this next if profitability is clear)**. Since you cannot see the feed, you MUST get the user's input on their visual branding. This is not optional.
+    3.  **Content Strategy (If both profitability and visuals are clear)**. Ask this to find the best angle for outreach.
 
 - **A. Profitability Question (if needed)**:
   - Scenario: Bio is "Wellness | Movement | NYC". Problem: Could be free tips or $5k retreats.
   - Good Question: "What best describes their wellness business?"
   - Good Options: ["High-ticket 1-on-1 coaching", "Selling physical products (e.g., yoga mats)", "Promoting affiliate links & brand deals", "It's a personal blog for sharing tips"]
 
-- **B. Visual Feed Question (if needed)**:
-  - Scenario: Product-based business with clear profitability.
-  - Problem: Is their branding strong enough to sell a product?
+- **B. Visual Feed Question (MANDATORY if profitability is clear)**:
+  - You MUST ask this question if the business model is understood but you haven't received user feedback on the visuals yet (i.e., `hasInconsistentGrid` is still 'unknown').
   - Good Question: "Looking at their feed, how would you describe their visual branding?"
-  - GoodOptions: ["Looks professional, consistent, and on-brand", "It's clean but looks like a generic product catalog", "The grid feels a bit messy and unplanned", "There's not enough content to tell"]
+  - Good Options: ["Looks professional, consistent, and on-brand", "It's clean but looks like a generic product catalog", "The grid feels a bit messy and unplanned", "There's not enough content to tell"]
 
 - **C. Content Strategy Question (if needed)**:
   - Scenario: A coach with clear profitability and the user said their feed looks "Polished and cohesive".
@@ -137,7 +136,7 @@ The user has provided this definitive clarification: "{{clarificationResponse}}"
   - Good Question: "Given their polished feed, what's the biggest strategic opportunity for their content?"
   - Good Options: ["Reaching a wider audience (Top of Funnel)", "Increasing engagement with existing followers (Middle of Funnel)", "Converting followers into paying clients (Bottom of Funnel)", "Their strategy seems solid already"]
 
-Now, perform the analysis and return the complete JSON object according to the SOP.`,
+Now, perform the analysis and return the complete JSON object according to the SOP. Remember to prioritize asking questions if critical information is missing.`,
 }));
 
 const qualifyProspectFlow = ai.defineFlow(
