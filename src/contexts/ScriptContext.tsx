@@ -4,11 +4,11 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 export interface ClientScriptContext {
-  clientHandle?: string;
-  clientIndustry?: string; // Example: "Beauty Salon", "Fitness Coach"
-  clientName?: string;
-  lastTouch?: string; // Example: "None", "Sent intro DM 3 days ago"
-  desiredAction?: string; // Example: "Free Audit Offer", "Book a call"
+  clientHandle?: string | null;
+  clientIndustry?: string | null;
+  clientName?: string | null;
+  lastTouch?: string | null; 
+  desiredAction?: string | null;
 }
 
 export interface ContentScriptContext {

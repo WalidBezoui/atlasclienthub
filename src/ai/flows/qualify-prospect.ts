@@ -127,7 +127,7 @@ The user has provided this definitive clarification: "{{clarificationResponse}}"
 
 - **B. Visual Feed Question (if needed)**:
   - Scenario: Product-based business with clear profitability.
-  - Problem: Is their branding strong enough to sell products?
+  - Problem: Is their branding strong enough to sell a product?
   - Good Question: "Looking at their feed, how would you describe their visual branding?"
   - GoodOptions: ["Looks professional, consistent, and on-brand", "It's clean but looks like a generic product catalog", "The grid feels a bit messy and unplanned", "There's not enough content to tell"]
 
@@ -151,4 +151,3 @@ const qualifyProspectFlow = ai.defineFlow(
     return output!;
   }
 );
-

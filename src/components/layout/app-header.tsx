@@ -52,40 +52,34 @@ export function AppHeader() {
     return email.substring(0, 2).toUpperCase();
   };
 
-  const handleGenerateScript = async (scriptType: ScriptType, additionalNotes?: string) => {
+  const handleGenerateScript = async (scriptType: ScriptType) => {
     setIsGeneratingScript(true);
     setIsScriptModalOpen(true);
     setGeneratedScript(''); 
     setScriptModalTitle(`Generating ${scriptType}...`);
     
-    let input: GenerateContextualScriptInput = { scriptType, additionalNotes };
+    let input: Partial<GenerateContextualScriptInput> = { scriptType };
 
     if (clientContext) {
       input = {
         ...input,
         clientHandle: clientContext.clientHandle,
         clientName: clientContext.clientName,
-        clientIndustry: clientContext.clientIndustry || "Not Specified", 
+        clientIndustry: clientContext.clientIndustry, 
         lastTouch: clientContext.lastTouch,
-        desiredAction: clientContext.desiredAction,
       };
-    } else if (contentContext) { 
-      input = {
-        ...input,
-        postTopic: contentContext.postTopic,
-        brandVoice: contentContext.brandVoice,
-        objectives: contentContext.objectives,
-      };
-    } else if (scriptMenuItems.find(item => item.type === scriptType)?.contextRequired === 'client') {
-      toast({ title: "Generating Generic Script", description: `No client context set. A generic "${scriptType}" will be generated.`, variant: "default" });
-    } else if (scriptMenuItems.find(item => item.type === scriptType)?.contextRequired === 'content') {
-       toast({ title: "Generating Generic Script", description: `No content context set. A generic "${scriptType}" will be generated.`, variant: "default" });
     }
     
-    setCurrentScriptGenerationInput(input);
+    // Fallback logic for when context isn't available
+    const requiresClientContext = ["Cold Outreach DM", "Warm Follow-Up DM", "Audit Delivery Message", "Send Reminder", "Soft Close"].includes(scriptType);
+    if(requiresClientContext && !clientContext) {
+        toast({ title: "Generating Generic Script", description: `No client context set. A generic "${scriptType}" will be generated.`, variant: "default" });
+    }
+
+    setCurrentScriptGenerationInput(input as GenerateContextualScriptInput);
 
     try {
-      const result: GenerateContextualScriptOutput = await generateContextualScript(input);
+      const result: GenerateContextualScriptOutput = await generateContextualScript(input as GenerateContextualScriptInput);
       setGeneratedScript(result.script);
       setScriptModalTitle(`${scriptType} - Result`);
     } catch (error) {
@@ -124,8 +118,8 @@ export function AppHeader() {
     { label: "Cold Outreach DM", type: "Cold Outreach DM", contextRequired: 'client' },
     { label: "Warm Follow-Up DM", type: "Warm Follow-Up DM", contextRequired: 'client' },
     { label: "Audit Delivery Message", type: "Audit Delivery Message", contextRequired: 'client' },
-    // { label: "Closing Pitch", type: "Closing Pitch", contextRequired: 'client' },
-    // { label: "Caption Idea", type: "Caption Idea", contextRequired: 'content' }, // Example for content context
+    { label: "Send Reminder", type: "Send Reminder", contextRequired: 'client' },
+    { label: "Soft Close", type: "Soft Close", contextRequired: 'client' },
   ];
 
   const isScriptMenuButtonDisabled = () => {
@@ -174,9 +168,6 @@ export function AppHeader() {
                         </MenubarItem>
                     );
                   })}
-                  {/* <MenubarSeparator />
-                  <MenubarItem disabled>Custom Scripts (Soon)</MenubarItem>
-                  <MenubarItem disabled>History (Soon)</MenubarItem> */}
                 </MenubarContent>
               </MenubarMenu>
             </Menubar>

@@ -285,7 +285,7 @@ export default function ClientsPage() {
     setClientContext({
       clientHandle: client.instagramHandle,
       clientName: client.name,
-      clientIndustry: client.industry || "Not Specified",
+      clientIndustry: client.industry,
     });
     setIsFormOpen(true);
   };
