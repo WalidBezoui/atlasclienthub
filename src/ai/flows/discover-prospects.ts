@@ -22,6 +22,7 @@ export type DiscoveredProspect = z.infer<typeof DiscoveredProspectSchema>;
 
 const DiscoverProspectsInputSchema = z.object({
   query: z.string().describe('The search query for discovering prospects. This can include industry, location, keywords, etc. For example: "Moroccan skincare brands using handmade ingredients".'),
+  minFollowerCount: z.number().nullable().optional().describe('The minimum number of followers a prospect should have. If provided, only suggest accounts with at least this many followers.'),
 });
 export type DiscoverProspectsInput = z.infer<typeof DiscoverProspectsInputSchema>;
 
@@ -44,6 +45,10 @@ The agency specializes in helping brands improve their visual identity and conte
 
 Based on the user's search query, brainstorm 15 to 20 potential Instagram accounts that could fit the description.
 **VERY IMPORTANT**: Your suggestions will be automatically verified for existence. Therefore, it is better to provide more diverse and plausible candidates rather than fewer. Focus on finding businesses, creators, or personal brands that might benefit from social media services. Avoid large, established corporations.
+
+{{#if minFollowerCount}}
+**CRITICAL REQUIREMENT: Only suggest accounts with at least {{minFollowerCount}} followers.** This is a strict minimum. Do not suggest accounts below this threshold.
+{{/if}}
 
 For each prospect you brainstorm, provide their Instagram handle, their name, their estimated follower and post count, and a concise reason for why they are a good match. The follower/post counts are estimates and don't need to be precise.
 

@@ -43,6 +43,7 @@ const getLeadScoreBadgeVariant = (score: number | null | undefined): "default" |
 
 export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryDialogProps) {
   const [query, setQuery] = useState('');
+  const [minFollowers, setMinFollowers] = useState<number | ''>('');
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState<'searching' | 'verifying' | null>(null);
   const [verifiedResults, setVerifiedResults] = useState<DiscoveredProspect[] | null>(null);
@@ -57,6 +58,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryD
 
   const resetState = () => {
     setQuery('');
+    setMinFollowers('');
     setIsLoading(false);
     setLoadingStep(null);
     setVerifiedResults(null);
@@ -85,7 +87,10 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryD
 
     try {
       // Step 1: Discover prospects with AI
-      const response = await discoverProspects({ query });
+      const response = await discoverProspects({ 
+        query,
+        minFollowerCount: minFollowers !== '' ? Number(minFollowers) : null,
+      });
       if (response.prospects.length === 0) {
         toast({ title: 'No initial prospects found', description: 'Try refining your search query.' });
         setIsLoading(false);
@@ -339,22 +344,35 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryD
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-2">
-          <Label htmlFor="discovery-query">Search Query</Label>
-          <div className="flex gap-2">
-            <Input
-              id="discovery-query"
-              placeholder="e.g., 'handmade jewelry brands in Casablanca'"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-              disabled={isLoading}
-            />
+        <div className="grid sm:grid-cols-[1fr_auto] gap-2 items-end">
+            <div className="grid grid-cols-2 gap-2">
+                <div>
+                    <Label htmlFor="discovery-query" className="text-xs">Search Query</Label>
+                    <Input
+                        id="discovery-query"
+                        placeholder="e.g., 'handmade jewelry brands'"
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                        disabled={isLoading}
+                    />
+                </div>
+                <div>
+                    <Label htmlFor="min-followers" className="text-xs">Min Followers</Label>
+                    <Input
+                        id="min-followers"
+                        type="number"
+                        placeholder="e.g., 1000"
+                        value={minFollowers}
+                        onChange={(e) => setMinFollowers(e.target.value === '' ? '' : Number(e.target.value))}
+                        disabled={isLoading}
+                    />
+                </div>
+            </div>
             <Button onClick={handleSearch} disabled={isLoading || !query.trim()}>
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-              Discover
+                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                Discover
             </Button>
-          </div>
         </div>
         <Separator className="my-4" />
 
