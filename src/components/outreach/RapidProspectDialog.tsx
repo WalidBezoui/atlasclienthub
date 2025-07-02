@@ -27,8 +27,7 @@ type RapidProspectDialogProps = {
 export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDialogProps) {
   const [step, setStep] = useState(1);
   const [instagramHandle, setInstagramHandle] = useState('');
-  const [isFetching, setIsFetching] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
   const [fetchedMetrics, setFetchedMetrics] = useState<InstagramMetrics | null>(null);
@@ -44,9 +43,8 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
   const resetState = () => {
     setStep(1);
     setInstagramHandle('');
-    setIsFetching(false);
+    setIsLoading(false);
     setIsSaving(false);
-    setIsAnalyzing(false);
     setFetchedMetrics(null);
     setAnalysisResult(null);
     setLastQuestionAsked(null);
@@ -59,54 +57,51 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
     onClose();
   };
   
-  const handleAnalyze = async (metrics: InstagramMetrics) => {
-    setIsAnalyzing(true);
-    setAnalysisResult(null);
-    try {
-      const input: QualifyProspectInput = {
-        instagramHandle: instagramHandle,
-        followerCount: metrics.followerCount,
-        postCount: metrics.postCount,
-        avgLikes: metrics.avgLikes,
-        avgComments: metrics.avgComments,
-        biography: metrics.biography || null,
-        qualificationData: undefined, // Start with a clean slate
-      };
-      const result = await qualifyProspect(input);
-      setAnalysisResult(result);
-      if (result.clarificationRequest) {
-        setLastQuestionAsked(result.clarificationRequest.question);
-      }
-      setStep(3);
-    } catch (error: any) {
-      toast({ title: 'AI Analysis Failed', description: error.message, variant: 'destructive' });
-      setStep(1);
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
-  const handleFetch = async () => {
+  const handleFetchAndAnalyze = async () => {
     if (!instagramHandle) {
       toast({ title: 'Instagram Handle is required', variant: 'destructive' });
       return;
     }
-    setIsFetching(true);
-    setStep(2); // Move to loading step immediately
+    
+    setIsLoading(true);
+    setStep(2);
+    setFetchedMetrics(null);
+    setAnalysisResult(null);
+
     try {
-      const result = await fetchInstagramMetrics(instagramHandle);
-      if (result.error || !result.data) {
-        toast({ title: 'Failed to fetch metrics', description: result.error || 'The profile may be private or invalid.', variant: 'destructive' });
-        setStep(1);
-      } else {
-        setFetchedMetrics(result.data);
-        await handleAnalyze(result.data); // Immediately analyze after fetching
+      // PART 1: Fetch Metrics
+      const metricsResult = await fetchInstagramMetrics(instagramHandle);
+      if (metricsResult.error || !metricsResult.data) {
+        throw new Error(metricsResult.error || 'The profile may be private or invalid.');
       }
+      
+      setFetchedMetrics(metricsResult.data);
+      toast({ title: "Metrics Fetched!", description: "Now running AI qualification..." });
+
+      // PART 2: Analyze
+      const analyzeInput: QualifyProspectInput = {
+        instagramHandle: instagramHandle,
+        followerCount: metricsResult.data.followerCount,
+        postCount: metricsResult.data.postCount,
+        avgLikes: metricsResult.data.avgLikes,
+        avgComments: metricsResult.data.avgComments,
+        biography: metricsResult.data.biography || null,
+        qualificationData: undefined,
+      };
+
+      const initialAnalysisResult = await qualifyProspect(analyzeInput);
+      setAnalysisResult(initialAnalysisResult);
+      if (initialAnalysisResult.clarificationRequest) {
+        setLastQuestionAsked(initialAnalysisResult.clarificationRequest.question);
+      }
+
+      setStep(3);
+
     } catch (error: any) {
-      toast({ title: 'An error occurred', description: error.message, variant: 'destructive' });
+      toast({ title: 'Process Failed', description: error.message, variant: 'destructive' });
       setStep(1);
     } finally {
-      setIsFetching(false);
+      setIsLoading(false);
     }
   };
   
@@ -114,10 +109,8 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
     if (!fetchedMetrics || !clarificationResponse || !analysisResult?.qualificationData) return;
     setIsReanalyzing(true);
 
-    // 1. Create a mutable copy of the current qualification data
     const updatedData = { ...analysisResult.qualificationData };
 
-    // 2. Update the data based on the last question asked
     if (lastQuestionAsked?.includes("make money")) {
         if (clarificationResponse.includes("high-ticket")) updatedData.profitabilityPotential = 'high';
         else if (clarificationResponse.includes("physical products")) updatedData.profitabilityPotential = 'medium';
@@ -134,7 +127,6 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
         else if (clarificationResponse.includes("Converting followers")) updatedData.valueProposition = 'leads';
     }
     
-    // 3. Call the AI with the *newly updated* state
     try {
       const input: QualifyProspectInput = {
         instagramHandle: instagramHandle,
@@ -143,9 +135,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
         avgLikes: fetchedMetrics.avgLikes,
         avgComments: fetchedMetrics.avgComments,
         biography: fetchedMetrics.biography || null,
-        // Pass the updated data
         qualificationData: updatedData as QualificationData,
-        // These are no longer needed by the AI
         lastQuestion: null,
         clarificationResponse: null,
       };
@@ -161,7 +151,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
         toast({ title: 'Analysis Complete!', description: 'The final prospect evaluation is ready.' });
       }
       
-      setClarificationResponse(undefined); // Reset for the next question
+      setClarificationResponse(undefined);
     } catch (error: any) {
       toast({ title: 'AI Re-analysis Failed', description: error.message, variant: 'destructive' });
     } finally {
@@ -214,7 +204,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
       qualifierQuestion: null,
       qualifierSentAt: null,
       qualifierReply: null,
-      createdAt: new Date().toISOString(), // Add createdAt
+      createdAt: new Date().toISOString(),
     };
     
     onSave(newProspect);
@@ -285,10 +275,10 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
                   placeholder="@username"
                   value={instagramHandle}
                   onChange={(e) => setInstagramHandle(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleFetch()}
+                  onKeyPress={(e) => e.key === 'Enter' && handleFetchAndAnalyze()}
                 />
-                <Button onClick={handleFetch} disabled={isFetching || !instagramHandle}>
-                  {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Fetch & Analyze'}
+                <Button onClick={handleFetchAndAnalyze} disabled={isLoading || !instagramHandle}>
+                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Fetch & Analyze'}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </div>
