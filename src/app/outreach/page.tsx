@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, Suspense, useRef } from 'react';
 import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, Bot, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileText, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare, Save, FileQuestion, GraduationCap, MoreHorizontal, Wrench } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import * as papa from 'papaparse';
@@ -130,7 +130,8 @@ function OutreachPage() {
   const [showUnsavedConfirm, setShowUnsavedConfirm] = useState(false);
   
   // State for Undo Delete
-  const [pendingDeletes, setPendingDeletes] = useState<Map<string, { prospect: OutreachProspect; timeoutId: NodeJS.Timeout; dismissToast: () => void;}>>(new Map());
+  const [pendingDeletes, setPendingDeletes] = useState<Map<string, { prospect: OutreachProspect; dismissToast: () => void;}>>(new Map());
+  const timeoutMapRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   const { toast } = useToast();
 
@@ -184,11 +185,15 @@ function OutreachPage() {
     if (!authLoading && user) {
       fetchProspects();
     }
-     // Cleanup timeouts on unmount
+  }, [user, authLoading, fetchProspects]);
+  
+  // Effect for cleaning up timeouts on unmount
+  useEffect(() => {
+    const timeouts = timeoutMapRef.current;
     return () => {
-      pendingDeletes.forEach(({ timeoutId }) => clearTimeout(timeoutId));
+      timeouts.forEach(clearTimeout);
     };
-  }, [user, authLoading, fetchProspects, pendingDeletes]);
+  }, []);
 
 
   const handleSaveProspect = useCallback(async (prospectData: Omit<OutreachProspect, 'id'|'userId'> | OutreachProspect) => {
@@ -215,37 +220,40 @@ function OutreachPage() {
     }
   }, [user, fetchProspects, toast]);
 
-    const handleUndoDelete = (prospectId: string) => {
-        const pendingDelete = pendingDeletes.get(prospectId);
-        if (pendingDelete) {
-            const { prospect, timeoutId, dismissToast } = pendingDelete;
-            clearTimeout(timeoutId);
-            dismissToast(); // Dismiss the "deleted" toast
+  const handleUndoDelete = (prospectId: string) => {
+    const timeoutId = timeoutMapRef.current.get(prospectId);
+    if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutMapRef.current.delete(prospectId);
+    }
 
-            // Add the prospect back to the list and re-sort
-            setProspects(current => sortProspects([...current, prospect]));
-            toast({ title: "Deletion Canceled", description: `"${prospect.name}" has been restored.` });
+    const pendingDeleteData = pendingDeletes.get(prospectId);
+    if (pendingDeleteData) {
+        const { prospect, dismissToast } = pendingDeleteData;
+        dismissToast();
 
-            // Clean up from pending deletes map
-            setPendingDeletes(current => {
-                const newMap = new Map(current);
-                newMap.delete(prospectId);
-                return newMap;
-            });
-        }
-    };
+        // Add the prospect back to the list and re-sort
+        setProspects(current => sortProspects([...current, prospect]));
+        toast({ title: "Deletion Canceled", description: `"${prospect.name}" has been restored.` });
+
+        // Clean up from pending deletes map
+        setPendingDeletes(current => {
+            const newMap = new Map(current);
+            newMap.delete(prospectId);
+            return newMap;
+        });
+    }
+  };
   
  const confirmDeleteProspect = () => {
     if (!prospectToDelete) return;
 
-    const DELETION_UNDO_DELAY = 8000; // 8 seconds
+    const DELETION_UNDO_DELAY = 8000;
     const prospect = { ...prospectToDelete };
-    setProspectToDelete(null); // Close dialog
+    setProspectToDelete(null);
 
-    // Optimistically remove from UI
     setProspects(current => current.filter(p => p.id !== prospect.id));
 
-    // Show toast with Undo action
     const { dismiss } = toast({
       title: "Prospect Deleted",
       description: `"${prospect.name}" will be removed permanently.`,
@@ -257,23 +265,22 @@ function OutreachPage() {
       ),
     });
 
-    // Set a timeout to perform the permanent delete
     const timeoutId = setTimeout(() => {
       fbDeleteProspect(prospect.id)
         .catch(err => {
           toast({ title: "Final Deletion Failed", description: `Could not delete "${prospect.name}". Restoring.`, variant: "destructive" });
-          handleUndoDelete(prospect.id); // Automatically restore on failure
+          handleUndoDelete(prospect.id);
         });
-      // Clean up from pending deletes map
       setPendingDeletes(current => {
         const newMap = new Map(current);
         newMap.delete(prospect.id);
         return newMap;
       });
+      timeoutMapRef.current.delete(prospect.id);
     }, DELETION_UNDO_DELAY);
 
-    // Add to pending deletes map so it can be undone
-    setPendingDeletes(current => new Map(current).set(prospect.id, { prospect, timeoutId, dismissToast: dismiss }));
+    timeoutMapRef.current.set(prospect.id, timeoutId);
+    setPendingDeletes(current => new Map(current).set(prospect.id, { prospect, dismissToast: dismiss }));
   };
 
   const handleStatusChange = useCallback(async (prospectId: string, newStatus: OutreachLeadStage) => {
@@ -939,29 +946,29 @@ function OutreachPage() {
         </TableRow>
       ));
     }
-    // This case handles when there are prospects, but the filter returns none
-    if (prospects.length > 0 && filteredProspects.length === 0) {
+    // This case handles when there are no prospects at all
+    if (prospects.length === 0) {
         return (
             <TableRow>
                 <TableCell colSpan={6} className="text-center h-24">
                     <div className="flex flex-col items-center justify-center">
                         <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
-                        <p className="font-semibold">No prospects found matching your criteria.</p>
+                        <p className="font-semibold">No prospects found.</p>
+                        <p className="text-sm text-muted-foreground">
+                            Start building your outreach list by <Button variant="link" className="p-0 h-auto" onClick={() => setIsRapidAddOpen(true)}>adding your first prospect</Button>!
+                        </p>
                     </div>
                 </TableCell>
             </TableRow>
         );
     }
-    // This is the initial state when there are no prospects at all
+    // This case handles when there are prospects, but the filter returns none
     return (
         <TableRow>
             <TableCell colSpan={6} className="text-center h-24">
                 <div className="flex flex-col items-center justify-center">
                     <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
-                    <p className="font-semibold">No prospects found.</p>
-                    <p className="text-sm text-muted-foreground">
-                        Start building your outreach list by <Button variant="link" className="p-0 h-auto" onClick={() => setIsRapidAddOpen(true)}>adding your first prospect</Button>!
-                    </p>
+                    <p className="font-semibold">No prospects found matching your criteria.</p>
                 </div>
             </TableCell>
         </TableRow>
@@ -1177,5 +1184,3 @@ export default function OutreachPageWrapper() {
         </Suspense>
     )
 }
-
-    
