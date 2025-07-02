@@ -30,7 +30,6 @@ const QualifyProspectInputSchema = z.object({
   avgLikes: z.number().nullable().describe("Average likes on recent posts."),
   avgComments: z.number().nullable().describe("Average comments on recent posts."),
   biography: z.string().nullable().describe("The prospect's Instagram bio text."),
-  userClarification: z.string().nullable().optional().describe("DEPRECATED. Use clarificationResponse instead."),
   clarificationResponse: z.string().nullable().optional().describe("The user's selected answer from a previous multiple-choice clarification request."),
 });
 export type QualifyProspectInput = z.infer<typeof QualifyProspectInputSchema>;
@@ -56,7 +55,7 @@ const prompt = ai.definePrompt({
   name: 'qualifyProspectPrompt',
   input: {schema: QualifyProspectInputSchema},
   output: {schema: QualifyProspectOutputSchema},
-  prompt: `You are an expert Instagram growth strategist and business analyst. Your task is to analyze a new prospect based on their metrics and bio to determine their potential as a lead, with a **strong focus on their potential profitability and ability to invest in marketing services.**
+  prompt: `You are an expert Instagram growth strategist and business analyst. Your primary objective is to qualify a new prospect by analyzing their metrics and bio to determine their potential as a high-quality lead, with a **strong focus on their ability and likelihood to invest in marketing services.**
 
 **PROSPECT DATA:**
 - **Handle:** {{instagramHandle}}
@@ -67,58 +66,71 @@ const prompt = ai.definePrompt({
 - **Avg. Comments:** {{#if avgComments}}{{avgComments}}{{else}}N/A{{/if}}
 
 {{#if clarificationResponse}}
-**ADDITIONAL USER-PROVIDED CONTEXT:**
+**USER-PROVIDED CONTEXT:**
 The user has clarified that the prospect's business is best described as: "{{clarificationResponse}}".
 ---
-Use this new, definitive context to refine your entire analysis, especially the profitability assessment. This is the ground truth.
+**ACTION:** Use this new, definitive context to refine your entire analysis, especially the profitability assessment. This is the ground truth. Recalculate and regenerate the entire output based on this new information.
 ---
 {{/if}}
 
-**ANALYSIS & QUALIFICATION TASK (THINK STEP-BY-STEP):**
+**STANDARD OPERATING PROCEDURE (SOP):**
 
-1.  **Business & Niche Analysis**: First, determine if this is a business or a personal account. Read the bio to understand their niche, what they do, and who they serve. Look for commercial keywords like "coach," "shop," "founder," "e-commerce," "service," "book a call," etc. Set \`isBusiness\` accordingly.
+**Step 1: Business Model Triage**
+- Is this a business or a personal account? Look for commercial keywords ("coach," "shop," "founder," "e-commerce," "service," "book a call," etc.). Set \`isBusiness\`.
+- What do they sell? Is it a product, a service, or content? Is it high-ticket or low-ticket? This is the first clue for profitability.
 
-2.  **Profitability Potential Analysis (CRITICAL)**: Assess the prospect's likely financial standing. Your goal is to determine if this is a hobby or a serious business that can afford services.
-    -   **High Potential**: Look for signals of a real business with revenue. Examples: Sells high-ticket services (coaching, consulting, agency services), has a professional website with a custom domain, established e-commerce store, multiple employees mentioned, very polished branding.
-    -   **Medium Potential**: Look for signals of a growing or small business. Examples: Sells physical products (e.g., Etsy, clothing), offers paid services but branding is less polished, uses Linktree but it's well-organized, active but smaller-scale commercial activity.
-    -   **Low Potential**: Look for signals of a hobbyist or pre-revenue venture. Examples: Personal blog, affiliate marketing focus, no clear product/service, selling low-cost digital items (e-books, templates), unprofessional bio.
-    -   **Action**: Based on this analysis, set the \`profitabilityPotential\` field to 'low', 'medium', or 'high'.
+**Step 2: Profitability Assessment (CRITICAL)**
+- Assess the prospect's likely financial standing. Your goal is to determine if this is a serious business that can afford services.
+- **High Potential**: Sells high-ticket services (coaching, consulting), has a professional website with a custom domain, established e-commerce store with multiple products, has a physical location, or polished branding that implies significant investment.
+- **Medium Potential**: Sells physical products (e.g., Etsy, clothing), offers paid services but branding is less polished, uses a Linktree but it's well-organized with clear offers.
+- **Low Potential**: Hobbyist or pre-revenue venture. Focus on affiliate marketing, selling low-cost digital items (templates, e-books), no clear product/service, unprofessional bio.
+- **Action**: Set the \`profitabilityPotential\` field to 'low', 'medium', or 'high'. This is the most important factor in the lead score.
 
-3.  **Engagement & Opportunity Analysis**:
-    -   Evaluate their Call-to-Action (CTA) in the bio. Is it clear, vague, or missing? Set \`hasNoClearCTA\`.
-    -   Evaluate their engagement rate. A rule of thumb is 1-3% (avg likes / followers) is average. If it's low, especially with high followers, set \`hasLowEngagement\` to 'yes'.
-    -   Infer grid consistency. If their bio claims a professional service but engagement is very low, it might suggest a visual or branding mismatch. Set \`hasInconsistentGrid\`.
+**Step 3: Opportunity Analysis (Inferring from Data)**
+- Since you cannot see the feed, you must make logical inferences.
+- **CTA**: Analyze the bio's Call-to-Action. Is it strong ("Book a call"), weak ("link in bio"), or missing? Set \`hasNoClearCTA\`.
+- **Engagement**: An average engagement rate is 1-3% (avg likes / followers). If the rate is very low, especially with many followers, it's a strong signal their content isn't resonating. Set \`hasLowEngagement\`.
+- **Visuals/Branding**: If the bio presents a professional service but engagement is low, it suggests a branding or visual mismatch (\`hasInconsistentGrid\`). If they are a visual brand (e.g., design, fashion) and have low engagement, this is also a strong signal.
 
-4.  **Fill Qualification Data**: Complete the full 'qualificationData' object based on your analysis.
+**Step 4: Synthesize & Score**
+- Based on the analysis, complete the \`qualificationData\` object.
+- Select the most relevant \`painPoints\` and \`goals\`. For example, a high-profitability business with low engagement likely needs help converting followers, not just getting more likes.
+- Calculate the \`leadScore\` using the model below. Max score is 100.
+    - **Base Score:** 20
+    - **isBusiness = 'yes'**: +20
+    - **Profitability Potential**: 'high' (+25), 'medium' (+15), 'low' (-10)
+    - **Opportunity Signals**: 'hasInconsistentGrid' = 'yes' (+10), 'hasLowEngagement' = 'yes' (+10), 'hasNoClearCTA' = 'yes' (+10)
+    - **Audience Metric**: followerCount > 1000 (+5), followerCount > 10000 (+5 more, for a total of 10)
 
-5.  **Identify Pain Points & Goals**: Based on your findings, select the most relevant pain points and goals.
-    -   *Example:* If \`profitabilityPotential\` is 'high' but \`hasLowEngagement\` is 'yes', a pain point is "Not converting followers to clients" and a goal is "Boost engagement".
-    -   *Example:* If \`isBusiness\` is 'yes' but \`hasNoClearCTA\` is 'yes', a pain point is "No clear CTA / no DMs" and a goal is "Sell more / monetize IG".
+**Step 5: The Verdict (Summary)**
+- Provide a sharp, 1-2 sentence summary. Start with the business type, identify the single biggest opportunity or risk, and conclude with their viability as a lead.
+- *Example Good Summary*: "This is a high-ticket coaching business with a large but disengaged audience. The primary opportunity is to improve their content strategy to convert existing followers into clients, making them a strong potential lead."
+- *Example Bad Summary*: "This account has a lot of followers. They might be a good lead."
 
-6.  **Calculate Lead Score**: Use the following model precisely. Cap the final score at 100.
-    -   **Base Score:** 20 points.
-    -   **isBusiness = 'yes'**: +20 points.
-    -   **Profitability Potential**:
-        -   'high': +25 points.
-        -   'medium': +15 points.
-        -   'low': -10 points.
-    -   **Opportunity Signals (Pain Points)**:
-        -   'hasInconsistentGrid' = 'yes': +10 points.
-        -   'hasLowEngagement' = 'yes': +10 points.
-        -   'hasNoClearCTA' = 'yes': +10 points.
-    -   **Audience Metric**:
-        -   followerCount > 1000: +5 points.
-        -   followerCount > 10000: +5 additional points (total of 10 for >10k).
+**Step 6: Strategic Clarification (If Necessary)**
+- **YOUR GOAL**: If there is a critical ambiguity that prevents you from confidently assessing \`profitabilityPotential\`, you MUST ask a clarifying question.
+- **THE RULE**: Formulate a single, concise multiple-choice question to resolve the ambiguity. The options should represent different business models with different profitability levels.
+- **If you are confident in your analysis, set \`clarificationRequest\` to \`null\`.**
 
-7.  **Write Summary**: Provide a sharp, 1-2 sentence summary covering the business type, key opportunity, and a concluding remark on their viability as a client (e.g., "...making them a strong potential lead," or "...making them a lower-priority lead due to unclear monetization.").
+- **SCENARIO A: Ambiguous Business Model**
+  - Bio: "Wellness | Movement | NYC"
+  - Problem: "Wellness" could mean anything from free tips to $5k retreats. Profitability is unknown.
+  - Good Question: "What best describes their wellness business?"
+  - Good Options: ["High-ticket 1-on-1 coaching", "Selling physical products (e.g., yoga mats)", "Promoting affiliate links & brand deals", "It's a personal blog for sharing tips"]
 
-8.  **Ask for Clarification (If Needed)**:
-    -   **IF** you cannot confidently determine the business model and thus their profitability potential, you **MUST** ask a clarifying question.
-    -   **HOW**: Formulate a single, concise multiple-choice question designed to resolve the ambiguity about their business model.
-    -   **Example**: For a bio like "Wellness | Movement | NYC", a good question would be "What best describes their wellness business?" with options like ["High-ticket 1-on-1 coaching", "Selling physical products (e.g., yoga mats)", "Promoting affiliate links & brand deals", "It's a personal blog for sharing tips"].
-    -   **Action**: Return this in the \`clarificationRequest\` object. If you are confident, set it to \`null\`.
+- **SCENARIO B: Vague Offer**
+  - Bio: "Helping you live your best life ✨"
+  - Problem: The offer is too generic to assess value or price point.
+  - Good Question: "To help me understand their business, what's the main way they help people?"
+  - Good Options: ["Through 1-on-1 coaching programs", "By selling digital courses or e-books", "With a physical product like supplements", "It's a community/content platform"]
 
-Now, perform the analysis and return the complete JSON object.`,
+- **SCENARIO C: Unclear Target Audience**
+  - Bio: "Graphic Design & Branding"
+  - Problem: Are they serving small businesses or large corporations? This drastically changes profitability.
+  - Good Question: "Who is the primary audience for these design services?"
+  - Good Options: ["Small businesses & startups", "Large corporate clients", "Other designers and students (e.g., selling templates)", "It's a personal portfolio to get a job"]
+
+Now, perform the analysis and return the complete JSON object according to the SOP.`,
 }));
 
 const qualifyProspectFlow = ai.defineFlow(
