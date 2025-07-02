@@ -15,6 +15,8 @@ const DiscoveredProspectSchema = z.object({
   instagramHandle: z.string().describe("The Instagram handle of the prospect, without the '@' symbol."),
   name: z.string().describe("The name of the brand or person."),
   reason: z.string().describe("A brief, one-sentence reason why this prospect is a good fit based on the search query."),
+  followerCount: z.number().nullable().optional().describe("An estimated follower count for the Instagram account. Can be null if not easily found."),
+  postCount: z.number().nullable().optional().describe("An estimated number of posts for the Instagram account. Can be null if not easily found."),
 });
 export type DiscoveredProspect = z.infer<typeof DiscoveredProspectSchema>;
 
@@ -43,7 +45,7 @@ The agency specializes in helping brands (especially in Morocco but also globall
 Based on the user's search query, find 5 to 10 potential Instagram accounts that fit the description.
 Focus on finding businesses, creators, or personal brands that look like they could benefit from professional social media services. Avoid large, established corporations or personal accounts with no commercial intent.
 
-For each prospect you find, provide their Instagram handle, their name, and a concise reason for why they are a good match.
+For each prospect you find, provide their Instagram handle, their name, their estimated follower and post count, and a concise reason for why they are a good match. If follower or post counts are not readily available, you may set them to null.
 
 Search Query: "{{query}}"
 `,

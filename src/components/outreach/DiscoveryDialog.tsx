@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Telescope, Wand2, PlusCircle, CheckCircle, Link as LinkIcon } from 'lucide-react';
-import type { OutreachProspect } from '@/lib/types';
+import { Loader2, Telescope, Wand2, PlusCircle, CheckCircle, Link as LinkIcon, Bot, BarChart3 } from 'lucide-react';
+import type { OutreachProspect, QualificationData } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -15,6 +15,11 @@ import { LoadingSpinner } from '../shared/loading-spinner';
 import { discoverProspects } from '@/ai/flows/discover-prospects';
 import type { DiscoveredProspect } from '@/ai/flows/discover-prospects';
 import { addProspect } from '@/lib/firebase/services';
+import { Badge } from '../ui/badge';
+import { fetchInstagramMetrics, type InstagramMetrics } from '@/app/actions/fetch-ig-metrics';
+import { qualifyProspect, type QualifyProspectOutput } from '@/ai/flows/qualify-prospect';
+import { cn } from '@/lib/utils';
+
 
 interface DiscoveryDialogProps {
   isOpen: boolean;
@@ -22,11 +27,31 @@ interface DiscoveryDialogProps {
   onProspectAdded: () => void; // Callback to refresh the main list
 }
 
+const formatNumber = (num: number | null | undefined): string => {
+    if (num === null || num === undefined) return '-';
+    if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + 'M';
+    if (num >= 1_000) return (num / 1_000).toFixed(1) + 'K';
+    return num.toString();
+};
+
+const getLeadScoreBadgeVariant = (score: number | null | undefined): "default" | "secondary" | "destructive" => {
+    if (score === null || score === undefined) return "secondary";
+    if (score >= 60) return "default";
+    if (score >= 30) return "secondary";
+    return "destructive";
+};
+
 export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryDialogProps) {
   const [query, setQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState<DiscoveredProspect[] | null>(null);
   const [addedProspects, setAddedProspects] = useState<Set<string>>(new Set());
+
+  // New state for evaluation
+  const [evaluatingHandles, setEvaluatingHandles] = useState<Set<string>>(new Set());
+  const [metricsCache, setMetricsCache] = useState<Map<string, InstagramMetrics>>(new Map());
+  const [evaluationResults, setEvaluationResults] = useState<Map<string, QualifyProspectOutput>>(new Map());
+
   const { toast } = useToast();
 
   const resetState = () => {
@@ -34,6 +59,9 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryD
     setIsSearching(false);
     setResults(null);
     setAddedProspects(new Set());
+    setEvaluatingHandles(new Set());
+    setMetricsCache(new Map());
+    setEvaluationResults(new Map());
   };
 
   const handleClose = () => {
@@ -48,6 +76,8 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryD
     }
     setIsSearching(true);
     setResults(null);
+    setEvaluationResults(new Map()); // Clear old evaluations
+    setMetricsCache(new Map());
     try {
       const response = await discoverProspects({ query });
       setResults(response.prospects);
@@ -62,9 +92,47 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryD
     }
   };
 
+  const handleEvaluate = async (prospect: DiscoveredProspect) => {
+    const handle = prospect.instagramHandle.replace('@', '');
+    setEvaluatingHandles(prev => new Set(prev).add(handle));
+    try {
+        const metricsResult = await fetchInstagramMetrics(handle);
+        if (metricsResult.error || !metricsResult.data) {
+            throw new Error(metricsResult.error || 'Failed to fetch metrics.');
+        }
+        setMetricsCache(prev => new Map(prev).set(handle, metricsResult.data!));
+
+        const analysisResult = await qualifyProspect({
+            instagramHandle: handle,
+            followerCount: metricsResult.data.followerCount,
+            postCount: metricsResult.data.postCount,
+            avgLikes: metricsResult.data.avgLikes,
+            avgComments: metricsResult.data.avgComments,
+            biography: metricsResult.data.biography,
+            clarificationResponse: null, // No interactive clarification in discovery
+        });
+
+        setEvaluationResults(prev => new Map(prev).set(handle, analysisResult));
+        toast({ title: 'Evaluation Complete', description: `@${handle} has been analyzed.` });
+
+    } catch (error: any) {
+        toast({ title: 'Evaluation Failed', description: error.message, variant: 'destructive' });
+    } finally {
+        setEvaluatingHandles(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(handle);
+            return newSet;
+        });
+    }
+  };
+
+
   const handleAddProspect = async (prospect: DiscoveredProspect) => {
     try {
       const handle = prospect.instagramHandle.replace('@', '');
+      const evaluation = evaluationResults.get(handle);
+      const metrics = metricsCache.get(handle);
+
       const newProspectData: Omit<OutreachProspect, 'id' | 'userId'> = {
         name: prospect.name || handle,
         instagramHandle: handle,
@@ -72,29 +140,35 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryD
         source: 'Discovery Tool',
         notes: `AI Suggestion: "${prospect.reason}"\nOriginal query: "${query}"`,
         createdAt: new Date().toISOString(),
-        // set other fields to null/defaults
+        
+        // Populate with evaluation data if it exists
+        followerCount: metrics?.followerCount ?? prospect.followerCount ?? null,
+        postCount: metrics?.postCount ?? prospect.postCount ?? null,
+        avgLikes: metrics?.avgLikes ?? null,
+        avgComments: metrics?.avgComments ?? null,
+        bioSummary: metrics?.biography ?? null,
+
+        leadScore: evaluation?.leadScore ?? null,
+        qualificationData: (evaluation?.qualificationData as QualificationData) ?? null,
+        painPoints: evaluation?.painPoints ?? [],
+        goals: evaluation?.goals ?? [],
+        helpStatement: evaluation?.summary ?? null,
+
+        // Set other fields to null/defaults
         email: null,
         businessName: prospect.name || handle,
         website: null,
         prospectLocation: null,
         industry: null,
         visualStyle: null,
-        bioSummary: null,
         businessType: null,
         businessTypeOther: null,
         accountStage: null,
-        followerCount: null,
-        postCount: null,
-        avgLikes: null,
-        avgComments: null,
-        painPoints: [],
-        goals: [],
         lastContacted: null,
         followUpDate: null,
         followUpNeeded: false,
         offerInterest: [],
         uniqueNote: null,
-        helpStatement: null,
         tonePreference: null,
         lastMessageSnippet: null,
         lastScriptSent: null,
@@ -105,8 +179,6 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryD
         qualifierQuestion: null,
         qualifierSentAt: null,
         qualifierReply: null,
-        leadScore: null,
-        qualificationData: null,
       };
 
       await addProspect(newProspectData);
@@ -119,6 +191,88 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryD
     }
   };
 
+  const renderProspectCard = (prospect: DiscoveredProspect) => {
+      const handle = prospect.instagramHandle.replace('@', '');
+      const isEvaluating = evaluatingHandles.has(handle);
+      const isAdded = addedProspects.has(prospect.instagramHandle);
+      const evaluation = evaluationResults.get(handle);
+      const metrics = metricsCache.get(handle);
+
+      const displayFollowers = metrics?.followerCount ?? prospect.followerCount;
+      const displayPosts = metrics?.postCount ?? prospect.postCount;
+
+      return (
+        <Card key={prospect.instagramHandle} className={cn("shadow-sm transition-all", isEvaluating && "opacity-60")}>
+            <CardContent className="p-4 flex flex-col gap-3">
+                <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                        <a
+                            href={`https://instagram.com/${handle}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-semibold text-primary hover:underline"
+                        >
+                            {prospect.name}
+                        </a>
+                        <LinkIcon className="h-3 w-3 text-muted-foreground" />
+                        </div>
+                        <p className="text-xs text-muted-foreground">@{prospect.instagramHandle}</p>
+                    </div>
+                     <div className="flex items-center gap-2">
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEvaluate(prospect)}
+                            disabled={isEvaluating || !!evaluation}
+                        >
+                            {isEvaluating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
+                            {evaluation ? 'Evaluated' : 'Evaluate'}
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant={isAdded ? "secondary" : "default"}
+                            onClick={() => handleAddProspect(prospect)}
+                            disabled={isAdded || isEvaluating}
+                        >
+                            {isAdded ? (
+                                <CheckCircle className="mr-2 h-4 w-4" />
+                            ) : (
+                                <PlusCircle className="mr-2 h-4 w-4" />
+                            )}
+                            {isAdded ? 'Added' : 'Add'}
+                        </Button>
+                     </div>
+                </div>
+
+                <div className="flex items-center justify-between text-xs text-muted-foreground bg-muted/50 p-2 rounded-md">
+                   <div className="flex items-center gap-1">
+                        <BarChart3 className="h-4 w-4"/>
+                        <span>Followers: <b className="text-foreground">{formatNumber(displayFollowers)}</b></span>
+                   </div>
+                    <div className="flex items-center gap-1">
+                        <span>Posts: <b className="text-foreground">{formatNumber(displayPosts)}</b></span>
+                   </div>
+                </div>
+
+                <p className="text-sm italic">"{prospect.reason}"</p>
+                
+                {isEvaluating && <LoadingSpinner text="Evaluating..." />}
+
+                {evaluation && (
+                    <div className="mt-2 p-3 border-t space-y-2">
+                        <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-semibold">Evaluation Result</h4>
+                            <Badge variant={getLeadScoreBadgeVariant(evaluation.leadScore)}>{evaluation.leadScore}</Badge>
+                        </div>
+                        <p className="text-xs italic text-muted-foreground">"{evaluation.summary}"</p>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+      );
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-xl md:max-w-2xl h-[90vh] flex flex-col">
@@ -128,7 +282,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryD
             Prospect Discovery
           </DialogTitle>
           <DialogDescription>
-            Use AI to find potential prospects. Describe what you're looking for.
+            Use AI to find potential prospects. Describe what you're looking for, then evaluate and add them.
           </DialogDescription>
         </DialogHeader>
 
@@ -161,40 +315,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryD
             <ScrollArea className="h-full">
               <div className="space-y-3 pr-4">
                 {results.length > 0 ? (
-                  results.map((prospect, index) => (
-                    <Card key={index} className="shadow-sm">
-                      <CardContent className="p-4 flex items-center justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <a
-                              href={`https://instagram.com/${prospect.instagramHandle.replace('@', '')}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="font-semibold text-primary hover:underline"
-                            >
-                              {prospect.name}
-                            </a>
-                            <LinkIcon className="h-3 w-3 text-muted-foreground" />
-                          </div>
-                          <p className="text-xs text-muted-foreground">@{prospect.instagramHandle}</p>
-                          <p className="text-sm mt-2 italic">"{prospect.reason}"</p>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant={addedProspects.has(prospect.instagramHandle) ? "secondary" : "default"}
-                          onClick={() => handleAddProspect(prospect)}
-                          disabled={addedProspects.has(prospect.instagramHandle)}
-                        >
-                          {addedProspects.has(prospect.instagramHandle) ? (
-                            <CheckCircle className="mr-2 h-4 w-4" />
-                          ) : (
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                          )}
-                          {addedProspects.has(prospect.instagramHandle) ? 'Added' : 'Add'}
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))
+                  results.map((prospect) => renderProspectCard(prospect))
                 ) : (
                   <div className="text-center py-10 text-muted-foreground">
                     <p>No prospects found for your query.</p>
