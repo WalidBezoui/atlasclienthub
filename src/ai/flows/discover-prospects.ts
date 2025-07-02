@@ -39,13 +39,15 @@ const prompt = ai.definePrompt({
   name: 'discoverProspectsPrompt',
   input: {schema: DiscoverProspectsInputSchema},
   output: {schema: DiscoverProspectsOutputSchema},
-  prompt: `You are an expert market researcher and Instagram prospector. Your task is to find potential leads for a social media agency called "Atlas Social Studio".
-The agency specializes in helping brands (especially in Morocco but also globally) improve their visual identity and content strategy.
+  prompt: `You are an expert market researcher and Instagram prospector. Your task is to brainstorm potential leads for a social media agency called "Atlas Social Studio".
+The agency specializes in helping brands improve their visual identity and content strategy.
 
-Based on the user's search query, find 5 to 10 potential Instagram accounts that fit the description.
-Focus on finding businesses, creators, or personal brands that look like they could benefit from professional social media services. Avoid large, established corporations or personal accounts with no commercial intent.
+Based on the user's search query, brainstorm 15 to 20 potential Instagram accounts that could fit the description.
+**VERY IMPORTANT**: Your suggestions will be automatically verified for existence. Therefore, it is better to provide more diverse and plausible candidates rather than fewer. Focus on finding businesses, creators, or personal brands that might benefit from social media services. Avoid large, established corporations.
 
-For each prospect you find, provide their Instagram handle, their name, their estimated follower and post count, and a concise reason for why they are a good match. If follower or post counts are not readily available, you may set them to null.
+For each prospect you brainstorm, provide their Instagram handle, their name, their estimated follower and post count, and a concise reason for why they are a good match. The follower/post counts are estimates and don't need to be precise.
+
+Your suggestions are critical for the first step of a discovery process. Generate a broad list of ideas.
 
 Search Query: "{{query}}"
 `,

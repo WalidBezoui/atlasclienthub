@@ -43,8 +43,9 @@ const getLeadScoreBadgeVariant = (score: number | null | undefined): "default" |
 
 export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryDialogProps) {
   const [query, setQuery] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
-  const [results, setResults] = useState<DiscoveredProspect[] | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingStep, setLoadingStep] = useState<'searching' | 'verifying' | null>(null);
+  const [verifiedResults, setVerifiedResults] = useState<DiscoveredProspect[] | null>(null);
   const [addedProspects, setAddedProspects] = useState<Set<string>>(new Set());
 
   // New state for evaluation
@@ -56,8 +57,9 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryD
 
   const resetState = () => {
     setQuery('');
-    setIsSearching(false);
-    setResults(null);
+    setIsLoading(false);
+    setLoadingStep(null);
+    setVerifiedResults(null);
     setAddedProspects(new Set());
     setEvaluatingHandles(new Set());
     setMetricsCache(new Map());
@@ -74,21 +76,72 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryD
       toast({ title: 'Search query cannot be empty.', variant: 'destructive' });
       return;
     }
-    setIsSearching(true);
-    setResults(null);
-    setEvaluationResults(new Map()); // Clear old evaluations
+    setIsLoading(true);
+    setLoadingStep('searching');
+    setVerifiedResults(null);
+    setEvaluationResults(new Map());
     setMetricsCache(new Map());
+    setAddedProspects(new Set());
+
     try {
+      // Step 1: Discover prospects with AI
       const response = await discoverProspects({ query });
-      setResults(response.prospects);
       if (response.prospects.length === 0) {
-        toast({ title: 'No prospects found', description: 'Try refining your search query.' });
+        toast({ title: 'No initial prospects found', description: 'Try refining your search query.' });
+        setIsLoading(false);
+        setLoadingStep(null);
+        return;
       }
+
+      // Step 2: Verify prospects
+      setLoadingStep('verifying');
+      const verificationPromises = response.prospects.map(p =>
+        fetchInstagramMetrics(p.instagramHandle.replace('@', '')).then(result => ({
+          prospect: p,
+          ...result,
+        }))
+      );
+
+      const settledResults = await Promise.allSettled(verificationPromises);
+
+      const newVerifiedResults: DiscoveredProspect[] = [];
+      const newMetricsCache = new Map<string, InstagramMetrics>();
+
+      settledResults.forEach(result => {
+        if (result.status === 'fulfilled' && result.value.data) {
+          const { prospect, data: metrics } = result.value;
+          const handle = prospect.instagramHandle.replace('@', '');
+
+          // Update prospect with verified data
+          const updatedProspect = {
+            ...prospect,
+            followerCount: metrics.followerCount,
+            postCount: metrics.postCount,
+          };
+
+          newVerifiedResults.push(updatedProspect);
+          newMetricsCache.set(handle, metrics);
+        }
+        // Silently ignore rejected promises (prospects that don't exist)
+      });
+      
+      setVerifiedResults(newVerifiedResults);
+      setMetricsCache(newMetricsCache);
+
+      if (newVerifiedResults.length === 0) {
+        toast({
+          title: 'No verifiable prospects found',
+          description: "AI suggested some accounts, but none could be confirmed as active. Try a different query.",
+          duration: 6000,
+        });
+      }
+
     } catch (error: any) {
-      console.error("Discovery failed:", error);
+      console.error("Discovery process failed:", error);
       toast({ title: 'Discovery Failed', description: error.message, variant: 'destructive' });
     } finally {
-      setIsSearching(false);
+      setIsLoading(false);
+      setLoadingStep(null);
     }
   };
 
@@ -295,10 +348,10 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryD
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-              disabled={isSearching}
+              disabled={isLoading}
             />
-            <Button onClick={handleSearch} disabled={isSearching || !query.trim()}>
-              {isSearching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+            <Button onClick={handleSearch} disabled={isLoading || !query.trim()}>
+              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
               Discover
             </Button>
           </div>
@@ -306,28 +359,33 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryD
         <Separator className="my-4" />
 
         <div className="flex-grow overflow-y-auto -mx-6 px-6">
-          {isSearching && (
+          {isLoading && loadingStep === 'searching' && (
             <div className="flex flex-col items-center justify-center h-full">
-              <LoadingSpinner text="Searching for prospects..." size="lg" />
+              <LoadingSpinner text="AI is discovering prospects..." size="lg" />
             </div>
           )}
-          {results && (
+          {isLoading && loadingStep === 'verifying' && (
+            <div className="flex flex-col items-center justify-center h-full">
+              <LoadingSpinner text="Verifying accounts..." size="lg" />
+            </div>
+          )}
+          {!isLoading && verifiedResults && (
             <ScrollArea className="h-full">
               <div className="space-y-3 pr-4">
-                {results.length > 0 ? (
-                  results.map((prospect) => renderProspectCard(prospect))
+                {verifiedResults.length > 0 ? (
+                  verifiedResults.map((prospect) => renderProspectCard(prospect))
                 ) : (
                   <div className="text-center py-10 text-muted-foreground">
-                    <p>No prospects found for your query.</p>
+                    <p>No verifiable prospects found.</p>
                     <p className="text-xs">Try being more specific or using different keywords.</p>
                   </div>
                 )}
               </div>
             </ScrollArea>
           )}
-          {!isSearching && !results && (
+          {!isLoading && !verifiedResults && (
             <div className="text-center py-10 text-muted-foreground">
-              <p>Your discovery results will appear here.</p>
+              <p>Your discovered & verified prospects will appear here.</p>
             </div>
           )}
         </div>
