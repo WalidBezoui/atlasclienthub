@@ -30,7 +30,7 @@ const QualifyProspectInputSchema = z.object({
   avgLikes: z.number().nullable().describe("Average likes on recent posts."),
   avgComments: z.number().nullable().describe("Average comments on recent posts."),
   biography: z.string().nullable().describe("The prospect's Instagram bio text."),
-  clarificationResponse: z.string().nullable().optional().describe("The user's selected answer from a previous multiple-choice clarification request."),
+  clarificationResponse: z.string().nullable().optional().describe("The user's selected answer from a previous multiple-choice clarification request (could be about profitability or visuals)."),
 });
 export type QualifyProspectInput = z.infer<typeof QualifyProspectInputSchema>;
 
@@ -43,7 +43,7 @@ const QualifyProspectOutputSchema = z.object({
   clarificationRequest: z.object({
     question: z.string().describe("The question for the user."),
     options: z.array(z.string()).min(2).max(4).describe("A list of 2-4 options for the user to choose from."),
-  }).nullable().optional().describe("If the AI needs more info to determine profitability or business model, it will return this object with a multiple-choice question. If not, this will be null."),
+  }).nullable().optional().describe("If the AI needs more info (either on profitability or visuals), it will return this object with a multiple-choice question. If not, this will be null."),
 });
 export type QualifyProspectOutput = z.infer<typeof QualifyProspectOutputSchema>;
 
@@ -67,9 +67,9 @@ const prompt = ai.definePrompt({
 
 {{#if clarificationResponse}}
 **USER-PROVIDED CONTEXT:**
-The user has clarified that the prospect's business is best described as: "{{clarificationResponse}}".
+The user has provided this clarification: "{{clarificationResponse}}".
 ---
-**ACTION:** Use this new, definitive context to refine your entire analysis, especially the profitability assessment. This is the ground truth. Recalculate and regenerate the entire output based on this new information.
+**ACTION:** Use this new, definitive context to refine your entire analysis. This is the ground truth. If the clarification was about profitability, update that assessment. If it was about visuals, use it to set \`hasInconsistentGrid\`. Recalculate and regenerate the entire output based on this new information.
 ---
 {{/if}}
 
@@ -90,7 +90,7 @@ The user has clarified that the prospect's business is best described as: "{{cla
 - Since you cannot see the feed, you must make logical inferences.
 - **CTA**: Analyze the bio's Call-to-Action. Is it strong ("Book a call"), weak ("link in bio"), or missing? Set \`hasNoClearCTA\`.
 - **Engagement**: An average engagement rate is 1-3% (avg likes / followers). If the rate is very low, especially with many followers, it's a strong signal their content isn't resonating. Set \`hasLowEngagement\`.
-- **Visuals/Branding**: If the bio presents a professional service but engagement is low, it suggests a branding or visual mismatch (\`hasInconsistentGrid\`). If they are a visual brand (e.g., design, fashion) and have low engagement, this is also a strong signal.
+- **Visuals/Branding**: This is hard to infer. Initially, set \`hasInconsistentGrid\` to 'unknown'. It will be updated by the user's feedback in Step 6.
 
 **Step 4: Synthesize & Score**
 - Based on the analysis, complete the \`qualificationData\` object.
@@ -105,12 +105,11 @@ The user has clarified that the prospect's business is best described as: "{{cla
 **Step 5: The Verdict (Summary)**
 - Provide a sharp, 1-2 sentence summary. Start with the business type, identify the single biggest opportunity or risk, and conclude with their viability as a lead.
 - *Example Good Summary*: "This is a high-ticket coaching business with a large but disengaged audience. The primary opportunity is to improve their content strategy to convert existing followers into clients, making them a strong potential lead."
-- *Example Bad Summary*: "This account has a lot of followers. They might be a good lead."
 
-**Step 6: Strategic Clarification (If Necessary)**
+**Step 6: Profitability Clarification (Ask if necessary)**
 - **YOUR GOAL**: If there is a critical ambiguity that prevents you from confidently assessing \`profitabilityPotential\`, you MUST ask a clarifying question.
 - **THE RULE**: Formulate a single, concise multiple-choice question to resolve the ambiguity. The options should represent different business models with different profitability levels.
-- **If you are confident in your analysis, set \`clarificationRequest\` to \`null\`.**
+- **If you are confident in your profitability analysis, DO NOT generate a question here. Proceed to Step 7.**
 
 - **SCENARIO A: Ambiguous Business Model**
   - Bio: "Wellness | Movement | NYC"
@@ -124,11 +123,20 @@ The user has clarified that the prospect's business is best described as: "{{cla
   - Good Question: "To help me understand their business, what's the main way they help people?"
   - Good Options: ["Through 1-on-1 coaching programs", "By selling digital courses or e-books", "With a physical product like supplements", "It's a community/content platform"]
 
-- **SCENARIO C: Unclear Target Audience**
-  - Bio: "Graphic Design & Branding"
-  - Problem: Are they serving small businesses or large corporations? This drastically changes profitability.
-  - Good Question: "Who is the primary audience for these design services?"
-  - Good Options: ["Small businesses & startups", "Large corporate clients", "Other designers and students (e.g., selling templates)", "It's a personal portfolio to get a job"]
+
+**Step 7: Visual Feed Clarification (Ask if profitability is clear)**
+- **YOUR GOAL**: If, AND ONLY IF, you did NOT generate a profitability question in Step 6 AND the user has not provided a visual clarification yet, you MUST ask a question about the visual quality of their feed. Since you cannot see images, this is essential.
+- **THE RULE**: Formulate a single, concise multiple-choice question to understand the feed's quality. This will help determine the \`hasInconsistentGrid\` field and the \`valueProposition\`.
+
+- **SCENARIO A: Product-based Business (e.g., e-commerce, fashion, cosmetics)**
+  - Problem: Is their visual branding strong enough to sell products?
+  - Good Question: "Looking at their feed, how would you describe their visual branding?"
+  - Good Options: ["Looks professional, consistent, and on-brand", "It's clean but looks like a generic product catalog", "The grid feels a bit messy and unplanned", "There's not enough content to tell"]
+
+- **SCENARIO B: Service-based or Personal Brand (e.g., coach, consultant, creator)**
+  - Problem: Does their content look authoritative and trustworthy?
+  - Good Question: "What's your first impression of their content's visual style?"
+  - Good Options: ["Very polished and visually cohesive", "A mix of good posts and some that look amateur", "It's mostly text/selfies, not very visually appealing", "Seems unfocused and the branding is unclear"]
 
 Now, perform the analysis and return the complete JSON object according to the SOP.`,
 }));
