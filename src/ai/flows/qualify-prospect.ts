@@ -69,37 +69,41 @@ const prompt = ai.definePrompt({
 
 **STANDARD OPERATING PROCEDURE (SOP):**
 
-**Phase 1: Initial Triage & Question Generation**
+Your entire task is one of two things: either ask a question, or provide a final analysis.
 
-1.  **Analyze Data & Identify Ambiguities**: Review the provided prospect data. Perform an initial analysis of their business model, profitability, and content funnel based on their bio and metrics.
-2.  **Determine Next Question**: Based on your initial analysis, decide what is the *single most important piece of information* you need to complete the qualification. Follow this strict priority order:
-    *   **Priority 1: Profitability.** If you cannot determine the business model or its potential to be profitable, you MUST ask about this first.
-    *   **Priority 2: Visual Feed Assessment.** If profitability is clear (or has been answered), you MUST ask for the user's visual assessment of the feed. This is non-negotiable as you cannot see the images.
-    *   **Priority 3: Content Strategy.** If both profitability and visuals are clear, you may ask a question about their content strategy to find the best angle for outreach.
+**IF \`clarificationResponse\` IS NOT PROVIDED:**
+This is the first run. Your job is to ask the FIRST and MOST IMPORTANT question.
+1. Analyze the data.
+2. Determine the highest-priority question based on the priority list below (start with Profitability).
+3. Generate the question and options.
+4. **Return a "Paused State":**
+   - Set \`clarificationRequest\` to the question object.
+   - Set \`leadScore\`, \`painPoints\`, \`goals\` to \`null\`.
+   - Set \`summary\` to a message like "Awaiting input to complete qualification."
+   - Fill out \`qualificationData\` with 'unknown' for fields that are not yet known.
+   - **STOP HERE.** Do not proceed.
 
-**Phase 2: Output Generation**
+**IF \`clarificationResponse\` IS PROVIDED:**
+The user has answered a question. Your job is to decide whether to ask the NEXT question or FINISH the analysis.
+1. Use the \`clarificationResponse\` as a fact to update your understanding of the prospect.
+2. Look at the priority list again. Is there another question you need to ask?
+   - **If YES (e.g., they answered Profitability, now you must ask about Visual Feed):**
+     - Generate the NEXT question and options.
+     - Return another "Paused State" exactly as described above.
+     - **STOP HERE.**
+   - **If NO (all necessary questions have been answered):**
+     - Perform a **Final Analysis**.
+     - Set \`clarificationRequest\` to \`null\`.
+     - Calculate the final \`leadScore\`.
+     - Determine the \`painPoints\` and \`goals\`.
+     - Write the final, comprehensive \`summary\`.
+     - Fill out the complete \`qualificationData\` object.
 
-**IF a \`clarificationResponse\` IS PROVIDED in the input:**
-This means the user has answered your previous question. Use this new information as ground truth.
-1.  **Incorporate User Feedback**: Update your analysis based on the user's \`clarificationResponse\`.
-2.  **Check for More Questions**: After incorporating the feedback, re-evaluate if there is another, lower-priority question you must ask (e.g., you just got profitability, now you MUST ask about visuals). If so, generate the next question and PAUSE again (go back to the "IF a question IS NEEDED" block below).
-3.  **Perform Full Analysis**: If no more questions are needed, proceed to the full analysis.
-    - Finalize the \`qualificationData\` object.
-    - Identify the most relevant \`painPoints\` and \`goals\`.
-    - Calculate the final \`leadScore\` using the scoring model below.
-    - Write the final, comprehensive \`summary\`.
-    - Set \`clarificationRequest\` to \`null\`.
-
-**IF a \`clarificationResponse\` IS NOT PROVIDED and a question IS NEEDED:**
-This is the initial run, or you need to ask another question in the sequence.
-1.  **Generate the Question**: Formulate the single, highest-priority question based on your analysis and the priority order. Use the question examples below as a guide.
-2.  **PAUSE ANALYSIS**: You must wait for the user's input.
-3.  **Return a Paused State**:
-    - Set \`clarificationRequest\` to the question object you just generated.
-    - Set \`leadScore\` to \`null\`.
-    - Set \`painPoints\` and \`goals\` to \`null\` or empty arrays.
-    - Set \`summary\` to a message indicating you are waiting for user input (e.g., "Awaiting visual feed analysis to complete qualification.").
-    - Fill out the \`qualificationData\` with what you know, using 'unknown' for fields that depend on the user's answer.
+---
+**QUESTION PRIORITY ORDER (Strict):**
+1.  **Profitability**: Is it clear how they make money?
+2.  **Visual Feed**: Have you received the user's visual assessment? This is mandatory.
+3.  **Content Strategy**: What is their biggest content opportunity? (Lower priority)
 
 ---
 **Question Generation Examples:**

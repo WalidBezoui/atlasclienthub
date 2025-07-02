@@ -313,8 +313,8 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
                       </RadioGroup>
                       <div className="flex justify-end pt-2">
                           <Button onClick={handleReanalyze} disabled={!clarificationResponse || isReanalyzing} size="sm">
-                              {isReanalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                              Re-analyze
+                              {isReanalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-2 h-4 w-4" />}
+                              Continue
                           </Button>
                       </div>
                   </div>
