@@ -498,9 +498,6 @@ function OutreachPage() {
       } else {
         newSet.add(status);
       }
-      if (newSet.size === 0) {
-        return new Set(OUTREACH_LEAD_STAGE_OPTIONS);
-      }
       return newSet;
     });
   };
@@ -715,6 +712,124 @@ function OutreachPage() {
     );
   };
 
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <TableRow>
+          <TableCell colSpan={6} className="h-24 text-center">
+            <LoadingSpinner text="Fetching prospects..." />
+          </TableCell>
+        </TableRow>
+      );
+    }
+    if (prospects.length === 0) {
+      return (
+        <TableRow>
+          <TableCell colSpan={6} className="text-center h-24">
+            <div className="flex flex-col items-center justify-center">
+              <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
+              <p className="font-semibold">No prospects found.</p>
+              <p className="text-sm text-muted-foreground">
+                Start building your outreach list by <Button variant="link" className="p-0 h-auto" onClick={() => setIsRapidAddOpen(true)}>adding your first prospect</Button>!
+              </p>
+            </div>
+          </TableCell>
+        </TableRow>
+      );
+    }
+    if (filteredProspects.length === 0) {
+      return (
+        <TableRow>
+          <TableCell colSpan={6} className="text-center h-24">
+            <div className="flex flex-col items-center justify-center">
+              <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
+              <p className="font-semibold">No prospects found matching your criteria.</p>
+            </div>
+          </TableCell>
+        </TableRow>
+      );
+    }
+    return filteredProspects.map((prospect) => (
+      <TableRow key={prospect.id} data-follow-up={!!prospect.followUpNeeded} className="data-[follow-up=true]:bg-primary/10">
+        <TableCell>
+          <TooltipProvider>
+              <Tooltip>
+                  <TooltipTrigger asChild>
+                      <Checkbox
+                          checked={!!prospect.followUpNeeded}
+                          onCheckedChange={() => handleFollowUpToggle(prospect.id, !!prospect.followUpNeeded)}
+                          aria-label={`Mark ${prospect.name} as needs follow-up`}
+                          className="h-5 w-5"
+                      />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                      <p>Mark for Follow-up</p>
+                  </TooltipContent>
+              </Tooltip>
+          </TooltipProvider>
+        </TableCell>
+        <TableCell className="font-medium">
+          <div className="flex items-center gap-2">
+            <div>
+              {prospect.name}
+              <br/>
+              {prospect.instagramHandle ? (
+                <a 
+                  href={`https://instagram.com/${prospect.instagramHandle.replace('@', '')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-muted-foreground hover:text-primary hover:underline inline-flex items-center gap-1"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {prospect.instagramHandle}
+                  <LinkIcon className="h-3 w-3" />
+                </a>
+              ) : (
+                <span className="text-xs text-muted-foreground italic">No handle</span>
+              )}
+            </div>
+          </div>
+        </TableCell>
+        <TableCell className="hidden sm:table-cell">
+          <Select 
+            value={prospect.status} 
+            onValueChange={(newStatus: OutreachLeadStage) => handleStatusChange(prospect.id, newStatus)}
+          >
+            <SelectTrigger className="h-auto py-0.5 px-2.5 border-none shadow-none [&>span]:flex [&>span]:items-center text-xs w-auto min-w-[100px]">
+              <SelectValue asChild>
+                <Badge variant={getStatusBadgeVariant(prospect.status)} className="cursor-pointer text-xs whitespace-nowrap">
+                  {prospect.status}
+                </Badge>
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {OUTREACH_LEAD_STAGE_OPTIONS.map(s => <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </TableCell>
+         <TableCell className="hidden md:table-cell">
+          {prospect.leadScore !== null && prospect.leadScore !== undefined ? (
+            <Badge variant={getLeadScoreBadgeVariant(prospect.leadScore)}>{prospect.leadScore}</Badge>
+          ) : (
+            <Badge variant="outline">-</Badge>
+          )}
+        </TableCell>
+        <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">
+           <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <span className="cursor-help">{getLastActivityText(prospect)}</span>
+                    </TooltipTrigger>
+                    <ProspectTimelineTooltip prospect={prospect} />
+                </Tooltip>
+            </TooltipProvider>
+        </TableCell>
+        {renderActions(prospect)}
+      </TableRow>
+    ));
+  };
+
+
   return (
     <>
       <PageHeader
@@ -837,133 +952,23 @@ function OutreachPage() {
           </div>
         </CardHeader>
         <CardContent>
-         {isLoading && prospects.length === 0 ? (
-             <div className="overflow-x-auto">
-              <Table>
-                  <TableBody>
-                    <TableRow>
-                      <TableCell colSpan={6} className="h-24 text-center">
-                        <LoadingSpinner text="Fetching prospects..." />
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-             </div>
-          ) : (
-             <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[50px]">Follow</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead className="hidden sm:table-cell">Status</TableHead>
-                    <TableHead className="hidden md:table-cell">Score</TableHead>
-                    <TableHead className="hidden lg:table-cell">Last Activity</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {filteredProspects.length > 0 ? filteredProspects.map((prospect) => (
-                      <TableRow key={prospect.id} data-follow-up={!!prospect.followUpNeeded} className="data-[follow-up=true]:bg-primary/10">
-                        <TableCell>
-                          <TooltipProvider>
-                              <Tooltip>
-                                  <TooltipTrigger asChild>
-                                      <Checkbox
-                                          checked={!!prospect.followUpNeeded}
-                                          onCheckedChange={() => handleFollowUpToggle(prospect.id, !!prospect.followUpNeeded)}
-                                          aria-label={`Mark ${prospect.name} as needs follow-up`}
-                                          className="h-5 w-5"
-                                      />
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                      <p>Mark for Follow-up</p>
-                                  </TooltipContent>
-                              </Tooltip>
-                          </TooltipProvider>
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          <div className="flex items-center gap-2">
-                            <div>
-                              {prospect.name}
-                              <br/>
-                              {prospect.instagramHandle ? (
-                                <a 
-                                  href={`https://instagram.com/${prospect.instagramHandle.replace('@', '')}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-xs text-muted-foreground hover:text-primary hover:underline inline-flex items-center gap-1"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  {prospect.instagramHandle}
-                                  <LinkIcon className="h-3 w-3" />
-                                </a>
-                              ) : (
-                                <span className="text-xs text-muted-foreground italic">No handle</span>
-                              )}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell">
-                          <Select 
-                            value={prospect.status} 
-                            onValueChange={(newStatus: OutreachLeadStage) => handleStatusChange(prospect.id, newStatus)}
-                          >
-                            <SelectTrigger className="h-auto py-0.5 px-2.5 border-none shadow-none [&>span]:flex [&>span]:items-center text-xs w-auto min-w-[100px]">
-                              <SelectValue asChild>
-                                <Badge variant={getStatusBadgeVariant(prospect.status)} className="cursor-pointer text-xs whitespace-nowrap">
-                                  {prospect.status}
-                                </Badge>
-                              </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent>
-                              {OUTREACH_LEAD_STAGE_OPTIONS.map(s => <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                         <TableCell className="hidden md:table-cell">
-                          {prospect.leadScore !== null && prospect.leadScore !== undefined ? (
-                            <Badge variant={getLeadScoreBadgeVariant(prospect.leadScore)}>{prospect.leadScore}</Badge>
-                          ) : (
-                            <Badge variant="outline">-</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">
-                           <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <span className="cursor-help">{getLastActivityText(prospect)}</span>
-                                    </TooltipTrigger>
-                                    <ProspectTimelineTooltip prospect={prospect} />
-                                </Tooltip>
-                            </TooltipProvider>
-                        </TableCell>
-                        {renderActions(prospect)}
-                      </TableRow>
-                    )) : (
-                       <TableRow>
-                        <TableCell colSpan={6} className="text-center h-24">
-                            <div className="flex flex-col items-center justify-center">
-                                <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
-                                <p className="font-semibold">
-                                  {prospects.length === 0 && searchTerm === '' && (statusFilters.size === OUTREACH_LEAD_STAGE_OPTIONS.length || statusFilters.size === 0)
-                                    ? "No prospects found."
-                                    : "No prospects found matching your criteria."
-                                  }
-                                </p>
-                                {prospects.length === 0 && searchTerm === '' && (statusFilters.size === OUTREACH_LEAD_STAGE_OPTIONS.length || statusFilters.size === 0) && (
-                                    <p className="text-sm text-muted-foreground">
-                                      Start building your outreach list by <Button variant="link" className="p-0 h-auto" onClick={() => setIsRapidAddOpen(true)}>adding your first prospect</Button>!
-                                    </p>
-                                )}
-                            </div>
-                        </TableCell>
-                    </TableRow>
-                    )}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[50px]">Follow</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead className="hidden sm:table-cell">Status</TableHead>
+                  <TableHead className="hidden md:table-cell">Score</TableHead>
+                  <TableHead className="hidden lg:table-cell">Last Activity</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {renderContent()}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
       <ScriptModal
