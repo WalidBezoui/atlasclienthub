@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState } from 'react';
@@ -45,7 +46,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryD
   const [query, setQuery] = useState('');
   const [minFollowers, setMinFollowers] = useState<number | ''>('');
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingStep, setLoadingStep] = useState<'searching' | 'verifying' | null>(null);
+  const [loadingStep, setLoadingStep] = useState<string | null>(null);
   const [verifiedResults, setVerifiedResults] = useState<DiscoveredProspect[] | null>(null);
   const [addedProspects, setAddedProspects] = useState<Set<string>>(new Set());
 
@@ -79,8 +80,8 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryD
       return;
     }
     setIsLoading(true);
-    setLoadingStep('searching');
-    setVerifiedResults(null);
+    setLoadingStep('AI is discovering prospects...');
+    setVerifiedResults([]); // Reset to empty array to show progressive loading
     setEvaluationResults(new Map());
     setMetricsCache(new Map());
     setAddedProspects(new Set());
@@ -91,6 +92,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryD
         query,
         minFollowerCount: minFollowers !== '' ? Number(minFollowers) : null,
       });
+
       if (response.prospects.length === 0) {
         toast({ title: 'No initial prospects found', description: 'Try refining your search query.' });
         setIsLoading(false);
@@ -98,40 +100,33 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryD
         return;
       }
 
-      // Step 2: Verify prospects
-      setLoadingStep('verifying');
-      const verificationPromises = response.prospects.map(p =>
-        fetchInstagramMetrics(p.instagramHandle.replace('@', '')).then(result => ({
-          prospect: p,
-          ...result,
-        }))
-      );
-
-      const settledResults = await Promise.allSettled(verificationPromises);
-
+      // Step 2: Verify prospects sequentially
       const newVerifiedResults: DiscoveredProspect[] = [];
       const newMetricsCache = new Map<string, InstagramMetrics>();
 
-      settledResults.forEach(result => {
-        if (result.status === 'fulfilled' && result.value.data) {
-          const { prospect, data: metrics } = result.value;
-          const handle = prospect.instagramHandle.replace('@', '');
-
-          // Update prospect with verified data
-          const updatedProspect = {
-            ...prospect,
-            followerCount: metrics.followerCount,
-            postCount: metrics.postCount,
-          };
-
-          newVerifiedResults.push(updatedProspect);
-          newMetricsCache.set(handle, metrics);
+      for (const [index, prospect] of response.prospects.entries()) {
+        setLoadingStep(`Verifying ${index + 1} of ${response.prospects.length}: @${prospect.instagramHandle}`);
+        
+        try {
+            const result = await fetchInstagramMetrics(prospect.instagramHandle.replace('@', ''));
+            if (result.data) {
+                const handle = prospect.instagramHandle.replace('@', '');
+                const updatedProspect = {
+                    ...prospect,
+                    followerCount: result.data.followerCount,
+                    postCount: result.data.postCount,
+                };
+                newVerifiedResults.push(updatedProspect);
+                newMetricsCache.set(handle, result.data);
+                // Update state inside the loop to show progressive results
+                setVerifiedResults([...newVerifiedResults]);
+                setMetricsCache(new Map(newMetricsCache));
+            }
+        } catch (e) {
+            console.warn(`Could not verify @${prospect.instagramHandle}`, e);
+            // Silently fail and continue to the next one
         }
-        // Silently ignore rejected promises (prospects that don't exist)
-      });
-      
-      setVerifiedResults(newVerifiedResults);
-      setMetricsCache(newMetricsCache);
+      }
 
       if (newVerifiedResults.length === 0) {
         toast({
@@ -149,6 +144,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryD
       setLoadingStep(null);
     }
   };
+
 
   const handleEvaluate = async (prospect: DiscoveredProspect) => {
     const handle = prospect.instagramHandle.replace('@', '');
@@ -377,30 +373,32 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryD
         <Separator className="my-4" />
 
         <div className="flex-grow overflow-y-auto -mx-6 px-6">
-          {isLoading && loadingStep === 'searching' && (
+          {isLoading && (!verifiedResults || verifiedResults.length === 0) && (
             <div className="flex flex-col items-center justify-center h-full">
-              <LoadingSpinner text="AI is discovering prospects..." size="lg" />
+              <LoadingSpinner text={loadingStep || 'Loading...'} size="lg" />
             </div>
           )}
-          {isLoading && loadingStep === 'verifying' && (
-            <div className="flex flex-col items-center justify-center h-full">
-              <LoadingSpinner text="Verifying accounts..." size="lg" />
-            </div>
-          )}
-          {!isLoading && verifiedResults && (
+          
+          {verifiedResults && (
             <ScrollArea className="h-full">
               <div className="space-y-3 pr-4">
                 {verifiedResults.length > 0 ? (
                   verifiedResults.map((prospect) => renderProspectCard(prospect))
-                ) : (
+                ) : !isLoading ? (
                   <div className="text-center py-10 text-muted-foreground">
                     <p>No verifiable prospects found.</p>
                     <p className="text-xs">Try being more specific or using different keywords.</p>
+                  </div>
+                ) : null}
+                {isLoading && verifiedResults.length > 0 && (
+                  <div className="py-4">
+                    <LoadingSpinner text={loadingStep || 'Loading...'} size="sm" />
                   </div>
                 )}
               </div>
             </ScrollArea>
           )}
+
           {!isLoading && !verifiedResults && (
             <div className="text-center py-10 text-muted-foreground">
               <p>Your discovered & verified prospects will appear here.</p>
