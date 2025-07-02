@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
-import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, Bot, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileText, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare, Save, FileQuestion, GraduationCap, MoreHorizontal } from 'lucide-react';
+import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, Bot, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileText, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare, Save, FileQuestion, GraduationCap, MoreHorizontal, Wrench } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -42,7 +42,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { addProspect, getProspects, updateProspect, deleteProspect as fbDeleteProspect } from '@/lib/firebase/services';
+import { addProspect, getProspects, updateProspect, deleteProspect as fbDeleteProspect, updateMissingProspectTimestamps } from '@/lib/firebase/services';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
 import { cn } from '@/lib/utils';
 import { useScriptContext } from '@/contexts/ScriptContext';
@@ -100,6 +100,7 @@ function OutreachPage() {
   const { setClientContext, clearContext: clearScriptContext } = useScriptContext();
   const [prospects, setProspects] = useState<OutreachProspect[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUpdatingLegacy, setIsUpdatingLegacy] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilters, setStatusFilters] = useState<Set<OutreachLeadStage>>(new Set(OUTREACH_LEAD_STAGE_OPTIONS));
   const [showOnlyNeedsFollowUp, setShowOnlyNeedsFollowUp] = useState(false);
@@ -140,7 +141,7 @@ function OutreachPage() {
     setIsLoading(true);
     try {
       const fetchedProspects = await getProspects();
-      setProspects(fetchedProspects.sort((a,b) => (b.followUpNeeded ? 1 : -1) - (a.followUpNeeded ? 1 : -1) || new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() ));
+      setProspects(fetchedProspects);
     } catch (error) {
       console.error("Error fetching prospects:", error);
       toast({ title: "Error", description: "Could not fetch prospects.", variant: "destructive" });
@@ -148,6 +149,24 @@ function OutreachPage() {
       setIsLoading(false);
     }
   }, [user, toast]);
+
+  const handleUpdateLegacy = async () => {
+    setIsUpdatingLegacy(true);
+    toast({ title: "Fixing legacy prospects...", description: "This may take a moment." });
+    try {
+        const count = await updateMissingProspectTimestamps();
+        if (count > 0) {
+            toast({ title: "Success!", description: `Updated ${count} legacy prospect(s). Refreshing list.` });
+        } else {
+            toast({ title: "No action needed.", description: "All prospects seem to be up-to-date." });
+        }
+        await fetchProspects(); // Refresh the list
+    } catch (error: any) {
+        toast({ title: "Error", description: error.message || "Failed to update prospects.", variant: "destructive" });
+    } finally {
+        setIsUpdatingLegacy(false);
+    }
+};
 
   useEffect(() => {
     const query = searchParams.get('q');
@@ -722,28 +741,23 @@ function OutreachPage() {
         </TableRow>
       );
     }
-    if (prospects.length === 0) {
-      return (
-        <TableRow>
-          <TableCell colSpan={6} className="text-center h-24">
-            <div className="flex flex-col items-center justify-center">
-              <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
-              <p className="font-semibold">No prospects found.</p>
-              <p className="text-sm text-muted-foreground">
-                Start building your outreach list by <Button variant="link" className="p-0 h-auto" onClick={() => setIsRapidAddOpen(true)}>adding your first prospect</Button>!
-              </p>
-            </div>
-          </TableCell>
-        </TableRow>
-      );
-    }
     if (filteredProspects.length === 0) {
       return (
         <TableRow>
           <TableCell colSpan={6} className="text-center h-24">
             <div className="flex flex-col items-center justify-center">
               <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
-              <p className="font-semibold">No prospects found matching your criteria.</p>
+              <p className="font-semibold">
+                {prospects.length === 0 && searchTerm === ''
+                  ? "No prospects found."
+                  : "No prospects found matching your criteria."
+                }
+              </p>
+              {prospects.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Start building your outreach list by <Button variant="link" className="p-0 h-auto" onClick={() => setIsRapidAddOpen(true)}>adding your first prospect</Button>!
+                </p>
+              )}
             </div>
           </TableCell>
         </TableRow>
@@ -921,34 +935,49 @@ function OutreachPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline">
-                  <Filter className="mr-2 h-4 w-4" /> Filter by Status <ChevronDown className="ml-2 h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {OUTREACH_LEAD_STAGE_OPTIONS.map((status) => (
+            <div className="flex items-center gap-2">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" size="icon" onClick={handleUpdateLegacy} disabled={isUpdatingLegacy || isLoading}>
+                      {isUpdatingLegacy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wrench className="h-4 w-4" />}
+                      <span className="sr-only">Fix legacy prospects</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Fix prospects missing a creation date.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline">
+                    <Filter className="mr-2 h-4 w-4" /> Filter by Status <ChevronDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {OUTREACH_LEAD_STAGE_OPTIONS.map((status) => (
+                    <DropdownMenuCheckboxItem
+                      key={status}
+                      checked={statusFilters.has(status)}
+                      onCheckedChange={() => toggleStatusFilter(status)}
+                    >
+                      {status}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                  <DropdownMenuSeparator />
                   <DropdownMenuCheckboxItem
-                    key={status}
-                    checked={statusFilters.has(status)}
-                    onCheckedChange={() => toggleStatusFilter(status)}
+                      checked={showOnlyNeedsFollowUp}
+                      onCheckedChange={setShowOnlyNeedsFollowUp}
                   >
-                    {status}
+                    <Star className="mr-2 h-4 w-4 text-yellow-500" />
+                    Needs Follow-up Only
                   </DropdownMenuCheckboxItem>
-                ))}
-                <DropdownMenuSeparator />
-                <DropdownMenuCheckboxItem
-                    checked={showOnlyNeedsFollowUp}
-                    onCheckedChange={setShowOnlyNeedsFollowUp}
-                >
-                  <Star className="mr-2 h-4 w-4 text-yellow-500" />
-                  Needs Follow-up Only
-                </DropdownMenuCheckboxItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </CardHeader>
         <CardContent>

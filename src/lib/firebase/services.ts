@@ -570,7 +570,7 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
 
     const [followUpSnapshot, needsQualifierSnapshot, toContactSnapshot] = await Promise.all([
         getDocs(followUpQuery),
-        getDocs(needsQualifierQuery),
+        getDocs(needsQualifierSnapshot),
         getDocs(toContactQuery)
     ]);
 
@@ -685,4 +685,32 @@ export const getMonthlyActivityData = async (): Promise<MonthlyActivity[]> => {
     return activityData.find(ad => ad.month === label) || { month: label, clients: 0, outreach: 0, audits: 0 };
   });
   return correctlyOrderedActivityData;
+};
+
+export const updateMissingProspectTimestamps = async (): Promise<number> => {
+    const userId = getCurrentUserId();
+    if (!userId) throw new Error("User not authenticated");
+
+    const q = query(prospectsCollection, where("userId", "==", userId));
+    const snapshot = await getDocs(q);
+
+    const updatePromises: Promise<void>[] = [];
+    let updatedCount = 0;
+
+    const fallbackDate = Timestamp.fromDate(new Date('2023-01-01'));
+
+    snapshot.docs.forEach(docSnap => {
+        const data = docSnap.data();
+        if (!data.createdAt) {
+            const docRef = doc(db, 'prospects', docSnap.id);
+            updatePromises.push(updateDoc(docRef, { createdAt: fallbackDate }));
+            updatedCount++;
+        }
+    });
+
+    if (updatePromises.length > 0) {
+        await Promise.all(updatePromises);
+    }
+
+    return updatedCount;
 };
