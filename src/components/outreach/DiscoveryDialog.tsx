@@ -13,11 +13,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { LoadingSpinner } from '../shared/loading-spinner';
 import { discoverProspects } from '@/ai/flows/discover-prospects';
-import type { z } from 'zod';
-import type { DiscoveredProspectSchema } from '@/ai/flows/discover-prospects';
+import type { DiscoveredProspect } from '@/ai/flows/discover-prospects';
 import { addProspect } from '@/lib/firebase/services';
-
-type DiscoveredProspect = z.infer<typeof DiscoveredProspectSchema>;
 
 interface DiscoveryDialogProps {
   isOpen: boolean;

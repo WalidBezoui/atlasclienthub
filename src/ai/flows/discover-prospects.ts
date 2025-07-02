@@ -5,16 +5,18 @@
  * - discoverProspects - A function that searches for potential prospects based on a query.
  * - DiscoverProspectsInput - The input type for the discoverProspects function.
  * - DiscoverProspectsOutput - The return type for the discoverProspects function.
+ * - DiscoveredProspect - The type for a single discovered prospect.
  */
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-export const DiscoveredProspectSchema = z.object({
+const DiscoveredProspectSchema = z.object({
   instagramHandle: z.string().describe("The Instagram handle of the prospect, without the '@' symbol."),
   name: z.string().describe("The name of the brand or person."),
   reason: z.string().describe("A brief, one-sentence reason why this prospect is a good fit based on the search query."),
 });
+export type DiscoveredProspect = z.infer<typeof DiscoveredProspectSchema>;
 
 const DiscoverProspectsInputSchema = z.object({
   query: z.string().describe('The search query for discovering prospects. This can include industry, location, keywords, etc. For example: "Moroccan skincare brands using handmade ingredients".'),
