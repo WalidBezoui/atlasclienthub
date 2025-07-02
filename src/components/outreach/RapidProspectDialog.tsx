@@ -97,7 +97,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
         setFetchedMetrics(result.data);
         await handleAnalyze(result.data); // Immediately analyze after fetching
       }
-    } catch (error: any) => {
+    } catch (error: any) {
       toast({ title: 'An error occurred', description: error.message, variant: 'destructive' });
       setStep(1);
     } finally {
