@@ -126,7 +126,7 @@ The user has provided this definitive clarification: "{{clarificationResponse}}"
   - Good Options: ["High-ticket 1-on-1 coaching", "Selling physical products (e.g., yoga mats)", "Promoting affiliate links & brand deals", "It's a personal blog for sharing tips"]
 
 - **B. Visual Feed Question (MANDATORY if profitability is clear)**:
-  - You MUST ask this question if the business model is understood but you haven't received user feedback on the visuals yet (i.e., `hasInconsistentGrid` is still 'unknown').
+  - You MUST ask this question if the business model is understood but you haven't received user feedback on the visuals yet (i.e., 'hasInconsistentGrid' is still 'unknown').
   - Good Question: "Looking at their feed, how would you describe their visual branding?"
   - Good Options: ["Looks professional, consistent, and on-brand", "It's clean but looks like a generic product catalog", "The grid feels a bit messy and unplanned", "There's not enough content to tell"]
 
