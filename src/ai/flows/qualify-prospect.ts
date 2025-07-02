@@ -114,7 +114,7 @@ The user has answered a question. Your job is to decide whether to ask the NEXT 
   - *Good Options*: ["Selling high-ticket services (coaching, consulting)", "Selling physical products", "Affiliate marketing / brand deals", "It seems to be a personal blog or hobby account"]
 
 - **B. Visual Feed Question (Priority 2 - MANDATORY)**:
-  - *This is the MOST common and important question.* You MUST ask this if profitability is clear.
+  - This is the MOST common and important question. You MUST ask this if profitability is clear.
   - *Good Question*: "Based on their feed, how would you describe their visual branding?"
   - *Good Options*: ["Polished & On-Brand (Strong visuals, consistent aesthetic)", "Clean but Generic (Lacks personality, looks like a template)", "Messy & Inconsistent (No clear style, feels unplanned)", "Not Enough Content (Too new or inactive to judge)"]
 
