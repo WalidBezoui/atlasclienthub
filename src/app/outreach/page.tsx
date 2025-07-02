@@ -602,7 +602,7 @@ function OutreachPage() {
     ].join(' ').toLowerCase();
 
     const searchTermMatch = searchTerms.every(term => prospectText.includes(term));
-    const statusMatch = (statusFilters.size === OUTREACH_LEAD_STAGE_OPTIONS.length || statusFilters.has(prospect.status));
+    const statusMatch = (statusFilters.size === OUTREACH_LEAD_STAGE_OPTIONS.length || statusFilters.size === 0 || statusFilters.has(prospect.status));
     const followUpMatch = !showOnlyNeedsFollowUp || !!prospect.followUpNeeded;
 
     return searchTermMatch && statusMatch && followUpMatch;
@@ -946,29 +946,20 @@ function OutreachPage() {
         </TableRow>
       ));
     }
-    // This case handles when there are no prospects at all
-    if (prospects.length === 0) {
-        return (
-            <TableRow>
-                <TableCell colSpan={6} className="text-center h-24">
-                    <div className="flex flex-col items-center justify-center">
-                        <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
-                        <p className="font-semibold">No prospects found.</p>
-                        <p className="text-sm text-muted-foreground">
-                            Start building your outreach list by <Button variant="link" className="p-0 h-auto" onClick={() => setIsRapidAddOpen(true)}>adding your first prospect</Button>!
-                        </p>
-                    </div>
-                </TableCell>
-            </TableRow>
-        );
-    }
-    // This case handles when there are prospects, but the filter returns none
+    // This case handles when there are no prospects at all OR filtered list is empty
     return (
         <TableRow>
             <TableCell colSpan={6} className="text-center h-24">
                 <div className="flex flex-col items-center justify-center">
                     <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
-                    <p className="font-semibold">No prospects found matching your criteria.</p>
+                    <p className="font-semibold">
+                        {prospects.length === 0 ? "No prospects found." : "No prospects match your criteria."}
+                    </p>
+                    {prospects.length === 0 && (
+                        <p className="text-sm text-muted-foreground">
+                            Start building your outreach list by <Button variant="link" className="p-0 h-auto" onClick={() => setIsRapidAddOpen(true)}>adding your first prospect</Button>!
+                        </p>
+                    )}
                 </div>
             </TableCell>
         </TableRow>
@@ -1120,7 +1111,7 @@ function OutreachPage() {
                   {OUTREACH_LEAD_STAGE_OPTIONS.map((status) => (
                     <DropdownMenuCheckboxItem
                       key={status}
-                      checked={statusFilters.has(status)}
+                      checked={statusFilters.size === 0 || statusFilters.has(status)}
                       onCheckedChange={() => toggleStatusFilter(status)}
                     >
                       {status}

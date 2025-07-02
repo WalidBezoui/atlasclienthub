@@ -17,6 +17,7 @@ import type { OutreachProspect, OutreachLeadStage, BusinessType, PainPoint, Goal
 import { OUTREACH_LEAD_STAGE_OPTIONS, BUSINESS_TYPES, PAIN_POINTS, GOALS, LEAD_SOURCES, OFFER_INTERESTS, TONE_PREFERENCES, PROSPECT_LOCATIONS, ACCOUNT_STAGES } from '@/lib/types';
 import { RefreshCw, Loader2, Info, Briefcase, BarChart3, AlertCircle, Target, MessageSquare, Settings2, FileQuestion, Star } from 'lucide-react';
 import { Badge } from '../ui/badge';
+import { qualifyProspect } from '@/ai/flows/qualify-prospect';
 
 const initialFormData: Omit<OutreachProspect, 'id' | 'userId'> = {
     name: '',
@@ -58,6 +59,7 @@ const initialFormData: Omit<OutreachProspect, 'id' | 'userId'> = {
     qualifierReply: null,
     leadScore: null,
     qualificationData: null,
+    createdAt: new Date().toISOString(),
 };
 
 // A "safe" date formatter that won't crash on invalid input
@@ -78,6 +80,7 @@ const safeFormatDate = (dateString: string | null | undefined): string => {
 export function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProspect, onSave: (prospectData: Omit<OutreachProspect, 'id' | 'userId'> | OutreachProspect) => void, onCancel: () => void }) {
   const { toast } = useToast();
   const [isFetchingMetrics, setIsFetchingMetrics] = useState(false);
+  const [isQualifying, setIsQualifying] = useState(false);
   
   const [formData, setFormData] = useState<Partial<OutreachProspect>>(initialFormData);
 
@@ -118,33 +121,55 @@ export function ProspectForm({ prospect, onSave, onCancel }: { prospect?: Outrea
     setFormData(prev => ({ ...prev, [name]: value || null }));
   };
 
-  const handleFetchMetrics = async () => {
+  const handleFetchAndQualify = async () => {
     if (!formData.instagramHandle) {
-      toast({ title: "Missing Handle", description: "Please enter an Instagram handle to fetch metrics.", variant: "destructive" });
-      return;
+        toast({ title: "Missing Handle", description: "Please enter an Instagram handle to fetch metrics.", variant: "destructive" });
+        return;
     }
     setIsFetchingMetrics(true);
+    setIsQualifying(true);
     try {
-      const result = await fetchInstagramMetrics(formData.instagramHandle.trim());
-      if (result.error) {
-        toast({ title: "Metrics Fetch Failed", description: result.error, variant: "destructive", duration: 8000 });
-      } else if (result.data) {
-        setFormData(prev => ({
-          ...prev,
-          followerCount: result.data!.followerCount,
-          postCount: result.data!.postCount,
-          avgLikes: result.data!.avgLikes,
-          avgComments: result.data!.avgComments,
-          accountStage: result.data!.followerCount < 1000 ? "Growing (100–1k followers)" : result.data!.followerCount < 10000 ? "Established (>1k followers)" : "Established (>1k followers)",
-        }));
-        toast({ title: "Metrics Fetched!", description: `Data for @${formData.instagramHandle} updated.` });
-      }
+        const metricsResult = await fetchInstagramMetrics(formData.instagramHandle.trim());
+        if (metricsResult.error || !metricsResult.data) {
+            toast({ title: "Metrics Fetch Failed", description: metricsResult.error || "The profile may be private or invalid.", variant: "destructive", duration: 8000 });
+            return;
+        }
+        
+        toast({ title: "Metrics Fetched!", description: "Now running AI qualification..." });
+        
+        const qualifyResult = await qualifyProspect({
+            instagramHandle: formData.instagramHandle,
+            followerCount: metricsResult.data.followerCount,
+            postCount: metricsResult.data.postCount,
+            avgLikes: metricsResult.data.avgLikes,
+            avgComments: metricsResult.data.avgComments,
+            biography: metricsResult.data.biography,
+        });
+
+        if (qualifyResult) {
+            setFormData(prev => ({
+                ...prev,
+                followerCount: metricsResult.data?.followerCount ?? prev.followerCount,
+                postCount: metricsResult.data?.postCount ?? prev.postCount,
+                avgLikes: metricsResult.data?.avgLikes ?? prev.avgLikes,
+                avgComments: metricsResult.data?.avgComments ?? prev.avgComments,
+                bioSummary: metricsResult.data?.biography ?? prev.bioSummary,
+                leadScore: qualifyResult.leadScore,
+                qualificationData: qualifyResult.qualificationData,
+                painPoints: qualifyResult.painPoints,
+                goals: qualifyResult.goals,
+                helpStatement: qualifyResult.summary,
+            }));
+            toast({ title: "Prospect Qualified!", description: `Data for @${formData.instagramHandle} has been fetched and analyzed.` });
+        }
     } catch (error: any) {
-      toast({ title: "Error Fetching Metrics", description: error.message || "An unexpected error occurred.", variant: "destructive" });
+        toast({ title: "Error During Process", description: error.message || "An unexpected error occurred.", variant: "destructive" });
     } finally {
-      setIsFetchingMetrics(false);
+        setIsFetchingMetrics(false);
+        setIsQualifying(false);
     }
   };
+
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -242,9 +267,9 @@ export function ProspectForm({ prospect, onSave, onCancel }: { prospect?: Outrea
         <section>
           <h4 className="font-semibold text-lg flex items-center mb-2"><BarChart3 className="mr-2 h-5 w-5 text-primary"/>Engagement Metrics</h4>
           <div className="p-4 border rounded-md space-y-3">
-              <Button type="button" variant="outline" onClick={handleFetchMetrics} disabled={isFetchingMetrics || !formData.instagramHandle} className="text-xs">
-                  {isFetchingMetrics ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <RefreshCw className="mr-2 h-3 w-3" />}
-                  Fetch Metrics (via Apify)
+              <Button type="button" variant="outline" onClick={handleFetchAndQualify} disabled={isFetchingMetrics || isQualifying || !formData.instagramHandle} className="text-xs">
+                  {isFetchingMetrics || isQualifying ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <RefreshCw className="mr-2 h-3 w-3" />}
+                  {isFetchingMetrics ? 'Fetching...' : isQualifying ? 'Qualifying...' : 'Fetch & Qualify'}
               </Button>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
@@ -304,12 +329,12 @@ export function ProspectForm({ prospect, onSave, onCancel }: { prospect?: Outrea
         <section>
           <h4 className="font-semibold text-lg flex items-center mb-2"><Star className="mr-2 h-5 w-5 text-primary"/>Lead & Interaction Status</h4>
            <div className="p-4 border rounded-md space-y-3">
-              {prospect?.leadScore !== null && prospect?.leadScore !== undefined && (
+              {formData.leadScore !== null && formData.leadScore !== undefined && (
                 <div>
                   <Label>Lead Score</Label>
                   <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="text-base">{prospect.leadScore}</Badge>
-                    <p className="text-xs text-muted-foreground">This score was automatically calculated during rapid creation.</p>
+                    <Badge variant="secondary" className="text-base">{formData.leadScore}</Badge>
+                    <p className="text-xs text-muted-foreground">This score was automatically calculated.</p>
                   </div>
                 </div>
               )}

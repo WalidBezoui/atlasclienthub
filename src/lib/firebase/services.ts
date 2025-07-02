@@ -142,13 +142,13 @@ const processDateForFirestore = (dateInput: any, defaultToNow: boolean = false):
 };
 
 
-export const addProspect = async (prospectData: Omit<OutreachProspect, 'id' | 'userId' | 'createdAt'>): Promise<string> => {
+export const addProspect = async (prospectData: Omit<OutreachProspect, 'id' | 'userId'>): Promise<string> => {
   const userId = getCurrentUserId();
   if (!userId) throw new Error('User not authenticated');
   
   const dataForFirestore = {
     userId,
-    createdAt: serverTimestamp(),
+    createdAt: processDateForFirestore(prospectData.createdAt, true),
     name: prospectData.name,
     status: prospectData.status || 'To Contact' as OutreachLeadStage,
     statusHistory: [],
@@ -206,6 +206,7 @@ export const addProspect = async (prospectData: Omit<OutreachProspect, 'id' | 'u
 export const getProspects = async (): Promise<OutreachProspect[]> => {
   const userId = getCurrentUserId();
   if (!userId) return [];
+  // No longer sorting by createdAt on the server to ensure all docs are fetched
   const q = query(prospectsCollection, where('userId', '==', userId));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(docSnap => {
@@ -213,7 +214,7 @@ export const getProspects = async (): Promise<OutreachProspect[]> => {
     const prospect: OutreachProspect = {
       id: docSnap.id,
       userId: data.userId,
-      createdAt: data.createdAt ? (data.createdAt as Timestamp).toDate().toISOString() : new Date().toISOString(),
+      createdAt: data.createdAt ? (data.createdAt as Timestamp).toDate().toISOString() : new Date(0).toISOString(), // Fallback for old docs
       name: data.name || '',
       status: data.status || 'To Contact',
       statusHistory: (data.statusHistory || []).map((item: any) => ({

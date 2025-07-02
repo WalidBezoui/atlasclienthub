@@ -119,7 +119,7 @@ Use this new, definitive context to refine your entire analysis, especially the 
     -   **Action**: Return this in the \`clarificationRequest\` object. If you are confident, set it to \`null\`.
 
 Now, perform the analysis and return the complete JSON object.`,
-});
+}));
 
 const qualifyProspectFlow = ai.defineFlow(
   {

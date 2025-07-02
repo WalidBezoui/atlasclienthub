@@ -174,6 +174,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
       qualifierQuestion: null,
       qualifierSentAt: null,
       qualifierReply: null,
+      createdAt: new Date().toISOString(), // Add createdAt
     };
     
     onSave(newProspect);
