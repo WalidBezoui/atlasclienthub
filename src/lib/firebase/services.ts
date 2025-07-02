@@ -206,7 +206,7 @@ export const addProspect = async (prospectData: Omit<OutreachProspect, 'id' | 'u
 export const getProspects = async (): Promise<OutreachProspect[]> => {
   const userId = getCurrentUserId();
   if (!userId) return [];
-  const q = query(prospectsCollection, where('userId', '==', userId), orderBy('createdAt', 'desc'));
+  const q = query(prospectsCollection, where('userId', '==', userId));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(docSnap => {
     const data = docSnap.data();
@@ -354,7 +354,19 @@ export const updateProspect = async (id: string, prospectData: Partial<Omit<Outr
 export const deleteProspect = async (id: string): Promise<void> => {
   const userId = getCurrentUserId();
   if (!userId) throw new Error('User not authenticated');
-  await deleteDoc(doc(db, 'prospects', id));
+
+  const prospectDocRef = doc(db, 'prospects', id);
+  
+  const prospectSnap = await getDoc(prospectDocRef);
+  if (!prospectSnap.exists()) {
+    console.warn(`Prospect with id ${id} not found for deletion, it may have already been deleted.`);
+    return;
+  }
+  if (prospectSnap.data().userId !== userId) {
+    throw new Error("You do not have permission to delete this prospect.");
+  }
+
+  await deleteDoc(prospectDocRef);
 };
 
 
@@ -545,7 +557,6 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
         prospectsCollection,
         where('userId', '==', userId),
         where('followUpNeeded', '==', true),
-        where('followUpDate', '<=', todayEndTimestamp),
         orderBy('followUpDate', 'asc'),
         limit(5)
     );
@@ -564,19 +575,20 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
         prospectsCollection,
         where('userId', '==', userId),
         where('status', '==', 'To Contact'),
-        orderBy('leadScore', 'desc'),
+        orderBy('createdAt', 'desc'),
         limit(5)
     );
 
     const [followUpSnapshot, needsQualifierSnapshot, toContactSnapshot] = await Promise.all([
         getDocs(followUpQuery),
-        getDocs(needsQualifierSnapshot),
+        getDocs(needsQualifierQuery),
         getDocs(toContactQuery)
     ]);
 
     followUpSnapshot.forEach(doc => {
-        if (processedIds.has(doc.id)) return;
         const prospect = doc.data() as OutreachProspect;
+        const dueDate = prospect.followUpDate ? new Date(prospect.followUpDate) : new Date(0);
+        if (processedIds.has(doc.id) || dueDate > new Date()) return;
         agendaItems.push({
             type: 'FOLLOW_UP',
             prospect: { id: doc.id, name: prospect.name, instagramHandle: prospect.instagramHandle, status: prospect.status },

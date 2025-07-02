@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
-import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, Bot, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileText, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare, Save, FileQuestion, GraduationCap, MoreHorizontal } from 'lucide-react';
+import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, Bot, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileText, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare, Save, FileQuestion, GraduationCap, MoreHorizontal, Wrench } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import * as papa from 'papaparse';
 import { Button } from '@/components/ui/button';
@@ -43,7 +43,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { addProspect, getProspects, updateProspect, deleteProspect as fbDeleteProspect } from '@/lib/firebase/services';
+import { addProspect, getProspects, updateProspect, deleteProspect as fbDeleteProspect, updateMissingProspectTimestamps } from '@/lib/firebase/services';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
 import { cn } from '@/lib/utils';
 import { useScriptContext } from '@/contexts/ScriptContext';
@@ -109,6 +109,7 @@ function OutreachPage() {
   const [isEditFormOpen, setIsEditFormOpen] = useState(false);
   const [isRapidAddOpen, setIsRapidAddOpen] = useState(false);
   const [editingProspect, setEditingProspect] = useState<OutreachProspect | undefined>(undefined);
+  const [prospectToDelete, setProspectToDelete] = useState<OutreachProspect | null>(null);
   
   // State for script modal
   const [isScriptModalOpen, setIsScriptModalOpen] = useState(false);
@@ -147,6 +148,7 @@ function OutreachPage() {
             if (aFollowUp !== bFollowUp) {
                 return aFollowUp ? -1 : 1;
             }
+            // Ensure createdAt exists, treat missing as very old
             const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
             const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
             return dateB.getTime() - dateA.getTime();
@@ -199,18 +201,26 @@ function OutreachPage() {
     }
   }, [user, fetchProspects, toast]);
   
-  const handleDeleteProspect = useCallback(async (prospectId: string, prospectName: string) => {
-     if (window.confirm(`Are you sure you want to delete prospect "${prospectName}"?`)) {
-      try {
-        await fbDeleteProspect(prospectId);
-        toast({ title: "Prospect Deleted", description: `Prospect ${prospectName} has been removed.` });
-        fetchProspects(); 
-      } catch (error: any) {
-        console.error("Error deleting prospect:", error);
-        toast({ title: "Error", description: error.message || "Could not delete prospect.", variant: "destructive"});
-      }
+ const confirmDeleteProspect = async () => {
+    if (!prospectToDelete) return;
+    try {
+      await fbDeleteProspect(prospectToDelete.id);
+      toast({
+        title: 'Prospect Deleted',
+        description: `Prospect ${prospectToDelete.name} has been removed.`,
+      });
+      fetchProspects();
+    } catch (error: any) {
+      console.error('Error deleting prospect:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Could not delete prospect.',
+        variant: 'destructive',
+      });
+    } finally {
+      setProspectToDelete(null);
     }
-  }, [fetchProspects, toast]);
+  };
 
   const handleStatusChange = useCallback(async (prospectId: string, newStatus: OutreachLeadStage) => {
     if (!user) return;
@@ -300,13 +310,9 @@ function OutreachPage() {
     setCurrentScriptGenerationInput(input);
 
     const onConfirmScript = async (scriptContent: string) => {
-      const prospectToUpdate = prospects.find(p => p.id === prospect.id);
-      if (!prospectToUpdate) {
-        toast({ title: "Error", description: "Could not find prospect to update.", variant: "destructive" });
-        return;
-      }
+      if (!prospect) return;
 
-      const currentHistory = prospectToUpdate.conversationHistory || '';
+      const currentHistory = prospect.conversationHistory || '';
       const newHistory = `${currentHistory}${currentHistory ? '\n\n' : ''}Me: ${scriptContent}`.trim();
       const contactDate = new Date().toISOString();
 
@@ -317,9 +323,9 @@ function OutreachPage() {
       };
 
       let newStatus: OutreachLeadStage | undefined;
-      if (prospectToUpdate.status === 'To Contact' && scriptType === 'Cold Outreach DM') {
+      if (prospect.status === 'To Contact' && scriptType === 'Cold Outreach DM') {
           newStatus = 'Cold';
-      } else if (prospectToUpdate.status === 'Cold' && scriptType.includes('Follow-Up')) {
+      } else if (prospect.status === 'Cold' && scriptType.includes('Follow-Up')) {
           newStatus = 'Warm';
       } else if (scriptType === 'Audit Delivery Message') {
           newStatus = 'Audit Delivered';
@@ -328,11 +334,11 @@ function OutreachPage() {
       
       if (newStatus) {
           updates.status = newStatus;
-          updates.statusHistory = [...(prospectToUpdate.statusHistory || []), { status: newStatus, date: contactDate }];
+          updates.statusHistory = [...(prospect.statusHistory || []), { status: newStatus, date: contactDate }];
       }
       
       try {
-          await updateProspect(prospectToUpdate.id, updates);
+          await updateProspect(prospect.id, updates);
           toast({ title: "Conversation Updated", description: "Script has been saved to the conversation history and status updated." });
           setIsScriptModalOpen(false);
           fetchProspects();
@@ -345,6 +351,7 @@ function OutreachPage() {
         showConfirmButton: true,
         confirmButtonText: "Save to Conversation",
         onConfirm: onConfirmScript,
+        prospect: prospect, 
     });
     
     try {
@@ -393,8 +400,11 @@ function OutreachPage() {
     setScriptModalConfig({
         showConfirmButton: true,
         confirmButtonText: "Send & Update Status",
+        prospect: prospect,
         onConfirm: async (scriptContent: string) => {
-            await handleSendQualifier(prospect, scriptContent);
+           if (currentProspectForScript) {
+             await handleSendQualifier(currentProspectForScript, scriptContent);
+           }
         }
     });
 
@@ -422,7 +432,7 @@ function OutreachPage() {
     } finally {
         setIsGeneratingScript(false);
     }
-  }, [handleSendQualifier, toast]);
+  }, [handleSendQualifier, toast, currentProspectForScript]);
   
   const handleGenerateNextReply = useCallback(async (prospect: OutreachProspect, customInstructions: string): Promise<string> => {
     if (!prospect) {
@@ -759,7 +769,7 @@ function OutreachPage() {
                         </DropdownMenuGroup>
 
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => handleDeleteProspect(prospect.id, prospect.name)} className="text-destructive">
+                        <DropdownMenuItem onClick={() => setProspectToDelete(prospect)} className="text-destructive">
                             <Trash2 className="mr-2 h-4 w-4" /> Delete Prospect
                         </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -779,23 +789,28 @@ function OutreachPage() {
         </TableRow>
       );
     }
+    if (prospects.length === 0) {
+        return (
+            <TableRow>
+              <TableCell colSpan={6} className="text-center h-24">
+                 <div className="flex flex-col items-center justify-center">
+                  <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
+                  <p className="font-semibold">No prospects found.</p>
+                  <p className="text-sm text-muted-foreground">
+                    Start building your outreach list by <Button variant="link" className="p-0 h-auto" onClick={() => setIsRapidAddOpen(true)}>adding your first prospect</Button>!
+                  </p>
+                </div>
+              </TableCell>
+            </TableRow>
+        );
+    }
     if (filteredProspects.length === 0) {
       return (
         <TableRow>
           <TableCell colSpan={6} className="text-center h-24">
              <div className="flex flex-col items-center justify-center">
               <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
-              <p className="font-semibold">
-                {prospects.length === 0 && searchTerm === ''
-                  ? "No prospects found."
-                  : "No prospects found matching your criteria."
-                }
-              </p>
-              {prospects.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  Start building your outreach list by <Button variant="link" className="p-0 h-auto" onClick={() => setIsRapidAddOpen(true)}>adding your first prospect</Button>!
-                </p>
-              )}
+              <p className="font-semibold">No prospects found matching your criteria.</p>
             </div>
           </TableCell>
         </TableRow>
@@ -912,22 +927,17 @@ function OutreachPage() {
         </DialogContent>
       </Dialog>
       
-      <AlertDialog open={showUnsavedConfirm} onOpenChange={setShowUnsavedConfirm}>
+      <AlertDialog open={!!prospectToDelete} onOpenChange={(open) => { if (!open) setProspectToDelete(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>You have unsaved changes</AlertDialogTitle>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to discard them? This action cannot be undone.
+              This action cannot be undone. This will permanently delete the prospect "{prospectToDelete?.name}" and all associated data.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Stay</AlertDialogCancel>
-            <AlertDialogAction onClick={() => {
-              setShowUnsavedConfirm(false);
-              setIsConversationModalOpen(false);
-            }}>
-              Discard
-            </AlertDialogAction>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteProspect}>Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -1041,8 +1051,8 @@ function OutreachPage() {
       <ScriptModal
         isOpen={isScriptModalOpen}
         onClose={() => {
+            setCurrentProspectForScript(null);
             setIsScriptModalOpen(false);
-            setCurrentProspectForScript(null); // Clear prospect on close
         }}
         scriptContent={generatedScript}
         title={scriptModalTitle}
@@ -1050,7 +1060,7 @@ function OutreachPage() {
         isLoadingInitially={isGeneratingScript && !generatedScript}
         showConfirmButton={scriptModalConfig.showConfirmButton}
         confirmButtonText={scriptModalConfig.confirmButtonText}
-        onConfirm={scriptModalConfig.onConfirm}
+        onConfirm={scriptModalConfig.onConfirm ? () => scriptModalConfig.onConfirm(generatedScript) : undefined}
       />
     </>
   );
