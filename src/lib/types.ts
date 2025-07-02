@@ -48,6 +48,17 @@ export type StatusHistoryItem = {
   date: string; // ISO date string
 };
 
+export type QualificationData = {
+  isBusiness: 'yes' | 'no' | 'unknown';
+  hasInconsistentGrid: 'yes' | 'no' | 'unknown';
+  hasLowEngagement: 'yes' | 'no' | 'unknown';
+  hasNoClearCTA: 'yes' | 'no' | 'unknown';
+  valueProposition: 'visuals' | 'leads' | 'engagement' | 'unknown';
+  profitabilityPotential: 'low' | 'medium' | 'high' | 'unknown';
+  contentPillarClarity: 'unclear' | 'somewhat-clear' | 'very-clear' | 'unknown';
+  salesFunnelStrength: 'none' | 'weak' | 'strong' | 'unknown';
+};
+
 export type OutreachProspect = {
   id: string;
   userId: string; 
@@ -114,14 +125,7 @@ export type OutreachProspect = {
   
   // New Scoring & Qualification Fields
   leadScore?: number | null;
-  qualificationData?: {
-      isBusiness: 'yes' | 'no' | 'unknown';
-      hasInconsistentGrid: 'yes' | 'no' | 'unknown';
-      hasLowEngagement: 'yes' | 'no' | 'unknown';
-      hasNoClearCTA: 'yes' | 'no' | 'unknown';
-      valueProposition: 'visuals' | 'leads' | 'engagement' | 'unknown';
-      profitabilityPotential: 'low' | 'medium' | 'high' | 'unknown';
-  } | null;
+  qualificationData?: QualificationData | null;
 };
 
 

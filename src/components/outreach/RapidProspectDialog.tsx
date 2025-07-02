@@ -10,7 +10,7 @@ import { fetchInstagramMetrics, type InstagramMetrics } from '@/app/actions/fetc
 import { qualifyProspect, type QualifyProspectInput, type QualifyProspectOutput } from '@/ai/flows/qualify-prospect';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, ArrowRight, ArrowLeft, Wand2, Star, Save, BrainCircuit, CheckCircle, HelpCircle } from 'lucide-react';
-import type { OutreachProspect } from '@/lib/types';
+import type { OutreachProspect, QualificationData } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
@@ -144,7 +144,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
       avgComments: fetchedMetrics.avgComments ?? null,
       bioSummary: fetchedMetrics.biography,
       leadScore: analysisResult.leadScore,
-      qualificationData: analysisResult.qualificationData,
+      qualificationData: analysisResult.qualificationData as QualificationData,
       painPoints: analysisResult.painPoints,
       goals: analysisResult.goals,
       helpStatement: analysisResult.summary,
@@ -188,15 +188,38 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
       return "destructive"; // Red (low)
   };
   
-  const QualificationDetail = ({ label, value }: { label: string, value: 'yes' | 'no' | 'unknown' }) => {
-    const isYes = value === 'yes';
+  const GenericQualificationDetail = ({ label, value, variantMap }: { label: string, value: string, variantMap: any }) => {
     return (
         <div className="flex justify-between items-center text-xs">
             <span className="text-muted-foreground">{label}</span>
-            <Badge variant={isYes ? 'default' : 'outline'} className="capitalize">{value}</Badge>
+            <Badge variant={variantMap[value] || 'outline'} className="capitalize">{value.replace(/-/g, ' ')}</Badge>
         </div>
     );
   };
+
+  const renderAnalysisDetails = (data: QualificationData) => {
+     const profitabilityVariantMap = { 'high': 'default', 'medium': 'secondary', 'low': 'destructive', 'unknown': 'outline' };
+     const funnelVariantMap = { 'strong': 'default', 'weak': 'secondary', 'none': 'destructive', 'unknown': 'outline' };
+     const clarityVariantMap = { 'very-clear': 'default', 'somewhat-clear': 'secondary', 'unclear': 'destructive', 'unknown': 'outline' };
+     const yesNoVariantMap = { 'yes': 'default', 'no': 'outline', 'unknown': 'outline' };
+      
+     return (
+       <div className="space-y-2 pt-2">
+         <GenericQualificationDetail label="Is Business Account?" value={data.isBusiness} variantMap={yesNoVariantMap} />
+         <GenericQualificationDetail label="Inconsistent Grid?" value={data.hasInconsistentGrid} variantMap={yesNoVariantMap} />
+         <GenericQualificationDetail label="Low Engagement?" value={data.hasLowEngagement} variantMap={yesNoVariantMap} />
+         <GenericQualificationDetail label="No Clear CTA?" value={data.hasNoClearCTA} variantMap={yesNoVariantMap} />
+         <GenericQualificationDetail label="Content Pillar Clarity" value={data.contentPillarClarity} variantMap={clarityVariantMap} />
+         <GenericQualificationDetail label="Sales Funnel Strength" value={data.salesFunnelStrength} variantMap={funnelVariantMap} />
+         <GenericQualificationDetail label="Profitability Potential" value={data.profitabilityPotential} variantMap={profitabilityVariantMap} />
+         <div className="flex justify-between items-center text-xs pt-1">
+             <span className="text-muted-foreground">#1 Value Prop</span>
+             <Badge variant="outline" className="capitalize">{data.valueProposition}</Badge>
+         </div>
+       </div>
+     );
+  };
+
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -257,24 +280,8 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
                    <Accordion type="single" collapsible className="w-full">
                       <AccordionItem value="details">
                           <AccordionTrigger className="text-xs pt-2">View Analysis Details</AccordionTrigger>
-                          <AccordionContent className="space-y-2 pt-2">
-                              <QualificationDetail label="Is Business Account?" value={analysisResult.qualificationData.isBusiness} />
-                              <QualificationDetail label="Inconsistent Grid?" value={analysisResult.qualificationData.hasInconsistentGrid} />
-                              <QualificationDetail label="Low Engagement?" value={analysisResult.qualificationData.hasLowEngagement} />
-                              <QualificationDetail label="No Clear CTA?" value={analysisResult.qualificationData.hasNoClearCTA} />
-                               <div className="flex justify-between items-center text-xs pt-1">
-                                  <span className="text-muted-foreground">Profitability Potential</span>
-                                  <Badge variant={
-                                      analysisResult.qualificationData.profitabilityPotential === 'high' ? 'default' :
-                                      analysisResult.qualificationData.profitabilityPotential === 'medium' ? 'secondary' :
-                                      analysisResult.qualificationData.profitabilityPotential === 'low' ? 'destructive' :
-                                      'outline'
-                                  } className="capitalize">{analysisResult.qualificationData.profitabilityPotential}</Badge>
-                              </div>
-                              <div className="flex justify-between items-center text-xs pt-1">
-                                  <span className="text-muted-foreground">#1 Value Prop</span>
-                                  <Badge variant="outline" className="capitalize">{analysisResult.qualificationData.valueProposition}</Badge>
-                              </div>
+                          <AccordionContent>
+                            {renderAnalysisDetails(analysisResult.qualificationData as QualificationData)}
                           </AccordionContent>
                       </AccordionItem>
                   </Accordion>
@@ -325,3 +332,4 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
     </Dialog>
   );
 }
+
