@@ -26,6 +26,30 @@ const getCurrentUserId = (): string | null => {
   return auth.currentUser ? auth.currentUser.uid : null;
 };
 
+const convertTimestampToISO = (timestamp: any): string | undefined => {
+    if (!timestamp) {
+        return undefined;
+    }
+    // Check for Firebase Timestamp
+    if (typeof timestamp.toDate === 'function') {
+        return timestamp.toDate().toISOString();
+    }
+    // Check if it's already a Date object
+    if (timestamp instanceof Date) {
+        return timestamp.toISOString();
+    }
+    // Check if it's a string that can be parsed into a valid date
+    if (typeof timestamp === 'string') {
+        const d = new Date(timestamp);
+        if (!isNaN(d.getTime())) {
+            return d.toISOString();
+        }
+    }
+    // Return undefined for any other type or invalid string
+    return undefined;
+};
+
+
 // --- Client Services ---
 const clientsCollection = collection(db, 'clients');
 
@@ -214,12 +238,12 @@ export const getProspects = async (): Promise<OutreachProspect[]> => {
     const prospect: OutreachProspect = {
       id: docSnap.id,
       userId: data.userId,
-      createdAt: data.createdAt ? (data.createdAt as Timestamp).toDate().toISOString() : new Date(0).toISOString(), // Fallback for old docs
+      createdAt: convertTimestampToISO(data.createdAt) || new Date(0).toISOString(),
       name: data.name || '',
       status: data.status || 'To Contact',
       statusHistory: (data.statusHistory || []).map((item: any) => ({
           ...item,
-          date: item.date ? (item.date as Timestamp).toDate().toISOString() : new Date().toISOString(),
+          date: convertTimestampToISO(item.date) || new Date().toISOString(),
       })),
       instagramHandle: data.instagramHandle || null,
       businessName: data.businessName || null,
@@ -239,8 +263,8 @@ export const getProspects = async (): Promise<OutreachProspect[]> => {
       painPoints: data.painPoints || [],
       goals: data.goals || [],
       source: data.source || null,
-      lastContacted: data.lastContacted ? (data.lastContacted as Timestamp).toDate().toISOString() : undefined,
-      followUpDate: data.followUpDate ? (data.followUpDate as Timestamp).toDate().toISOString() : undefined,
+      lastContacted: convertTimestampToISO(data.lastContacted),
+      followUpDate: convertTimestampToISO(data.followUpDate),
       followUpNeeded: data.followUpNeeded || false,
       offerInterest: data.offerInterest || [],
       uniqueNote: data.uniqueNote || null,
@@ -253,7 +277,7 @@ export const getProspects = async (): Promise<OutreachProspect[]> => {
       nextStep: data.nextStep || null,
       conversationHistory: data.conversationHistory || null,
       qualifierQuestion: data.qualifierQuestion || null,
-      qualifierSentAt: data.qualifierSentAt ? (data.qualifierSentAt as Timestamp).toDate().toISOString() : undefined,
+      qualifierSentAt: convertTimestampToISO(data.qualifierSentAt),
       qualifierReply: data.qualifierReply || null,
       notes: data.notes || null,
       leadScore: data.leadScore ?? null,
