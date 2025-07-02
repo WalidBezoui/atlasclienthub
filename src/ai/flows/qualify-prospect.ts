@@ -101,13 +101,20 @@ The user has provided this definitive clarification: "{{clarificationResponse}}"
 **Step 5: Synthesize & Score**
 - Based on the analysis, complete the \`qualificationData\` object.
 - Select the most relevant \`painPoints\` and \`goals\`.
-- Calculate the \`leadScore\` using the model below. Max score is 100.
-    - **Base Score:** 20
-    - **isBusiness = 'yes'**: +20
-    - **Profitability Potential**: 'high' (+25), 'medium' (+15), 'low' (-10)
-    - **salesFunnelStrength**: 'strong' (+10), 'weak' (+5), 'none' (0)
-    - **Opportunity Signals**: 'hasInconsistentGrid' = 'yes' (+10), 'hasLowEngagement' = 'yes' (+10), 'hasNoClearCTA' = 'yes' (+10), 'contentPillarClarity' = 'unclear' (+10)
-    - **Audience Metric**: followerCount > 1000 (+5), followerCount > 10000 (+5 more, for a total of 10)
+- Calculate the \`leadScore\` using the model below. The score represents the overall quality and opportunity of the lead. A high score indicates a prospect with a solid business foundation AND clear problems we can solve.
+- **Scoring Model (Max 100):**
+- **Part 1: Foundation Score (Business Viability)**
+    - **Base Score:** 10
+    - **Is a Business**: 'yes' (+15)
+    - **Profitability Potential**: 'high' (+20), 'medium' (+10), 'low' (-15)
+    - **Sales Funnel Strength**: 'strong' (+10), 'weak' (+5), 'none' (0)
+    - **Audience Size**: followerCount > 10000 (+10), followerCount > 1000 (+5)
+- **Part 2: Opportunity Score (Problems We Can Solve)**
+    - **Content/Strategy Problem**: 'contentPillarClarity' is 'unclear' (+10)
+    - **Engagement Problem**: 'hasLowEngagement' is 'yes' (+10)
+    - **Visuals/Branding Problem**: 'hasInconsistentGrid' is 'yes' (+10)
+    - **CTA/Bio Problem**: 'hasNoClearCTA' is 'yes' (+5)
+- **Final Score = Foundation Score + Opportunity Score**
 
 **Step 6: The Verdict (Summary)**
 - Provide a sharp, 1-2 sentence summary. Start with the business type, identify the single biggest opportunity or risk, and conclude with their viability as a lead.
