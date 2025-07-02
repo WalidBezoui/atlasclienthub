@@ -58,6 +58,7 @@ import { ProspectForm } from '@/components/outreach/prospect-form';
 import { RapidProspectDialog } from '@/components/outreach/RapidProspectDialog';
 import { ScriptModal } from '@/components/scripts/script-modal';
 import { formatDistanceToNow } from 'date-fns';
+import { ToastAction } from '@/components/ui/toast';
 
 
 const ProspectTimelineTooltip = ({ prospect }: { prospect: OutreachProspect }) => {
@@ -127,6 +128,9 @@ function OutreachPage() {
   const [isSavingConversation, setIsSavingConversation] = useState(false);
   const [showUnsavedConfirm, setShowUnsavedConfirm] = useState(false);
   
+  // State for Undo Delete
+  const [pendingDeletes, setPendingDeletes] = useState<Map<string, { prospect: OutreachProspect; timeoutId: NodeJS.Timeout }>>(new Map());
+
   const { toast } = useToast();
 
   const scriptMenuItems: Array<{label: string, type: GenerateContextualScriptInput['scriptType']}> = [
@@ -137,23 +141,25 @@ function OutreachPage() {
     { label: "Soft Close", type: "Soft Close" },
   ];
 
+  const sortProspects = (prospectList: OutreachProspect[]) => {
+    return prospectList.sort((a, b) => {
+      const aFollowUp = a.followUpNeeded || false;
+      const bFollowUp = b.followUpNeeded || false;
+      if (aFollowUp !== bFollowUp) {
+        return aFollowUp ? -1 : 1;
+      }
+      const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+      const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+      return dateB.getTime() - dateA.getTime();
+    });
+  };
+
   const fetchProspects = useCallback(async () => {
     if (!user) return;
     setIsLoading(true);
     try {
       const fetchedProspects = await getProspects();
-       const sortedProspects = fetchedProspects.sort((a, b) => {
-            const aFollowUp = a.followUpNeeded || false;
-            const bFollowUp = b.followUpNeeded || false;
-            if (aFollowUp !== bFollowUp) {
-                return aFollowUp ? -1 : 1;
-            }
-            // Ensure createdAt exists, treat missing as very old
-            const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
-            const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
-            return dateB.getTime() - dateA.getTime();
-        });
-      setProspects(sortedProspects);
+      setProspects(sortProspects(fetchedProspects));
     } catch (error) {
       console.error("Error fetching prospects:", error);
       toast({ title: "Error", description: "Could not fetch prospects.", variant: "destructive" });
@@ -162,7 +168,6 @@ function OutreachPage() {
     }
   }, [user, toast]);
   
-
   useEffect(() => {
     const query = searchParams.get('q');
     if (query) {
@@ -174,7 +179,11 @@ function OutreachPage() {
     if (!authLoading && user) {
       fetchProspects();
     }
-  }, [user, authLoading, fetchProspects]);
+     // Cleanup timeouts on unmount
+    return () => {
+      pendingDeletes.forEach(({ timeoutId }) => clearTimeout(timeoutId));
+    };
+  }, [user, authLoading, fetchProspects, pendingDeletes]);
 
 
   const handleSaveProspect = useCallback(async (prospectData: Omit<OutreachProspect, 'id'|'userId'> | OutreachProspect) => {
@@ -201,25 +210,53 @@ function OutreachPage() {
     }
   }, [user, fetchProspects, toast]);
   
- const confirmDeleteProspect = async () => {
-    if (!prospectToDelete) return;
-    try {
-      await fbDeleteProspect(prospectToDelete.id);
-      toast({
-        title: 'Prospect Deleted',
-        description: `Prospect ${prospectToDelete.name} has been removed.`,
+  const handleUndoDelete = (prospectToRestore: OutreachProspect) => {
+    const pendingDelete = pendingDeletes.get(prospectToRestore.id);
+    if (pendingDelete) {
+      clearTimeout(pendingDelete.timeoutId);
+      setPendingDeletes(current => {
+        const newMap = new Map(current);
+        newMap.delete(prospectToRestore.id);
+        return newMap;
       });
-      fetchProspects();
-    } catch (error: any) {
-      console.error('Error deleting prospect:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Could not delete prospect.',
-        variant: 'destructive',
-      });
-    } finally {
-      setProspectToDelete(null);
     }
+
+    setProspects(current => sortProspects([...current, prospectToRestore]));
+    toast({ title: "Deletion Canceled", description: `"${prospectToRestore.name}" has been restored.` });
+  };
+  
+ const confirmDeleteProspect = () => {
+    if (!prospectToDelete) return;
+
+    const prospect = prospectToDelete;
+    setProspectToDelete(null); // Close dialog
+
+    setProspects(current => current.filter(p => p.id !== prospect.id));
+
+    toast({
+      title: "Prospect Deleted",
+      description: `"${prospect.name}" has been removed.`,
+      action: (
+        <ToastAction altText="Undo" onClick={() => handleUndoDelete(prospect)}>
+          Undo
+        </ToastAction>
+      ),
+    });
+
+    const deleteTimeout = setTimeout(() => {
+      fbDeleteProspect(prospect.id)
+        .catch(err => {
+          toast({ title: "Final Deletion Failed", description: `Could not delete "${prospect.name}". Restoring.`, variant: "destructive" });
+          handleUndoDelete(prospect);
+        });
+      setPendingDeletes(current => {
+        const newMap = new Map(current);
+        newMap.delete(prospect.id);
+        return newMap;
+      });
+    }, 5000); // 5-second window to undo
+
+    setPendingDeletes(current => new Map(current).set(prospect.id, { prospect, timeoutId: deleteTimeout }));
   };
 
   const handleStatusChange = useCallback(async (prospectId: string, newStatus: OutreachLeadStage) => {
