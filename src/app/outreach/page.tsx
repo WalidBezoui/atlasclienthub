@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, Suspense, useRef } from 'react';
-import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, Bot, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileText, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare, Save, FileQuestion, GraduationCap, MoreHorizontal, Wrench, Telescope } from 'lucide-react';
+import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, Bot, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileText, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare, Save, FileQuestion, GraduationCap, MoreHorizontal, Wrench, Telescope, Users } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import * as papa from 'papaparse';
 import { Button } from '@/components/ui/button';
@@ -60,6 +60,8 @@ import { ScriptModal } from '@/components/scripts/script-modal';
 import { formatDistanceToNow } from 'date-fns';
 import { ToastAction } from '@/components/ui/toast';
 import { DiscoveryDialog } from '@/components/outreach/DiscoveryDialog';
+import { fetchInstagramMetrics } from '@/app/actions/fetch-ig-metrics';
+import { qualifyProspect, type QualifyProspectInput } from '@/ai/flows/qualify-prospect';
 
 
 const ProspectTimelineTooltip = ({ prospect }: { prospect: OutreachProspect }) => {
@@ -135,6 +137,11 @@ function OutreachPage() {
   const [pendingDeletes, setPendingDeletes] = useState<Map<string, { prospect: OutreachProspect; dismissToast: () => void;}>>(new Map());
   const timeoutMapRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
+  // State for Evaluation
+  const [isEvaluatingAll, setIsEvaluatingAll] = useState(false);
+  const [evaluatingProspectIds, setEvaluatingProspectIds] = useState<Set<string>>(new Set());
+  const [prospectsToBulkEvaluate, setProspectsToBulkEvaluate] = useState<OutreachProspect[] | null>(null);
+
   const { toast } = useToast();
 
   const scriptMenuItems: Array<{label: string, type: GenerateContextualScriptInput['scriptType']}> = [
@@ -161,6 +168,12 @@ function OutreachPage() {
     });
   };
 
+  const formatNumber = (num: number | null | undefined): string => {
+    if (num === null || num === undefined) return '-';
+    if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + 'M';
+    if (num >= 1_000) return (num / 1_000).toFixed(1) + 'K';
+    return num.toString();
+  };
 
   const fetchProspects = useCallback(async () => {
     if (!user) return;
@@ -196,6 +209,113 @@ function OutreachPage() {
       timeouts.forEach(clearTimeout);
     };
   }, []);
+
+  const handleEvaluateProspect = async (prospect: OutreachProspect) => {
+    if (!prospect.instagramHandle) {
+      toast({ title: 'Cannot Evaluate', description: 'Prospect does not have an Instagram handle.', variant: 'destructive' });
+      return;
+    }
+
+    setEvaluatingProspectIds(prev => new Set(prev).add(prospect.id));
+    const { id: toastId, dismiss } = toast({ title: 'Evaluating...', description: `Fetching data for @${prospect.instagramHandle}` });
+
+    try {
+      const metricsResult = await fetchInstagramMetrics(prospect.instagramHandle);
+      if (metricsResult.error || !metricsResult.data) {
+        throw new Error(metricsResult.error || 'Failed to fetch metrics.');
+      }
+      
+      toast({ id: toastId, title: 'Metrics Fetched!', description: `Now analyzing @${prospect.instagramHandle}` });
+      
+      const qualifyInput: QualifyProspectInput = {
+        instagramHandle: prospect.instagramHandle,
+        followerCount: metricsResult.data.followerCount,
+        postCount: metricsResult.data.postCount,
+        avgLikes: metricsResult.data.avgLikes,
+        avgComments: metricsResult.data.avgComments,
+        biography: metricsResult.data.biography,
+        clarificationResponse: null, // Batch evaluation cannot be interactive
+      };
+      
+      const analysisResult = await qualifyProspect(qualifyInput);
+
+      const updates: Partial<OutreachProspect> = {
+        followerCount: metricsResult.data.followerCount,
+        postCount: metricsResult.data.postCount,
+        avgLikes: metricsResult.data.avgLikes,
+        avgComments: metricsResult.data.avgComments,
+        bioSummary: metricsResult.data.biography,
+        leadScore: analysisResult.leadScore,
+        qualificationData: analysisResult.qualificationData,
+        painPoints: analysisResult.painPoints,
+        goals: analysisResult.goals,
+        helpStatement: analysisResult.summary,
+      };
+
+      await updateProspect(prospect.id, updates);
+      toast({ id: toastId, title: 'Evaluation Complete!', description: `@${prospect.instagramHandle} has been updated.` });
+      
+      setProspects(current => sortProspects(current.map(p => p.id === prospect.id ? { ...p, ...updates } : p)));
+
+    } catch (error: any) {
+      toast({ id: toastId, title: 'Evaluation Failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setEvaluatingProspectIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(prospect.id);
+        return newSet;
+      });
+    }
+  };
+
+  const handleBulkEvaluateClick = () => {
+    const unscored = prospects.filter(p => (p.leadScore === null || p.leadScore === undefined) && p.instagramHandle);
+    if (unscored.length === 0) {
+      toast({ title: 'All Prospects Evaluated', description: 'No unscored prospects with an Instagram handle were found.' });
+      return;
+    }
+    setProspectsToBulkEvaluate(unscored);
+  };
+  
+  const confirmBulkEvaluate = async () => {
+    if (!prospectsToBulkEvaluate) return;
+    
+    setIsEvaluatingAll(true);
+    setProspectsToBulkEvaluate(null);
+    
+    let successCount = 0;
+    let failCount = 0;
+    const total = prospectsToBulkEvaluate.length;
+    
+    const { id: progressToastId, dismiss } = toast({
+      title: 'Starting Bulk Evaluation...',
+      description: `Preparing to evaluate ${total} prospects.`,
+      duration: Infinity,
+    });
+
+    for (const [index, prospect] of prospectsToBulkEvaluate.entries()) {
+        toast({
+          id: progressToastId,
+          title: `Evaluating ${index + 1} of ${total}`,
+          description: `Processing @${prospect.instagramHandle}...`,
+        });
+        
+        try {
+            await handleEvaluateProspect(prospect);
+            successCount++;
+        } catch (error: any) {
+            console.error(`Failed to evaluate @${prospect.instagramHandle}:`, error.message);
+            failCount++;
+        }
+    }
+    
+    dismiss();
+    toast({
+        title: 'Bulk Evaluation Complete',
+        description: `${successCount} prospects evaluated, ${failCount} failed.`,
+    });
+    setIsEvaluatingAll(false);
+  };
 
 
   const handleSaveProspect = useCallback(async (prospectData: Omit<OutreachProspect, 'id'|'userId'> | OutreachProspect) => {
@@ -765,14 +885,15 @@ function OutreachPage() {
   const renderActions = (prospect: OutreachProspect) => {
     const canAskQualifier = ['Interested', 'Replied'].includes(prospect.status);
     const canCreateAudit = prospect.status === 'Ready for Audit';
+    const isEvaluating = evaluatingProspectIds.has(prospect.id);
 
     return (
         <TableCell className="text-right space-x-0.5">
             <TooltipProvider>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
+                        <Button variant="ghost" size="icon" disabled={isEvaluating}>
+                           {isEvaluating ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
                             <span className="sr-only">Actions</span>
                         </Button>
                     </DropdownMenuTrigger>
@@ -822,10 +943,13 @@ function OutreachPage() {
                         </DropdownMenuGroup>
                         
                         <DropdownMenuSeparator />
-                        
+
                         <DropdownMenuGroup>
-                           <DropdownMenuLabel>Generate Scripts</DropdownMenuLabel>
-                           <Tooltip>
+                            <DropdownMenuLabel>AI Actions</DropdownMenuLabel>
+                             <DropdownMenuItem onClick={() => handleEvaluateProspect(prospect)} disabled={!prospect.instagramHandle}>
+                                <Bot className="mr-2 h-4 w-4" /> Fetch & Evaluate
+                            </DropdownMenuItem>
+                            <Tooltip>
                                 <TooltipTrigger asChild>
                                     <div className={cn(!canAskQualifier && "cursor-not-allowed w-full")}>
                                         <DropdownMenuItem
@@ -862,7 +986,7 @@ function OutreachPage() {
     if (isLoading) {
       return (
         <TableRow>
-          <TableCell colSpan={6} className="h-24 text-center">
+          <TableCell colSpan={7} className="h-24 text-center">
             <LoadingSpinner text="Fetching prospects..." />
           </TableCell>
         </TableRow>
@@ -910,6 +1034,8 @@ function OutreachPage() {
               </div>
             </div>
           </TableCell>
+          <TableCell className="hidden lg:table-cell text-muted-foreground">{formatNumber(prospect.followerCount)}</TableCell>
+          <TableCell className="hidden lg:table-cell text-muted-foreground">{formatNumber(prospect.postCount)}</TableCell>
           <TableCell className="hidden sm:table-cell">
             <Select 
               value={prospect.status} 
@@ -934,7 +1060,7 @@ function OutreachPage() {
               <Badge variant="outline">-</Badge>
             )}
           </TableCell>
-          <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">
+          <TableCell className="hidden xl:table-cell text-muted-foreground text-xs">
              <TooltipProvider>
                   <Tooltip>
                       <TooltipTrigger asChild>
@@ -951,7 +1077,7 @@ function OutreachPage() {
     // This case handles when there are no prospects at all OR filtered list is empty
     return (
         <TableRow>
-            <TableCell colSpan={6} className="text-center h-24">
+            <TableCell colSpan={8} className="text-center h-24">
                 <div className="flex flex-col items-center justify-center">
                     <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
                     <p className="font-semibold">
@@ -1025,6 +1151,21 @@ function OutreachPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog open={!!prospectsToBulkEvaluate} onOpenChange={(open) => {if (!open) setProspectsToBulkEvaluate(null)}}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Bulk Evaluation</AlertDialogTitle>
+            <AlertDialogDescription>
+              You are about to evaluate {prospectsToBulkEvaluate?.length || 0} unscored prospects. This will use AI credits and may take several minutes. Are you sure you want to continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setProspectsToBulkEvaluate(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmBulkEvaluate}>Confirm & Start</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Dialog open={isConversationModalOpen} onOpenChange={(open) => {
         if (!open) handleConversationModalCloseAttempt();
         else setIsConversationModalOpen(true);
@@ -1087,8 +1228,19 @@ function OutreachPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap justify-end">
               <TooltipProvider>
+                 <Tooltip>
+                  <TooltipTrigger asChild>
+                     <Button variant="outline" onClick={handleBulkEvaluateClick} disabled={isEvaluatingAll}>
+                        {isEvaluatingAll ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckSquare className="mr-2 h-4 w-4" />}
+                        Evaluate Unscored
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Fetch data &amp; score for all prospects missing a lead score.</p>
+                  </TooltipContent>
+                </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button variant="outline" size="icon" onClick={handleExportToCSV} disabled={isLoading}>
@@ -1149,10 +1301,12 @@ function OutreachPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[50px]">Follow</TableHead>
-                  <TableHead>Name</TableHead>
+                  <TableHead>Prospect</TableHead>
+                  <TableHead className="hidden lg:table-cell">Followers</TableHead>
+                  <TableHead className="hidden lg:table-cell">Posts</TableHead>
                   <TableHead className="hidden sm:table-cell">Status</TableHead>
                   <TableHead className="hidden md:table-cell">Score</TableHead>
-                  <TableHead className="hidden lg:table-cell">Last Activity</TableHead>
+                  <TableHead className="hidden xl:table-cell">Last Activity</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1188,3 +1342,5 @@ export default function OutreachPageWrapper() {
         </Suspense>
     )
 }
+
+    
