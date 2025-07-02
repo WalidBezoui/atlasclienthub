@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, Suspense, useRef } from 'react';
-import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, Bot, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileText, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare, Save, FileQuestion, GraduationCap, MoreHorizontal, Wrench } from 'lucide-react';
+import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, Bot, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileText, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare, Save, FileQuestion, GraduationCap, MoreHorizontal, Wrench, Telescope } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import * as papa from 'papaparse';
 import { Button } from '@/components/ui/button';
@@ -59,6 +59,7 @@ import { RapidProspectDialog } from '@/components/outreach/RapidProspectDialog';
 import { ScriptModal } from '@/components/scripts/script-modal';
 import { formatDistanceToNow } from 'date-fns';
 import { ToastAction } from '@/components/ui/toast';
+import { DiscoveryDialog } from '@/components/outreach/DiscoveryDialog';
 
 
 const ProspectTimelineTooltip = ({ prospect }: { prospect: OutreachProspect }) => {
@@ -110,6 +111,7 @@ function OutreachPage() {
   // State for forms
   const [isEditFormOpen, setIsEditFormOpen] = useState(false);
   const [isRapidAddOpen, setIsRapidAddOpen] = useState(false);
+  const [isDiscoveryOpen, setIsDiscoveryOpen] = useState(false);
   const [editingProspect, setEditingProspect] = useState<OutreachProspect | undefined>(undefined);
   const [prospectToDelete, setProspectToDelete] = useState<OutreachProspect | null>(null);
   
@@ -974,12 +976,23 @@ function OutreachPage() {
         description="Track and manage your cold outreach efforts with detailed prospect information."
         icon={Send}
         actions={
-          <Button onClick={() => setIsRapidAddOpen(true)}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Add Prospect
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setIsDiscoveryOpen(true)}>
+              <Telescope className="mr-2 h-4 w-4" /> Discover Prospects
+            </Button>
+            <Button onClick={() => setIsRapidAddOpen(true)}>
+              <PlusCircle className="mr-2 h-4 w-4" /> Add Prospect
+            </Button>
+          </div>
         }
       />
 
+      <DiscoveryDialog
+        isOpen={isDiscoveryOpen}
+        onClose={() => setIsDiscoveryOpen(false)}
+        onProspectAdded={fetchProspects}
+      />
+      
       <RapidProspectDialog
           isOpen={isRapidAddOpen}
           onClose={() => setIsRapidAddOpen(false)}
