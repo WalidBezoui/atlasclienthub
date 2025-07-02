@@ -33,9 +33,12 @@ const QualifyProspectInputSchema = z.object({
   avgComments: z.number().nullable().describe("Average comments on recent posts."),
   biography: z.string().nullable().describe("The prospect's Instagram bio text."),
   
-  // CONTEXT FOR INTERACTIVE QUALIFICATION
-  lastQuestion: z.string().nullable().optional().describe("The previous question that the AI asked the user. This helps the AI know which piece of information the user is providing."),
-  clarificationResponse: z.string().nullable().optional().describe("The user's selected answer to the AI's most recent question. This is the key to proceeding."),
+  // The application now manages state and sends the current qualification data to the AI.
+  qualificationData: QualificationDataSchema.optional().describe("The current, partially-filled qualification data. The AI will use this to determine the next step."),
+
+  // These fields are no longer needed as the application handles the state update before calling the AI.
+  lastQuestion: z.string().nullable().optional().describe("This field is deprecated."),
+  clarificationResponse: z.string().nullable().optional().describe("This field is deprecated."),
 });
 export type QualifyProspectInput = z.infer<typeof QualifyProspectInputSchema>;
 
@@ -60,7 +63,7 @@ const prompt = ai.definePrompt({
   name: 'qualifyProspectPrompt',
   input: {schema: QualifyProspectInputSchema},
   output: {schema: QualifyProspectOutputSchema},
-  prompt: `You are a senior Instagram growth strategist executing a strict, step-by-step qualification process.
+  prompt: `You are a senior Instagram growth strategist executing a strict, step-by-step qualification process. Your job is to look at the data you are given and determine the next step.
 
 **PROSPECT DATA:**
 - **Handle:** {{instagramHandle}}
@@ -70,41 +73,31 @@ const prompt = ai.definePrompt({
 - **Avg. Likes:** {{#if avgLikes}}{{avgLikes}}{{else}}N/A{{/if}}
 - **Avg. Comments:** {{#if avgComments}}{{avgComments}}{{else}}N/A{{/if}}
 
-**INTERNAL KNOWLEDGE BASE (Your current understanding of the prospect):**
-- isBusiness: **unknown**
-- hasInconsistentGrid: **unknown**
-- hasLowEngagement: **unknown**
-- hasNoClearCTA: **unknown**
-- valueProposition: **unknown**
-- profitabilityPotential: **unknown**
-- contentPillarClarity: **unknown**
-- salesFunnelStrength: **unknown**
+**CURRENT QUALIFICATION STATE (Your input):**
+{{#if qualificationData}}
+- isBusiness: **{{qualificationData.isBusiness}}**
+- hasInconsistentGrid: **{{qualificationData.hasInconsistentGrid}}**
+- hasLowEngagement: **{{qualificationData.hasLowEngagement}}**
+- hasNoClearCTA: **{{qualificationData.hasNoClearCTA}}**
+- valueProposition: **{{qualificationData.valueProposition}}**
+- profitabilityPotential: **{{qualificationData.profitabilityPotential}}**
+- contentPillarClarity: **{{qualificationData.contentPillarClarity}}**
+- salesFunnelStrength: **{{qualificationData.salesFunnelStrength}}**
+{{else}}
+The qualification process is just starting.
+{{/if}}
 
 **STANDARD OPERATING PROCEDURE (SOP):**
 
-**Step 1: Update Knowledge Base**
-- First, perform a quick analysis of the raw prospect data to fill in what you can.
+**Step 1: Initial Analysis (only if \`qualificationData\` is not provided)**
+- If you are starting fresh (no \`qualificationData\` provided), perform a quick analysis of the raw prospect data to create a baseline \`qualificationData\` object.
   - Based on bio, is there a CTA? Is the funnel weak (linktree) or strong (sales page)?
   - Is the engagement rate low? (e.g., likes are < 1% of followers).
   - Can you determine if it's a business from the bio?
-- **IF \`lastQuestion\` and \`clarificationResponse\` are provided, you MUST use them to update your knowledge base.** This is the user's input.
-  - IF \`lastQuestion\` contains "make money", update \`profitabilityPotential\`.
-    - "Selling high-ticket" -> high
-    - "Selling physical products" -> medium
-    - "Affiliate marketing" -> medium
-    - "hobby account" -> low
-  - IF \`lastQuestion\` contains "visual branding" or "feed", update \`hasInconsistentGrid\`.
-    - "Polished & On-Brand" -> no
-    - "Clean but Generic" -> yes
-    - "Messy & Inconsistent" -> yes
-    - "Not Enough Content" -> unknown
-  - IF \`lastQuestion\` contains "content strategy", update \`valueProposition\`.
-    - "Reaching a wider audience" -> engagement
-    - "Increasing engagement" -> engagement
-    - "Converting followers" -> leads
+  - Fill in what you can, and set the rest to 'unknown'.
 
-**Step 2: Ask Next Question (If Necessary)**
-- After updating, check your knowledge base in this **strict priority order**:
+**Step 2: Ask The Next Required Question**
+- After establishing the current state (either from your initial analysis or from the input), check the data in this **strict priority order**:
   1. Is \`profitabilityPotential\` 'unknown'? If YES, ask the Profitability Question and **STOP**.
   2. Is \`hasInconsistentGrid\` 'unknown'? If YES, ask the Visual Feed Question and **STOP**.
   3. Is \`valueProposition\` 'unknown'? If YES, ask the Content Strategy Question and **STOP**.
@@ -113,10 +106,10 @@ const prompt = ai.definePrompt({
    - Set \`clarificationRequest\` to the question object.
    - Set \`leadScore\`, \`painPoints\`, \`goals\` to \`null\`.
    - Set \`summary\` to a message like "Awaiting input to complete qualification."
-   - Fill out the \`qualificationData\` object with your current knowledge base.
+   - You MUST return the \`qualificationData\` object that represents the current state.
 
 **Step 3: Final Analysis (Only if all questions are answered)**
-- If you have answers for all priority questions (profitability, visuals, strategy), then and only then do you perform the Final Analysis.
+- If \`profitabilityPotential\`, \`hasInconsistentGrid\`, and \`valueProposition\` ALL have a value other than 'unknown', then and only then do you perform the Final Analysis.
 - Set \`clarificationRequest\` to \`null\`.
 - Fill out the complete \`qualificationData\` object.
 - Calculate the final \`leadScore\` based on the scoring model.
@@ -145,7 +138,7 @@ const prompt = ai.definePrompt({
 - **Final Score = Foundation Score + Opportunity Score**
 
 ---
-Now, execute the SOP for **{{instagramHandle}}**.
+Now, execute the SOP for **{{instagramHandle}}** based on the provided qualification state.
 `,
 });
 

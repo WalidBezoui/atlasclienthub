@@ -70,8 +70,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
         avgLikes: metrics.avgLikes,
         avgComments: metrics.avgComments,
         biography: metrics.biography || null,
-        lastQuestion: null,
-        clarificationResponse: null,
+        qualificationData: undefined, // Start with a clean slate
       };
       const result = await qualifyProspect(input);
       setAnalysisResult(result);
@@ -112,8 +111,30 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
   };
   
   const handleReanalyze = async () => {
-    if (!fetchedMetrics || !clarificationResponse) return;
+    if (!fetchedMetrics || !clarificationResponse || !analysisResult?.qualificationData) return;
     setIsReanalyzing(true);
+
+    // 1. Create a mutable copy of the current qualification data
+    const updatedData = { ...analysisResult.qualificationData };
+
+    // 2. Update the data based on the last question asked
+    if (lastQuestionAsked?.includes("make money")) {
+        if (clarificationResponse.includes("high-ticket")) updatedData.profitabilityPotential = 'high';
+        else if (clarificationResponse.includes("physical products")) updatedData.profitabilityPotential = 'medium';
+        else if (clarificationResponse.includes("Affiliate marketing")) updatedData.profitabilityPotential = 'medium';
+        else if (clarificationResponse.includes("hobby account")) updatedData.profitabilityPotential = 'low';
+    } else if (lastQuestionAsked?.includes("visual branding")) {
+        if (clarificationResponse.includes("Polished & On-Brand")) updatedData.hasInconsistentGrid = 'no';
+        else if (clarificationResponse.includes("Clean but Generic")) updatedData.hasInconsistentGrid = 'yes';
+        else if (clarificationResponse.includes("Messy & Inconsistent")) updatedData.hasInconsistentGrid = 'yes';
+        else if (clarificationResponse.includes("Not Enough Content")) updatedData.hasInconsistentGrid = 'unknown';
+    } else if (lastQuestionAsked?.includes("content strategy")) {
+        if (clarificationResponse.includes("wider audience")) updatedData.valueProposition = 'engagement';
+        else if (clarificationResponse.includes("increasing engagement")) updatedData.valueProposition = 'engagement';
+        else if (clarificationResponse.includes("Converting followers")) updatedData.valueProposition = 'leads';
+    }
+    
+    // 3. Call the AI with the *newly updated* state
     try {
       const input: QualifyProspectInput = {
         instagramHandle: instagramHandle,
@@ -122,20 +143,25 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
         avgLikes: fetchedMetrics.avgLikes,
         avgComments: fetchedMetrics.avgComments,
         biography: fetchedMetrics.biography || null,
-        lastQuestion: lastQuestionAsked,
-        clarificationResponse: clarificationResponse,
+        // Pass the updated data
+        qualificationData: updatedData as QualificationData,
+        // These are no longer needed by the AI
+        lastQuestion: null,
+        clarificationResponse: null,
       };
+      
       const result = await qualifyProspect(input);
       setAnalysisResult(result);
       
       if (result.clarificationRequest) {
         setLastQuestionAsked(result.clarificationRequest.question);
+        toast({ title: 'Input Received!', description: "Here's the next question for you." });
       } else {
         setLastQuestionAsked(null);
+        toast({ title: 'Analysis Complete!', description: 'The final prospect evaluation is ready.' });
       }
       
-      setClarificationResponse(undefined); 
-      toast({ title: 'Analysis Updated', description: 'The prospect details have been updated with your input.' });
+      setClarificationResponse(undefined); // Reset for the next question
     } catch (error: any) {
       toast({ title: 'AI Re-analysis Failed', description: error.message, variant: 'destructive' });
     } finally {
