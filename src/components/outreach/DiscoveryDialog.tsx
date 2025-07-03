@@ -18,7 +18,7 @@ import type { DiscoveredProspect } from '@/ai/flows/discover-prospects';
 import { addProspect } from '@/lib/firebase/services';
 import { Badge } from '../ui/badge';
 import { fetchInstagramMetrics, type InstagramMetrics } from '@/app/actions/fetch-ig-metrics';
-import { qualifyProspect, type QualifyProspectOutput } from '@/ai/flows/qualify-prospect';
+import { qualifyProspect, type QualifyProspectInput, type QualifyProspectOutput } from '@/ai/flows/qualify-prospect';
 import { cn } from '@/lib/utils';
 
 
@@ -110,17 +110,20 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryD
         try {
             const result = await fetchInstagramMetrics(prospect.instagramHandle.replace('@', ''));
             if (result.data) {
-                const handle = prospect.instagramHandle.replace('@', '');
-                const updatedProspect = {
-                    ...prospect,
-                    followerCount: result.data.followerCount,
-                    postCount: result.data.postCount,
-                };
-                newVerifiedResults.push(updatedProspect);
-                newMetricsCache.set(handle, result.data);
-                // Update state inside the loop to show progressive results
-                setVerifiedResults([...newVerifiedResults]);
-                setMetricsCache(new Map(newMetricsCache));
+                const minFollowersNum = minFollowers !== '' ? Number(minFollowers) : 0;
+                if (result.data.followerCount >= minFollowersNum) {
+                    const handle = prospect.instagramHandle.replace('@', '');
+                    const updatedProspect = {
+                        ...prospect,
+                        followerCount: result.data.followerCount,
+                        postCount: result.data.postCount,
+                    };
+                    newVerifiedResults.push(updatedProspect);
+                    newMetricsCache.set(handle, result.data);
+                    // Update state inside the loop to show progressive results
+                    setVerifiedResults([...newVerifiedResults]);
+                    setMetricsCache(new Map(newMetricsCache));
+                }
             }
         } catch (e) {
             console.warn(`Could not verify @${prospect.instagramHandle}`, e);
@@ -131,7 +134,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryD
       if (newVerifiedResults.length === 0) {
         toast({
           title: 'No verifiable prospects found',
-          description: "AI suggested some accounts, but none could be confirmed as active. Try a different query.",
+          description: "AI suggested some accounts, but none could be confirmed or met your follower criteria. Try a different query.",
           duration: 6000,
         });
       }
@@ -150,20 +153,26 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryD
     const handle = prospect.instagramHandle.replace('@', '');
     setEvaluatingHandles(prev => new Set(prev).add(handle));
     try {
-        const metricsResult = await fetchInstagramMetrics(handle);
-        if (metricsResult.error || !metricsResult.data) {
-            throw new Error(metricsResult.error || 'Failed to fetch metrics.');
+        let metricsData = metricsCache.get(handle);
+        if (!metricsData) {
+            const metricsResult = await fetchInstagramMetrics(handle);
+            if (metricsResult.error || !metricsResult.data) {
+                throw new Error(metricsResult.error || 'Failed to fetch metrics.');
+            }
+            metricsData = metricsResult.data;
+            setMetricsCache(prev => new Map(prev).set(handle, metricsData!));
         }
-        setMetricsCache(prev => new Map(prev).set(handle, metricsResult.data!));
 
         const analysisResult = await qualifyProspect({
             instagramHandle: handle,
-            followerCount: metricsResult.data.followerCount,
-            postCount: metricsResult.data.postCount,
-            avgLikes: metricsResult.data.avgLikes,
-            avgComments: metricsResult.data.avgComments,
-            biography: metricsResult.data.biography,
-            clarificationResponse: null, // No interactive clarification in discovery
+            followerCount: metricsData.followerCount,
+            postCount: metricsData.postCount,
+            avgLikes: metricsData.avgLikes,
+            avgComments: metricsData.avgComments,
+            biography: metricsData.biography,
+            userProfitabilityAssessment: "Selling physical products",
+            userVisualsAssessment: "Clean but Generic (Lacks personality, looks like a template)",
+            userStrategyAssessment: "Increasing engagement with current followers (Middle of Funnel)",
         });
 
         setEvaluationResults(prev => new Map(prev).set(handle, analysisResult));

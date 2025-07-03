@@ -1,8 +1,8 @@
 
 'use client';
 
-import React, { useState, useEffect, useCallback, Suspense, useRef } from 'react';
-import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, Bot, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileText, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare, Save, FileQuestion, GraduationCap, MoreHorizontal, Wrench, Telescope, Users, CheckSquare } from 'lucide-react';
+import React, { useState, useEffect, useCallback, Suspense, useRef, useMemo } from 'react';
+import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, Bot, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileText, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare, Save, FileQuestion, GraduationCap, MoreHorizontal, Wrench, Telescope, Users, CheckSquare, ArrowUpDown } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import * as papa from 'papaparse';
 import { Button } from '@/components/ui/button';
@@ -109,6 +109,7 @@ function OutreachPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilters, setStatusFilters] = useState<Set<OutreachLeadStage>>(new Set(OUTREACH_LEAD_STAGE_OPTIONS));
   const [showOnlyNeedsFollowUp, setShowOnlyNeedsFollowUp] = useState(false);
+  const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'desc' });
   
   // State for forms
   const [isEditFormOpen, setIsEditFormOpen] = useState(false);
@@ -180,7 +181,7 @@ function OutreachPage() {
     setIsLoading(true);
     try {
       const fetchedProspects = await getProspects();
-      setProspects(sortProspects(fetchedProspects));
+      setProspects(fetchedProspects);
     } catch (error) {
       console.error("Error fetching prospects:", error);
       toast({ title: "Error", description: "Could not fetch prospects.", variant: "destructive" });
@@ -234,7 +235,9 @@ function OutreachPage() {
         avgLikes: metricsResult.data.avgLikes,
         avgComments: metricsResult.data.avgComments,
         biography: metricsResult.data.biography,
-        clarificationResponse: null, // Batch evaluation cannot be interactive
+        userProfitabilityAssessment: "Selling physical products",
+        userVisualsAssessment: "Clean but Generic (Lacks personality, looks like a template)",
+        userStrategyAssessment: "Increasing engagement with current followers (Middle of Funnel)",
       };
       
       const analysisResult = await qualifyProspect(qualifyInput);
@@ -713,22 +716,75 @@ function OutreachPage() {
     });
   };
 
-  const filteredProspects = prospects.filter(prospect => {
-    const searchTerms = searchTerm.toLowerCase().split(' ').filter(Boolean);
-    const prospectText = [
-        prospect.name,
-        prospect.email,
-        prospect.businessName,
-        prospect.industry,
-        prospect.instagramHandle,
-    ].join(' ').toLowerCase();
+  const filteredProspects = useMemo(() => {
+    return prospects.filter(prospect => {
+      const searchTerms = searchTerm.toLowerCase().split(' ').filter(Boolean);
+      const prospectText = [
+          prospect.name,
+          prospect.email,
+          prospect.businessName,
+          prospect.industry,
+          prospect.instagramHandle,
+      ].join(' ').toLowerCase();
 
-    const searchTermMatch = searchTerms.every(term => prospectText.includes(term));
-    const statusMatch = (statusFilters.size === OUTREACH_LEAD_STAGE_OPTIONS.length || statusFilters.size === 0 || statusFilters.has(prospect.status));
-    const followUpMatch = !showOnlyNeedsFollowUp || !!prospect.followUpNeeded;
+      const searchTermMatch = searchTerms.every(term => prospectText.includes(term));
+      const statusMatch = (statusFilters.size === OUTREACH_LEAD_STAGE_OPTIONS.length || statusFilters.size === 0 || statusFilters.has(prospect.status));
+      const followUpMatch = !showOnlyNeedsFollowUp || !!prospect.followUpNeeded;
 
-    return searchTermMatch && statusMatch && followUpMatch;
-  });
+      return searchTermMatch && statusMatch && followUpMatch;
+    });
+  }, [prospects, searchTerm, statusFilters, showOnlyNeedsFollowUp]);
+
+  const sortedAndFilteredProspects = useMemo(() => {
+    const { key, direction } = sortConfig;
+    if (!key) return filteredProspects;
+
+    // A helper function to get the last activity date for sorting
+    const getLastActivity = (prospect: OutreachProspect): number => {
+      const dates = [
+        prospect.createdAt,
+        prospect.lastContacted,
+        ...(prospect.statusHistory?.map(h => h.date) || [])
+      ].filter(d => d).map(d => new Date(d!).getTime());
+      return Math.max(0, ...dates);
+    };
+
+    return [...filteredProspects].sort((a, b) => {
+        // Special sort for 'Follow Up Needed' - always on top
+        if (a.followUpNeeded && !b.followUpNeeded) return -1;
+        if (!a.followUpNeeded && b.followUpNeeded) return 1;
+
+        const aValue = a[key as keyof OutreachProspect];
+        const bValue = b[key as keyof OutreachProspect];
+
+        if (key === 'lastActivity') {
+            const comparison = getLastActivity(b) - getLastActivity(a);
+            return direction === 'desc' ? comparison : -comparison;
+        }
+
+        if (aValue == null) return 1;
+        if (bValue == null) return -1;
+
+        let comparison = 0;
+        switch (key) {
+            case 'createdAt':
+            case 'lastContacted':
+                comparison = new Date(aValue as string).getTime() - new Date(bValue as string).getTime();
+                break;
+            case 'leadScore':
+            case 'followerCount':
+                comparison = (aValue as number) - (bValue as number);
+                break;
+            case 'name':
+                 comparison = (aValue as string).localeCompare(bValue as string);
+                 break;
+            default:
+                return 0;
+        }
+        
+        return direction === 'desc' ? -comparison : comparison;
+    });
+  }, [filteredProspects, sortConfig]);
 
   const getStatusBadgeVariant = (status: OutreachLeadStage): "default" | "secondary" | "outline" | "destructive" => {
     switch (status) {
@@ -780,7 +836,7 @@ function OutreachPage() {
   };
 
   const handleExportToCSV = () => {
-    if (filteredProspects.length === 0) {
+    if (sortedAndFilteredProspects.length === 0) {
       toast({
         title: "No Data to Export",
         description: "The current view has no prospects to export.",
@@ -789,7 +845,7 @@ function OutreachPage() {
       return;
     }
 
-    const dataForCSV = filteredProspects.map(p => ({
+    const dataForCSV = sortedAndFilteredProspects.map(p => ({
       "Name": p.name,
       "Instagram Handle": p.instagramHandle,
       "Status": p.status,
@@ -992,8 +1048,8 @@ function OutreachPage() {
         </TableRow>
       );
     }
-    if (filteredProspects.length > 0) {
-      return filteredProspects.map((prospect) => (
+    if (sortedAndFilteredProspects.length > 0) {
+      return sortedAndFilteredProspects.map((prospect) => (
         <TableRow key={prospect.id} data-follow-up={!!prospect.followUpNeeded} className="data-[follow-up=true]:bg-primary/10">
           <TableCell>
             <TooltipProvider>
@@ -1264,6 +1320,25 @@ function OutreachPage() {
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline">
+                    <ArrowUpDown className="mr-2 h-4 w-4" /> Sort By
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Sort Prospects By</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setSortConfig({ key: 'createdAt', direction: 'desc' })}>Date Added (Newest)</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortConfig({ key: 'createdAt', direction: 'asc' })}>Date Added (Oldest)</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortConfig({ key: 'leadScore', direction: 'desc' })}>Lead Score (High-Low)</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortConfig({ key: 'leadScore', direction: 'asc' })}>Lead Score (Low-High)</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortConfig({ key: 'followerCount', direction: 'desc' })}>Followers (High-Low)</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortConfig({ key: 'followerCount', direction: 'asc' })}>Followers (Low-High)</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortConfig({ key: 'lastActivity', direction: 'desc' })}>Last Activity (Recent)</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortConfig({ key: 'lastActivity', direction: 'asc' })}>Last Activity (Oldest)</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline">
