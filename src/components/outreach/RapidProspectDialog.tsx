@@ -17,6 +17,25 @@ import { LoadingSpinner } from '@/components/shared/loading-spinner';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 
+type Step = 'initial' | 'fetching' | 'questions' | 'analyzing' | 'results';
+
+const profitabilityQuestions = [
+  "Selling high-ticket services (coaching, consulting)", 
+  "Selling physical products", 
+  "Affiliate marketing / brand deals", 
+  "It's a personal blog or hobby account"
+];
+const visualsQuestions = [
+  "Polished & On-Brand (Strong visuals, consistent aesthetic)",
+  "Clean but Generic (Lacks personality, looks like a template)",
+  "Messy & Inconsistent (No clear style, feels unplanned)",
+  "Not Enough Content (Too new or inactive to judge)"
+];
+const strategyQuestions = [
+  "Reaching a wider audience (Top of Funnel)",
+  "Increasing engagement with current followers (Middle of Funnel)",
+  "Converting followers into clients (Bottom of Funnel)"
+];
 
 type RapidProspectDialogProps = {
   isOpen: boolean;
@@ -25,31 +44,30 @@ type RapidProspectDialogProps = {
 };
 
 export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDialogProps) {
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState<Step>('initial');
   const [instagramHandle, setInstagramHandle] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   
   const [fetchedMetrics, setFetchedMetrics] = useState<InstagramMetrics | null>(null);
   const [analysisResult, setAnalysisResult] = useState<QualifyProspectOutput | null>(null);
   
-  const [lastQuestionAsked, setLastQuestionAsked] = useState<string | null>(null);
-  const [clarificationResponse, setClarificationResponse] = useState<string | undefined>(undefined);
-  const [isReanalyzing, setIsReanalyzing] = useState(false);
+  // State for user answers
+  const [profitabilityAnswer, setProfitabilityAnswer] = useState<string | undefined>(undefined);
+  const [visualsAnswer, setVisualsAnswer] = useState<string | undefined>(undefined);
+  const [strategyAnswer, setStrategyAnswer] = useState<string | undefined>(undefined);
 
+  const [isLoading, setIsLoading] = useState(false);
 
   const { toast } = useToast();
 
   const resetState = () => {
-    setStep(1);
+    setStep('initial');
     setInstagramHandle('');
-    setIsLoading(false);
-    setIsSaving(false);
     setFetchedMetrics(null);
     setAnalysisResult(null);
-    setLastQuestionAsked(null);
-    setClarificationResponse(undefined);
-    setIsReanalyzing(false);
+    setProfitabilityAnswer(undefined);
+    setVisualsAnswer(undefined);
+    setStrategyAnswer(undefined);
+    setIsLoading(false);
   };
 
   const handleClose = () => {
@@ -57,112 +75,71 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
     onClose();
   };
   
-  const handleFetchAndAnalyze = async () => {
+  const handleFetchData = async () => {
     if (!instagramHandle) {
       toast({ title: 'Instagram Handle is required', variant: 'destructive' });
       return;
     }
     
     setIsLoading(true);
-    setStep(2);
-    setFetchedMetrics(null);
-    setAnalysisResult(null);
+    setStep('fetching');
 
     try {
-      // PART 1: Fetch Metrics
       const metricsResult = await fetchInstagramMetrics(instagramHandle);
       if (metricsResult.error || !metricsResult.data) {
         throw new Error(metricsResult.error || 'The profile may be private or invalid.');
       }
       
       setFetchedMetrics(metricsResult.data);
-      toast({ title: "Metrics Fetched!", description: "Now running AI qualification..." });
-
-      // PART 2: Analyze
-      const analyzeInput: QualifyProspectInput = {
-        instagramHandle: instagramHandle,
-        followerCount: metricsResult.data.followerCount,
-        postCount: metricsResult.data.postCount,
-        avgLikes: metricsResult.data.avgLikes,
-        avgComments: metricsResult.data.avgComments,
-        biography: metricsResult.data.biography || null,
-        qualificationData: undefined,
-      };
-
-      const initialAnalysisResult = await qualifyProspect(analyzeInput);
-      setAnalysisResult(initialAnalysisResult);
-      if (initialAnalysisResult.clarificationRequest) {
-        setLastQuestionAsked(initialAnalysisResult.clarificationRequest.question);
-      }
-
-      setStep(3);
+      setStep('questions');
 
     } catch (error: any) {
-      toast({ title: 'Process Failed', description: error.message, variant: 'destructive' });
-      setStep(1);
+      toast({ title: 'Fetch Failed', description: error.message, variant: 'destructive' });
+      setStep('initial');
     } finally {
       setIsLoading(false);
     }
   };
   
-  const handleReanalyze = async () => {
-    if (!fetchedMetrics || !clarificationResponse || !analysisResult?.qualificationData) return;
-    setIsReanalyzing(true);
-
-    const updatedData = { ...analysisResult.qualificationData };
-
-    if (lastQuestionAsked?.includes("make money")) {
-        if (clarificationResponse.includes("high-ticket")) updatedData.profitabilityPotential = 'high';
-        else if (clarificationResponse.includes("physical products")) updatedData.profitabilityPotential = 'medium';
-        else if (clarificationResponse.includes("Affiliate marketing")) updatedData.profitabilityPotential = 'medium';
-        else if (clarificationResponse.includes("hobby account")) updatedData.profitabilityPotential = 'low';
-    } else if (lastQuestionAsked?.includes("visual branding")) {
-        if (clarificationResponse.includes("Polished & On-Brand")) updatedData.hasInconsistentGrid = 'no';
-        else if (clarificationResponse.includes("Clean but Generic")) updatedData.hasInconsistentGrid = 'yes';
-        else if (clarificationResponse.includes("Messy & Inconsistent")) updatedData.hasInconsistentGrid = 'yes';
-        else if (clarificationResponse.includes("Not Enough Content")) updatedData.hasInconsistentGrid = 'unknown';
-    } else if (lastQuestionAsked?.includes("content strategy")) {
-        if (clarificationResponse.includes("wider audience")) updatedData.valueProposition = 'engagement';
-        else if (clarificationResponse.includes("increasing engagement")) updatedData.valueProposition = 'engagement';
-        else if (clarificationResponse.includes("Converting followers")) updatedData.valueProposition = 'leads';
+  const handleFinalAnalysis = async () => {
+    if (!fetchedMetrics || !profitabilityAnswer || !visualsAnswer || !strategyAnswer) {
+        toast({ title: "Missing Input", description: "Please answer all questions to proceed.", variant: "destructive" });
+        return;
     }
-    
+
+    setIsLoading(true);
+    setStep('analyzing');
+
     try {
-      const input: QualifyProspectInput = {
-        instagramHandle: instagramHandle,
-        followerCount: fetchedMetrics.followerCount,
-        postCount: fetchedMetrics.postCount,
-        avgLikes: fetchedMetrics.avgLikes,
-        avgComments: fetchedMetrics.avgComments,
-        biography: fetchedMetrics.biography || null,
-        qualificationData: updatedData as QualificationData,
-        lastQuestion: null,
-        clarificationResponse: null,
-      };
-      
-      const result = await qualifyProspect(input);
-      setAnalysisResult(result);
-      
-      if (result.clarificationRequest) {
-        setLastQuestionAsked(result.clarificationRequest.question);
-        toast({ title: 'Input Received!', description: "Here's the next question for you." });
-      } else {
-        setLastQuestionAsked(null);
-        toast({ title: 'Analysis Complete!', description: 'The final prospect evaluation is ready.' });
-      }
-      
-      setClarificationResponse(undefined);
+        const input: QualifyProspectInput = {
+            instagramHandle: instagramHandle,
+            followerCount: fetchedMetrics.followerCount,
+            postCount: fetchedMetrics.postCount,
+            avgLikes: fetchedMetrics.avgLikes,
+            avgComments: fetchedMetrics.avgComments,
+            biography: fetchedMetrics.biography || null,
+            userProfitabilityAssessment: profitabilityAnswer,
+            userVisualsAssessment: visualsAnswer,
+            userStrategyAssessment: strategyAnswer,
+        };
+
+        const result = await qualifyProspect(input);
+        setAnalysisResult(result);
+        setStep('results');
+        toast({ title: "Analysis Complete!", description: "Review the final qualification below."});
+
     } catch (error: any) {
-      toast({ title: 'AI Re-analysis Failed', description: error.message, variant: 'destructive' });
+        toast({ title: 'Analysis Failed', description: error.message, variant: 'destructive' });
+        setStep('questions');
     } finally {
-      setIsReanalyzing(false);
+        setIsLoading(false);
     }
   };
 
   const handleSave = () => {
     if (!analysisResult || !fetchedMetrics) return;
     
-    setIsSaving(true);
+    setIsLoading(true); // Reuse isLoading as isSaving
     const handleWithoutAt = instagramHandle.replace('@', '');
     const newProspect: Omit<OutreachProspect, 'id' | 'userId'> = {
       name: handleWithoutAt,
@@ -209,7 +186,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
     
     onSave(newProspect);
     handleClose();
-    setIsSaving(false);
+    setIsLoading(false);
   };
   
   const getLeadScoreBadgeVariant = (score: number | null | undefined): "default" | "secondary" | "destructive" => {
@@ -219,15 +196,6 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
       return "destructive";
   };
   
-  const GenericQualificationDetail = ({ label, value, variantMap }: { label: string, value: string, variantMap: any }) => {
-    return (
-        <div className="flex justify-between items-center text-xs">
-            <span className="text-muted-foreground">{label}</span>
-            <Badge variant={variantMap[value] || 'outline'} className="capitalize">{value.replace(/-/g, ' ')}</Badge>
-        </div>
-    );
-  };
-
   const renderAnalysisDetails = (data: QualificationData) => {
      const profitabilityVariantMap = { 'high': 'default', 'medium': 'secondary', 'low': 'destructive', 'unknown': 'outline' };
      const funnelVariantMap = { 'strong': 'default', 'weak': 'secondary', 'none': 'destructive', 'unknown': 'outline' };
@@ -236,132 +204,149 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
       
      return (
        <div className="space-y-2 pt-2">
-         <GenericQualificationDetail label="Is Business Account?" value={data.isBusiness} variantMap={yesNoVariantMap} />
-         <GenericQualificationDetail label="Inconsistent Grid?" value={data.hasInconsistentGrid} variantMap={yesNoVariantMap} />
-         <GenericQualificationDetail label="Low Engagement?" value={data.hasLowEngagement} variantMap={yesNoVariantMap} />
-         <GenericQualificationDetail label="No Clear CTA?" value={data.hasNoClearCTA} variantMap={yesNoVariantMap} />
-         <GenericQualificationDetail label="Content Pillar Clarity" value={data.contentPillarClarity} variantMap={clarityVariantMap} />
-         <GenericQualificationDetail label="Sales Funnel Strength" value={data.salesFunnelStrength} variantMap={funnelVariantMap} />
-         <GenericQualificationDetail label="Profitability Potential" value={data.profitabilityPotential} variantMap={profitabilityVariantMap} />
-         <div className="flex justify-between items-center text-xs pt-1">
-             <span className="text-muted-foreground">#1 Value Prop</span>
-             <Badge variant="outline" className="capitalize">{data.valueProposition}</Badge>
-         </div>
+         <div className="flex justify-between items-center text-xs"><span className="text-muted-foreground">Is Business?</span><Badge variant={yesNoVariantMap[data.isBusiness]} className="capitalize">{data.isBusiness}</Badge></div>
+         <div className="flex justify-between items-center text-xs"><span className="text-muted-foreground">Inconsistent Grid?</span><Badge variant={yesNoVariantMap[data.hasInconsistentGrid]} className="capitalize">{data.hasInconsistentGrid}</Badge></div>
+         <div className="flex justify-between items-center text-xs"><span className="text-muted-foreground">Low Engagement?</span><Badge variant={yesNoVariantMap[data.hasLowEngagement]} className="capitalize">{data.hasLowEngagement}</Badge></div>
+         <div className="flex justify-between items-center text-xs"><span className="text-muted-foreground">No Clear CTA?</span><Badge variant={yesNoVariantMap[data.hasNoClearCTA]} className="capitalize">{data.hasNoClearCTA}</Badge></div>
+         <div className="flex justify-between items-center text-xs"><span className="text-muted-foreground">Content Clarity</span><Badge variant={clarityVariantMap[data.contentPillarClarity]} className="capitalize">{data.contentPillarClarity.replace(/-/g, ' ')}</Badge></div>
+         <div className="flex justify-between items-center text-xs"><span className="text-muted-foreground">Sales Funnel</span><Badge variant={funnelVariantMap[data.salesFunnelStrength]} className="capitalize">{data.salesFunnelStrength}</Badge></div>
+         <div className="flex justify-between items-center text-xs"><span className="text-muted-foreground">Profit Potential</span><Badge variant={profitabilityVariantMap[data.profitabilityPotential]} className="capitalize">{data.profitabilityPotential}</Badge></div>
+         <div className="flex justify-between items-center text-xs pt-1"><span className="text-muted-foreground">#1 Value Prop</span><Badge variant="outline" className="capitalize">{data.valueProposition}</Badge></div>
        </div>
      );
   };
 
+  const renderContent = () => {
+    switch (step) {
+      case 'initial':
+        return (
+          <div className="space-y-4 py-4">
+            <Label htmlFor="instagramHandle">Instagram Handle</Label>
+            <div className="flex gap-2">
+              <Input
+                id="instagramHandle"
+                placeholder="@username"
+                value={instagramHandle}
+                onChange={(e) => setInstagramHandle(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleFetchData()}
+              />
+              <Button onClick={handleFetchData} disabled={isLoading || !instagramHandle}>
+                Fetch Data <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        );
+      case 'fetching':
+      case 'analyzing':
+        return (
+            <div className="flex flex-col items-center justify-center space-y-4 py-12">
+               <LoadingSpinner text={step === 'fetching' ? "Fetching metrics..." : "Analyzing prospect..."} size="lg" />
+            </div>
+        );
+      case 'questions':
+        return (
+          <div className="space-y-4 py-4">
+              <div className="p-4 border rounded-lg bg-muted/50 space-y-3">
+                 <h3 className="font-semibold text-lg text-center mb-2">Manual Assessment for {instagramHandle}</h3>
+                 <Separator/>
+                 
+                 <div>
+                    <Label className="font-semibold flex items-center mb-2"><HelpCircle className="mr-2 h-4 w-4 text-amber-600" />What's the primary way this account makes money?</Label>
+                     <RadioGroup value={profitabilityAnswer} onValueChange={setProfitabilityAnswer} className="space-y-2">
+                      {profitabilityQuestions.map((option) => (
+                        <div key={option} className="flex items-center space-x-2">
+                          <RadioGroupItem value={option} id={option} /><Label htmlFor={option} className="font-normal">{option}</Label>
+                        </div>
+                      ))}
+                    </RadioGroup>
+                 </div>
+                 <Separator/>
+
+                 <div>
+                    <Label className="font-semibold flex items-center mb-2"><HelpCircle className="mr-2 h-4 w-4 text-amber-600" />Based on their feed, how would you describe their visual branding?</Label>
+                     <RadioGroup value={visualsAnswer} onValueChange={setVisualsAnswer} className="space-y-2">
+                      {visualsQuestions.map((option) => (
+                        <div key={option} className="flex items-center space-x-2">
+                          <RadioGroupItem value={option} id={option} /><Label htmlFor={option} className="font-normal">{option}</Label>
+                        </div>
+                      ))}
+                    </RadioGroup>
+                 </div>
+                 <Separator/>
+
+                 <div>
+                    <Label className="font-semibold flex items-center mb-2"><HelpCircle className="mr-2 h-4 w-4 text-amber-600" />What is the biggest strategic opportunity for their content?</Label>
+                     <RadioGroup value={strategyAnswer} onValueChange={setStrategyAnswer} className="space-y-2">
+                      {strategyQuestions.map((option) => (
+                        <div key={option} className="flex items-center space-x-2">
+                          <RadioGroupItem value={option} id={option} /><Label htmlFor={option} className="font-normal">{option}</Label>
+                        </div>
+                      ))}
+                    </RadioGroup>
+                 </div>
+              </div>
+          </div>
+        );
+      case 'results':
+        if (!analysisResult) return null;
+        return (
+             <div className="space-y-4 py-4">
+                <div className="p-4 border rounded-lg bg-muted/50 space-y-3">
+                  <h3 className="font-semibold text-lg text-center mb-2">
+                      Analysis for {instagramHandle}:
+                      <Badge variant={getLeadScoreBadgeVariant(analysisResult.leadScore)} className="text-lg ml-2">{analysisResult.leadScore}</Badge>
+                  </h3>
+                  <Separator/>
+                  <div className="text-center"><p className="text-sm italic text-muted-foreground">"{analysisResult.summary}"</p></div>
+                   <div className="space-y-2">
+                    {analysisResult.painPoints && analysisResult.painPoints.length > 0 && <div><Label className="text-xs">Suggested Pain Points</Label><div className="flex flex-wrap gap-1">{analysisResult.painPoints.map(p => <Badge key={p} variant="destructive">{p}</Badge>)}</div></div>}
+                    {analysisResult.goals && analysisResult.goals.length > 0 && <div><Label className="text-xs">Suggested Goals</Label><div className="flex flex-wrap gap-1">{analysisResult.goals.map(g => <Badge key={g} variant="secondary">{g}</Badge>)}</div></div>}
+                   </div>
+                   <Accordion type="single" collapsible className="w-full">
+                      <AccordionItem value="details"><AccordionTrigger className="text-xs pt-2">View Analysis Details</AccordionTrigger><AccordionContent>{renderAnalysisDetails(analysisResult.qualificationData as QualificationData)}</AccordionContent></AccordionItem>
+                  </Accordion>
+                </div>
+             </div>
+        );
+      default:
+        return null;
+    }
+  };
+  
+  const renderFooter = () => {
+    if (step === 'questions') {
+      return (
+        <DialogFooter className="mt-auto shrink-0 border-t pt-4">
+          <Button variant="outline" onClick={() => setStep('initial')}><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
+          <Button onClick={handleFinalAnalysis} disabled={!profitabilityAnswer || !visualsAnswer || !strategyAnswer}>
+            Analyze <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        </DialogFooter>
+      );
+    }
+    if (step === 'results') {
+      return (
+        <DialogFooter className="mt-auto shrink-0 border-t pt-4">
+          <Button variant="outline" onClick={() => setStep('questions')}><ArrowLeft className="mr-2 h-4 w-4" /> Re-assess</Button>
+          <Button onClick={handleSave} disabled={isLoading}>
+            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}
+             Save Prospect
+          </Button>
+        </DialogFooter>
+      );
+    }
+    return null;
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md md:max-w-lg max-h-[90vh] flex flex-col">
         <DialogHeader className="shrink-0">
-          <DialogTitle className="font-headline text-2xl flex items-center">
-            <Wand2 className="mr-2 h-6 w-6 text-primary" />
-            Rapid Prospect Creation
-          </DialogTitle>
-          <DialogDescription>
-            Quickly qualify and add a new prospect using their Instagram handle.
-          </DialogDescription>
+          <DialogTitle className="font-headline text-2xl flex items-center"><Wand2 className="mr-2 h-6 w-6 text-primary" />Rapid Prospect Creation</DialogTitle>
+          <DialogDescription>Quickly qualify and add a new prospect using their Instagram handle.</DialogDescription>
         </DialogHeader>
-
-        <div className="flex-grow overflow-y-auto -mx-6 px-6">
-          {step === 1 && (
-            <div className="space-y-4 py-4">
-              <Label htmlFor="instagramHandle">Instagram Handle</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="instagramHandle"
-                  placeholder="@username"
-                  value={instagramHandle}
-                  onChange={(e) => setInstagramHandle(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleFetchAndAnalyze()}
-                />
-                <Button onClick={handleFetchAndAnalyze} disabled={isLoading || !instagramHandle}>
-                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Fetch & Analyze'}
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {step === 2 && (
-            <div className="flex flex-col items-center justify-center space-y-4 py-12">
-               <LoadingSpinner text="Fetching metrics & running AI analysis..." size="lg" />
-               <p className="text-sm text-muted-foreground">This may take up to a minute...</p>
-            </div>
-          )}
-
-          {step === 3 && analysisResult && (
-             <div className="space-y-4 py-4">
-                <div className="p-4 border rounded-lg bg-muted/50 space-y-3">
-                  <h3 className="font-semibold text-lg text-center mb-2">
-                      Analysis for {instagramHandle}:
-                      {analysisResult.leadScore !== null && analysisResult.leadScore !== undefined && (
-                        <Badge variant={getLeadScoreBadgeVariant(analysisResult.leadScore)} className="text-lg ml-2">{analysisResult.leadScore}</Badge>
-                      )}
-                  </h3>
-                  <Separator/>
-                  <div className="text-center">
-                    <p className="text-sm italic text-muted-foreground">"{analysisResult.summary}"</p>
-                  </div>
-                  
-                   <div className="space-y-2">
-                    {analysisResult.painPoints && analysisResult.painPoints.length > 0 && <div><Label className="text-xs">Suggested Pain Points</Label><div className="flex flex-wrap gap-1">{analysisResult.painPoints.map(p => <Badge key={p} variant="destructive">{p}</Badge>)}</div></div>}
-                    {analysisResult.goals && analysisResult.goals.length > 0 && <div><Label className="text-xs">Suggested Goals</Label><div className="flex flex-wrap gap-1">{analysisResult.goals.map(g => <Badge key={g} variant="secondary">{g}</Badge>)}</div></div>}
-                   </div>
-
-                   <Accordion type="single" collapsible className="w-full">
-                      <AccordionItem value="details">
-                          <AccordionTrigger className="text-xs pt-2">View Analysis Details</AccordionTrigger>
-                          <AccordionContent>
-                            {renderAnalysisDetails(analysisResult.qualificationData as QualificationData)}
-                          </AccordionContent>
-                      </AccordionItem>
-                  </Accordion>
-                </div>
-
-                 {analysisResult.clarificationRequest && (
-                  <div className="mt-4 p-4 border border-dashed border-amber-500 rounded-lg bg-amber-500/10 space-y-3">
-                      <Label htmlFor="clarificationAnswer" className="font-semibold flex items-center">
-                          <HelpCircle className="mr-2 h-4 w-4 text-amber-600" />
-                          AI Needs Your Input!
-                      </Label>
-                      <p className="text-sm text-muted-foreground italic">"{analysisResult.clarificationRequest.question}"</p>
-                      <RadioGroup 
-                        value={clarificationResponse} 
-                        onValueChange={setClarificationResponse} 
-                        className="space-y-2"
-                        disabled={isReanalyzing}
-                      >
-                        {analysisResult.clarificationRequest.options.map((option) => (
-                          <div key={option} className="flex items-center space-x-2">
-                            <RadioGroupItem value={option} id={option} />
-                            <Label htmlFor={option} className="font-normal">{option}</Label>
-                          </div>
-                        ))}
-                      </RadioGroup>
-                      <div className="flex justify-end pt-2">
-                          <Button onClick={handleReanalyze} disabled={!clarificationResponse || isReanalyzing} size="sm">
-                              {isReanalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-2 h-4 w-4" />}
-                              Continue
-                          </Button>
-                      </div>
-                  </div>
-                )}
-             </div>
-          )}
-        </div>
-        
-        {step === 3 && analysisResult && (
-           <DialogFooter className="mt-auto shrink-0 border-t pt-4">
-             <Button variant="outline" onClick={() => setStep(1)}><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
-             <Button onClick={handleSave} disabled={isSaving || !!analysisResult.clarificationRequest}>
-               {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}
-                Save Prospect
-             </Button>
-          </DialogFooter>
-        )}
+        <div className="flex-grow overflow-y-auto -mx-6 px-6">{renderContent()}</div>
+        {renderFooter()}
       </DialogContent>
     </Dialog>
   );
