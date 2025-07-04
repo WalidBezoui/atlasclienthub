@@ -31,7 +31,7 @@ Your mission is to automatically find 15-20 "undervalued" Instagram accounts tha
     *   Captions are unengaging, short, or non-existent.
     *   They clearly sell something valuable, but their profile doesn't communicate its value effectively.
 
-3.  **Passionate but Underserved Audience (1k-50k Followers):** Prioritize accounts with a follower count between **1,000 and 50,000**. This is the sweet spot. We are looking for accounts with a real, engaged community, even if it's small. Genuine, conversational comments are more important than a high follower count with spammy engagement.
+3.  **Passionate but Underserved Audience (5k-50k Followers):** Prioritize accounts with a follower count between **5,000 and 50,000**. This is the sweet spot. **DO NOT suggest accounts with fewer than 5,000 followers.** We are looking for accounts with an established audience that we can help grow, not brand new accounts. They should have a real, engaged community. Genuine, conversational comments are more important than a high follower count with spammy engagement.
 
 4.  **Clear Monetization but Weak Sales Funnel:** The account is clearly trying to make money but is leaving a lot on the table.
     *   Their bio has a generic Linktree, a broken link, or no link at all.
