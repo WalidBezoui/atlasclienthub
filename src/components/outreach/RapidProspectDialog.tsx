@@ -20,22 +20,25 @@ import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 type Step = 'initial' | 'fetching' | 'questions' | 'analyzing' | 'results';
 
 const profitabilityQuestions = [
-  "Selling high-ticket services (coaching, consulting)", 
-  "Selling physical products", 
-  "Affiliate marketing / brand deals", 
-  "It's a personal blog or hobby account"
+  "High-ticket services (coaching, consulting, agency work)",
+  "Directly selling products (e-commerce, physical goods)",
+  "Local services (salon, restaurant, in-person business)",
+  "Affiliate marketing or brand sponsorships",
+  "Unclear or likely a hobby/personal account"
 ];
 const visualsQuestions = [
-  "Polished & On-Brand (Strong visuals, consistent aesthetic)",
-  "Clean but Generic (Lacks personality, looks like a template)",
-  "Messy & Inconsistent (No clear style, feels unplanned)",
-  "Not Enough Content (Too new or inactive to judge)"
+  "Highly Polished & Professional (Looks expensive, great branding)",
+  "Clean but Templated (Looks good, but lacks unique personality)",
+  "Inconsistent & Messy (No clear visual direction or style)",
+  "Outdated or Unprofessional (Poor quality images, bad design choices)",
+  "Too New to Judge (Not enough content to form an opinion)"
 ];
 const strategyQuestions = [
-  "Reaching a wider audience (Top of Funnel)",
-  "Increasing engagement with current followers (Middle of Funnel)",
-  "Converting followers into clients (Bottom of Funnel)"
+  "Brand Awareness (They need to establish a clear brand identity and reach new people)",
+  "Community Engagement (They have followers but need more interaction and trust)",
+  "Lead Conversion (They need to turn their existing audience into paying customers)"
 ];
+
 
 type RapidProspectDialogProps = {
   isOpen: boolean;
@@ -251,11 +254,11 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
                  <Separator/>
                  
                  <div>
-                    <Label className="font-semibold flex items-center mb-2"><HelpCircle className="mr-2 h-4 w-4 text-amber-600" />What's the primary way this account makes money?</Label>
+                    <Label className="font-semibold flex items-center mb-2"><HelpCircle className="mr-2 h-4 w-4 text-amber-600" />How does this account make money?</Label>
                      <RadioGroup value={profitabilityAnswer} onValueChange={setProfitabilityAnswer} className="space-y-2">
                       {profitabilityQuestions.map((option) => (
                         <div key={option} className="flex items-center space-x-2">
-                          <RadioGroupItem value={option} id={option} /><Label htmlFor={option} className="font-normal">{option}</Label>
+                          <RadioGroupItem value={option} id={`profit-${option.replace(/\s/g, '-')}`} /><Label htmlFor={`profit-${option.replace(/\s/g, '-')}`} className="font-normal cursor-pointer">{option}</Label>
                         </div>
                       ))}
                     </RadioGroup>
@@ -263,11 +266,11 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
                  <Separator/>
 
                  <div>
-                    <Label className="font-semibold flex items-center mb-2"><HelpCircle className="mr-2 h-4 w-4 text-amber-600" />Based on their feed, how would you describe their visual branding?</Label>
+                    <Label className="font-semibold flex items-center mb-2"><HelpCircle className="mr-2 h-4 w-4 text-amber-600" />What's your first impression of their visual branding?</Label>
                      <RadioGroup value={visualsAnswer} onValueChange={setVisualsAnswer} className="space-y-2">
                       {visualsQuestions.map((option) => (
                         <div key={option} className="flex items-center space-x-2">
-                          <RadioGroupItem value={option} id={option} /><Label htmlFor={option} className="font-normal">{option}</Label>
+                          <RadioGroupItem value={option} id={`visuals-${option.replace(/\s/g, '-')}`} /><Label htmlFor={`visuals-${option.replace(/\s/g, '-')}`} className="font-normal cursor-pointer">{option}</Label>
                         </div>
                       ))}
                     </RadioGroup>
@@ -275,11 +278,11 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
                  <Separator/>
 
                  <div>
-                    <Label className="font-semibold flex items-center mb-2"><HelpCircle className="mr-2 h-4 w-4 text-amber-600" />What is the biggest strategic opportunity for their content?</Label>
+                    <Label className="font-semibold flex items-center mb-2"><HelpCircle className="mr-2 h-4 w-4 text-amber-600" />What is their single biggest strategic opportunity?</Label>
                      <RadioGroup value={strategyAnswer} onValueChange={setStrategyAnswer} className="space-y-2">
                       {strategyQuestions.map((option) => (
                         <div key={option} className="flex items-center space-x-2">
-                          <RadioGroupItem value={option} id={option} /><Label htmlFor={option} className="font-normal">{option}</Label>
+                          <RadioGroupItem value={option} id={`strategy-${option.replace(/\s/g, '-')}`} /><Label htmlFor={`strategy-${option.replace(/\s/g, '-')}`} className="font-normal cursor-pointer">{option}</Label>
                         </div>
                       ))}
                     </RadioGroup>

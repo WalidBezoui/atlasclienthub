@@ -20,6 +20,7 @@ import { Badge } from '../ui/badge';
 import { fetchInstagramMetrics, type InstagramMetrics } from '@/app/actions/fetch-ig-metrics';
 import { qualifyProspect, type QualifyProspectInput, type QualifyProspectOutput } from '@/ai/flows/qualify-prospect';
 import { cn } from '@/lib/utils';
+import { EvaluationModal } from './EvaluationModal';
 
 
 interface DiscoveryDialogProps {
@@ -52,7 +53,8 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
   const [verifiedResults, setVerifiedResults] = useState<DiscoveredProspect[] | null>(null);
   const [addedProspects, setAddedProspects] = useState<Set<string>>(new Set());
 
-  // New state for evaluation
+  // State for evaluation
+  const [prospectToEvaluate, setProspectToEvaluate] = useState<{ prospect: DiscoveredProspect; metrics: InstagramMetrics; } | null>(null);
   const [evaluatingHandles, setEvaluatingHandles] = useState<Set<string>>(new Set());
   const [metricsCache, setMetricsCache] = useState<Map<string, InstagramMetrics>>(new Map());
   const [evaluationResults, setEvaluationResults] = useState<Map<string, QualifyProspectOutput>>(new Map());
@@ -70,6 +72,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
     setEvaluatingHandles(new Set());
     setMetricsCache(new Map());
     setEvaluationResults(new Map());
+    setProspectToEvaluate(null);
   };
 
   const handleClose = () => {
@@ -220,7 +223,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
     }
   };
 
-  const handleEvaluate = async (prospect: DiscoveredProspect) => {
+  const handleTriggerEvaluation = async (prospect: DiscoveredProspect) => {
     const handle = prospect.instagramHandle.replace('@', '');
     setEvaluatingHandles(prev => new Set(prev).add(handle));
     try {
@@ -233,24 +236,11 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
             metricsData = metricsResult.data;
             setMetricsCache(prev => new Map(prev).set(handle, metricsData!));
         }
-
-        const analysisResult = await qualifyProspect({
-            instagramHandle: handle,
-            followerCount: metricsData.followerCount,
-            postCount: metricsData.postCount,
-            avgLikes: metricsData.avgLikes,
-            avgComments: metricsData.avgComments,
-            biography: metricsData.biography,
-            userProfitabilityAssessment: "Selling physical products",
-            userVisualsAssessment: "Clean but Generic (Lacks personality, looks like a template)",
-            userStrategyAssessment: "Increasing engagement with current followers (Middle of Funnel)",
-        });
-
-        setEvaluationResults(prev => new Map(prev).set(handle, analysisResult));
-        toast({ title: 'Evaluation Complete', description: `@${handle} has been analyzed.` });
+        
+        setProspectToEvaluate({ prospect, metrics: metricsData });
 
     } catch (error: any) {
-        toast({ title: 'Evaluation Failed', description: error.message, variant: 'destructive' });
+        toast({ title: 'Metric Fetch Failed', description: error.message, variant: 'destructive' });
     } finally {
         setEvaluatingHandles(prev => {
             const newSet = new Set(prev);
@@ -258,6 +248,10 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
             return newSet;
         });
     }
+  };
+
+  const handleEvaluationComplete = (handle: string, result: QualifyProspectOutput) => {
+    setEvaluationResults(prev => new Map(prev).set(handle, result));
   };
 
 
@@ -357,7 +351,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
                         <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleEvaluate(prospect)}
+                            onClick={() => handleTriggerEvaluation(prospect)}
                             disabled={isEvaluating || !!evaluation}
                         >
                             {isEvaluating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
@@ -391,7 +385,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
 
                 <p className="text-sm italic">"{prospect.reason}"</p>
                 
-                {isEvaluating && <LoadingSpinner text="Evaluating..." />}
+                {isEvaluating && !prospectToEvaluate && <LoadingSpinner text="Fetching metrics..." />}
 
                 {evaluation && (
                     <div className="mt-2 p-3 border-t space-y-2">
@@ -408,106 +402,118 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-xl md:max-w-2xl h-[90vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="font-headline text-2xl flex items-center">
-            <Telescope className="mr-2 h-6 w-6 text-primary" />
-            Prospect Discovery
-          </DialogTitle>
-          <DialogDescription>
-            Use AI to find potential prospects. Describe what you're looking for, then evaluate and add them.
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={isOpen} onOpenChange={handleClose}>
+        <DialogContent className="sm:max-w-xl md:max-w-2xl h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="font-headline text-2xl flex items-center">
+              <Telescope className="mr-2 h-6 w-6 text-primary" />
+              Prospect Discovery
+            </DialogTitle>
+            <DialogDescription>
+              Use AI to find potential prospects. Describe what you're looking for, then evaluate and add them.
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="space-y-4">
-            <div className="grid sm:grid-cols-[1fr_auto] gap-2 items-end">
-                <div className="grid grid-cols-2 gap-2">
-                    <div>
-                        <Label htmlFor="discovery-query" className="text-xs">Manual Search Query</Label>
-                        <Input
-                            id="discovery-query"
-                            placeholder="e.g., 'handmade jewelry brands'"
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                            disabled={isLoading}
-                        />
-                    </div>
-                    <div>
-                        <Label htmlFor="min-followers" className="text-xs">Min Followers</Label>
-                        <Input
-                            id="min-followers"
-                            type="number"
-                            placeholder="e.g., 1000"
-                            value={minFollowers}
-                            onChange={(e) => setMinFollowers(e.target.value === '' ? '' : Number(e.target.value))}
-                            disabled={isLoading}
-                        />
-                    </div>
-                </div>
-                <Button onClick={handleSearch} disabled={isLoading || !query.trim()}>
-                    {isLoading && activeSearch === 'manual' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                    Search
-                </Button>
-            </div>
-
-            <div className="relative">
-                <Separator />
-                <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                    <div className="w-full border-t border-border" />
-                </div>
-                <div className="relative flex justify-center">
-                    <span className="bg-background px-2 text-xs text-muted-foreground">OR</span>
-                </div>
-            </div>
-
-            <Button variant="secondary" className="w-full" onClick={handleSmartDiscovery} disabled={isLoading}>
-                {isLoading && activeSearch === 'smart' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                Auto-Discover Hot Prospects
-            </Button>
-        </div>
-
-        <Separator className="my-4" />
-
-        <div className="flex-grow overflow-y-auto -mx-6 px-6">
-          {isLoading && (!verifiedResults || verifiedResults.length === 0) && (
-            <div className="flex flex-col items-center justify-center h-full">
-              <LoadingSpinner text={loadingStep || 'Loading...'} size="lg" />
-            </div>
-          )}
-          
-          {verifiedResults && (
-            <ScrollArea className="h-full">
-              <div className="space-y-3 pr-4">
-                {verifiedResults.length > 0 ? (
-                  verifiedResults.map((prospect) => renderProspectCard(prospect))
-                ) : !isLoading ? (
-                  <div className="text-center py-10 text-muted-foreground">
-                    <p>No verifiable prospects found.</p>
-                    <p className="text-xs">Try being more specific or using different keywords.</p>
+          <div className="space-y-4">
+              <div className="grid sm:grid-cols-[1fr_auto] gap-2 items-end">
+                  <div className="grid grid-cols-2 gap-2">
+                      <div>
+                          <Label htmlFor="discovery-query" className="text-xs">Manual Search Query</Label>
+                          <Input
+                              id="discovery-query"
+                              placeholder="e.g., 'handmade jewelry brands'"
+                              value={query}
+                              onChange={(e) => setQuery(e.target.value)}
+                              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                              disabled={isLoading}
+                          />
+                      </div>
+                      <div>
+                          <Label htmlFor="min-followers" className="text-xs">Min Followers</Label>
+                          <Input
+                              id="min-followers"
+                              type="number"
+                              placeholder="e.g., 1000"
+                              value={minFollowers}
+                              onChange={(e) => setMinFollowers(e.target.value === '' ? '' : Number(e.target.value))}
+                              disabled={isLoading}
+                          />
+                      </div>
                   </div>
-                ) : null}
-                {isLoading && verifiedResults.length > 0 && (
-                  <div className="py-4">
-                    <LoadingSpinner text={loadingStep || 'Loading...'} size="sm" />
-                  </div>
-                )}
+                  <Button onClick={handleSearch} disabled={isLoading || !query.trim()}>
+                      {isLoading && activeSearch === 'manual' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                      Search
+                  </Button>
               </div>
-            </ScrollArea>
-          )}
 
-          {!isLoading && !verifiedResults && (
-            <div className="text-center py-10 text-muted-foreground">
-              <p>Your discovered & verified prospects will appear here.</p>
-            </div>
-          )}
-        </div>
-        
-        <DialogFooter className="mt-auto pt-4 border-t">
-          <Button variant="outline" onClick={handleClose}>Close</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+              <div className="relative">
+                  <Separator />
+                  <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                      <div className="w-full border-t border-border" />
+                  </div>
+                  <div className="relative flex justify-center">
+                      <span className="bg-background px-2 text-xs text-muted-foreground">OR</span>
+                  </div>
+              </div>
+
+              <Button variant="secondary" className="w-full" onClick={handleSmartDiscovery} disabled={isLoading}>
+                  {isLoading && activeSearch === 'smart' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                  Auto-Discover Hot Prospects
+              </Button>
+          </div>
+
+          <Separator className="my-4" />
+
+          <div className="flex-grow overflow-y-auto -mx-6 px-6">
+            {isLoading && (!verifiedResults || verifiedResults.length === 0) && (
+              <div className="flex flex-col items-center justify-center h-full">
+                <LoadingSpinner text={loadingStep || 'Loading...'} size="lg" />
+              </div>
+            )}
+            
+            {verifiedResults && (
+              <ScrollArea className="h-full">
+                <div className="space-y-3 pr-4">
+                  {verifiedResults.length > 0 ? (
+                    verifiedResults.map((prospect) => renderProspectCard(prospect))
+                  ) : !isLoading ? (
+                    <div className="text-center py-10 text-muted-foreground">
+                      <p>No verifiable prospects found.</p>
+                      <p className="text-xs">Try being more specific or using different keywords.</p>
+                    </div>
+                  ) : null}
+                  {isLoading && verifiedResults.length > 0 && (
+                    <div className="py-4">
+                      <LoadingSpinner text={loadingStep || 'Loading...'} size="sm" />
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            )}
+
+            {!isLoading && !verifiedResults && (
+              <div className="text-center py-10 text-muted-foreground">
+                <p>Your discovered & verified prospects will appear here.</p>
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter className="mt-auto pt-4 border-t">
+            <Button variant="outline" onClick={handleClose}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {prospectToEvaluate && (
+          <EvaluationModal
+              isOpen={!!prospectToEvaluate}
+              onClose={() => setProspectToEvaluate(null)}
+              prospect={prospectToEvaluate.prospect}
+              metrics={prospectToEvaluate.metrics}
+              onEvaluationComplete={handleEvaluationComplete}
+          />
+      )}
+    </>
   );
 }
