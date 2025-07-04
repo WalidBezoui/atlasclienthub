@@ -79,69 +79,88 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
     resetState();
     onClose();
   };
-
-  const handleSearch = async () => {
-    if (!query.trim()) {
+  
+  const runDiscovery = async (type: 'manual' | 'smart') => {
+    if (type === 'manual' && !query.trim()) {
       toast({ title: 'Search query cannot be empty.', variant: 'destructive' });
       return;
     }
-    setActiveSearch('manual');
+
+    setActiveSearch(type);
     setIsLoading(true);
-    setLoadingStep('AI is discovering prospects...');
-    setVerifiedResults([]); // Reset to empty array to show progressive loading
+    setLoadingStep(type === 'manual' ? 'AI is discovering prospects...' : 'AI is discovering hot prospects...');
+    setVerifiedResults([]);
     setEvaluationResults(new Map());
     setMetricsCache(new Map());
     setAddedProspects(new Set());
 
     try {
-      // Step 1: Discover prospects with AI
-      const response = await discoverProspects({ 
-        query,
-        minFollowerCount: minFollowers !== '' ? Number(minFollowers) : null,
-      });
+      const response = await (type === 'manual'
+        ? discoverProspects({ query, minFollowerCount: minFollowers !== '' ? Number(minFollowers) : null })
+        : discoverHotProspects());
 
-      if (response.prospects.length === 0) {
-        toast({ title: 'No initial prospects found', description: 'Try refining your search query.' });
+      if (!response.prospects || response.prospects.length === 0) {
+        toast({ title: 'No initial prospects found', description: 'Try refining your search query or try again later.' });
         setIsLoading(false);
         setLoadingStep(null);
         return;
       }
 
-      // Step 2: Verify prospects sequentially
-      const newVerifiedResults: DiscoveredProspect[] = [];
-      const newMetricsCache = new Map<string, InstagramMetrics>();
+      const prospectsToVerify = response.prospects;
+      let allVerifiedResults: DiscoveredProspect[] = [];
+      const BATCH_SIZE = 5; // Process 5 requests in parallel
+      let processedCount = 0;
 
-      for (const [index, prospect] of response.prospects.entries()) {
-        setLoadingStep(`Verifying ${index + 1} of ${response.prospects.length}: @${prospect.instagramHandle}`);
+      for (let i = 0; i < prospectsToVerify.length; i += BATCH_SIZE) {
+        const batch = prospectsToVerify.slice(i, i + BATCH_SIZE);
         
-        try {
-            const result = await fetchInstagramMetrics(prospect.instagramHandle.replace('@', ''));
-            if (result.data) {
-                const minFollowersNum = minFollowers !== '' ? Number(minFollowers) : 0;
-                if (result.data.followerCount >= minFollowersNum) {
-                    const handle = prospect.instagramHandle.replace('@', '');
-                    const updatedProspect = {
-                        ...prospect,
-                        followerCount: result.data.followerCount,
-                        postCount: result.data.postCount,
-                    };
-                    newVerifiedResults.push(updatedProspect);
-                    newMetricsCache.set(handle, result.data);
-                    // Update state inside the loop to show progressive results
-                    setVerifiedResults([...newVerifiedResults]);
-                    setMetricsCache(new Map(newMetricsCache));
-                }
-            }
-        } catch (e) {
-            console.warn(`Could not verify @${prospect.instagramHandle}`, e);
-            // Silently fail and continue to the next one
+        setLoadingStep(`Verifying ${processedCount + 1}-${Math.min(processedCount + BATCH_SIZE, prospectsToVerify.length)} of ${prospectsToVerify.length}...`);
+
+        const promises = batch.map(prospect =>
+          fetchInstagramMetrics(prospect.instagramHandle.replace('@', ''))
+            .then(result => ({ prospect, result }))
+            .catch(error => ({ prospect, error }))
+        );
+
+        const batchRequestResults = await Promise.all(promises);
+
+        const newMetricsCache = new Map<string, InstagramMetrics>();
+        for (const { prospect, result, error } of batchRequestResults) {
+          if (error || result.error || !result.data) {
+            console.warn(`Could not verify @${prospect.instagramHandle}`, error || result.error);
+            continue;
+          }
+          const metrics = result.data;
+          
+          let meetsFollowerCriteria = true;
+          if (type === 'manual' && minFollowers !== '') {
+            meetsFollowerCriteria = metrics.followerCount >= Number(minFollowers);
+          }
+
+          if (meetsFollowerCriteria) {
+            const handle = prospect.instagramHandle.replace('@', '');
+            const updatedProspect = {
+              ...prospect,
+              followerCount: metrics.followerCount,
+              postCount: metrics.postCount,
+            };
+            allVerifiedResults.push(updatedProspect);
+            newMetricsCache.set(handle, metrics);
+          }
+        }
+        
+        processedCount += batch.length;
+
+        if (newMetricsCache.size > 0) {
+            setVerifiedResults([...allVerifiedResults]);
+            setMetricsCache(current => new Map([...current, ...newMetricsCache]));
         }
       }
 
-      if (newVerifiedResults.length === 0) {
+      if (allVerifiedResults.length === 0) {
         toast({
           title: 'No verifiable prospects found',
-          description: "AI suggested some accounts, but none could be confirmed or met your follower criteria. Try a different query.",
+          description: "AI suggested some accounts, but none could be confirmed or met your criteria. Try a different query.",
           duration: 6000,
         });
       }
@@ -156,71 +175,14 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
     }
   };
 
-  const handleSmartDiscovery = async () => {
-    setActiveSearch('smart');
-    setIsLoading(true);
-    setLoadingStep('AI is discovering hot prospects...');
-    setVerifiedResults([]);
-    setEvaluationResults(new Map());
-    setMetricsCache(new Map());
-    setAddedProspects(new Set());
-    setQuery(''); // Clear query field
-    setMinFollowers(''); // Clear min followers field
+  const handleSearch = () => {
+    runDiscovery('manual');
+  };
 
-    try {
-      // Step 1: Discover hot prospects with AI (no query)
-      const response = await discoverHotProspects();
-
-      if (response.prospects.length === 0) {
-        toast({ title: 'No initial prospects found', description: 'The AI could not find any hot prospects at this time. Try again later.' });
-        setIsLoading(false);
-        setLoadingStep(null);
-        return;
-      }
-
-      // Step 2: Verify prospects sequentially (same logic as handleSearch)
-      const newVerifiedResults: DiscoveredProspect[] = [];
-      const newMetricsCache = new Map<string, InstagramMetrics>();
-
-      for (const [index, prospect] of response.prospects.entries()) {
-        setLoadingStep(`Verifying ${index + 1} of ${response.prospects.length}: @${prospect.instagramHandle}`);
-        
-        try {
-            const result = await fetchInstagramMetrics(prospect.instagramHandle.replace('@', ''));
-            if (result.data) {
-                const updatedProspect = {
-                    ...prospect,
-                    followerCount: result.data.followerCount,
-                    postCount: result.data.postCount,
-                };
-                newVerifiedResults.push(updatedProspect);
-                const handle = prospect.instagramHandle.replace('@', '');
-                newMetricsCache.set(handle, result.data);
-                // Update state inside the loop to show progressive results
-                setVerifiedResults([...newVerifiedResults]);
-                setMetricsCache(new Map(newMetricsCache));
-            }
-        } catch (e) {
-            console.warn(`Could not verify @${prospect.instagramHandle}`, e);
-        }
-      }
-
-      if (newVerifiedResults.length === 0) {
-        toast({
-          title: 'No verifiable prospects found',
-          description: "AI suggested some accounts, but none could be confirmed. Try again.",
-          duration: 6000,
-        });
-      }
-
-    } catch (error: any) {
-      console.error("Smart Discovery process failed:", error);
-      toast({ title: 'Discovery Failed', description: error.message, variant: 'destructive' });
-    } finally {
-      setIsLoading(false);
-      setLoadingStep(null);
-      setActiveSearch(null);
-    }
+  const handleSmartDiscovery = () => {
+    setQuery('');
+    setMinFollowers('');
+    runDiscovery('smart');
   };
 
   const handleTriggerEvaluation = async (prospect: DiscoveredProspect) => {
