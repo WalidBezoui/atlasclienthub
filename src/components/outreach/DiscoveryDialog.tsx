@@ -298,7 +298,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
       const displayPosts = metrics?.postCount ?? prospect.postCount;
 
       return (
-        <Card key={prospect.instagramHandle} className={cn("shadow-sm", isEvaluating && "opacity-60")}>
+        <Card key={prospect.instagramHandle} className={cn("shadow-sm w-full", isEvaluating && "opacity-60")}>
             <CardContent className="p-4 flex flex-col gap-3">
                 <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
@@ -441,49 +441,53 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
             )}
             
             {verifiedResults && verifiedResults.length > 0 && !isLoading && (
-              <div className="flex-grow flex flex-col justify-center items-center gap-4">
-                <div className="w-full">
-                    {renderProspectCard(verifiedResults[currentIndex])}
-                </div>
-                
-                <div className="flex items-center justify-center gap-4 w-full">
-                    <Button 
-                        variant="outline" 
-                        size="icon" 
-                        onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
-                        disabled={currentIndex === 0}
-                        aria-label="Previous prospect"
-                    >
-                        <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    
-                    <div className="flex items-center gap-2">
-                        {verifiedResults.map((_, index) => (
-                            <button
-                                key={index}
-                                onClick={() => setCurrentIndex(index)}
-                                className={cn(
-                                    "h-2 w-2 rounded-full transition-colors",
-                                    currentIndex === index ? "bg-primary" : "bg-muted-foreground/30 hover:bg-muted-foreground/50"
-                                )}
-                                aria-label={`Go to prospect ${index + 1}`}
-                            />
-                        ))}
-                    </div>
+              <div className="flex-grow flex flex-col justify-center items-center gap-4 py-2">
+                  <div className="flex items-center w-full max-w-full">
+                      <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
+                          disabled={currentIndex === 0}
+                          aria-label="Previous prospect"
+                          className="shrink-0"
+                      >
+                          <ChevronLeft className="h-6 w-6" />
+                      </Button>
+                      
+                      <div className="flex-grow w-full min-w-0 px-2">
+                          {renderProspectCard(verifiedResults[currentIndex])}
+                      </div>
 
-                    <Button 
-                        variant="outline" 
-                        size="icon" 
-                        onClick={() => setCurrentIndex(prev => Math.min(prev + 1, verifiedResults.length - 1))}
-                        disabled={currentIndex === verifiedResults.length - 1}
-                        aria-label="Next prospect"
-                    >
-                        <ChevronRight className="h-4 w-4" />
-                    </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                    Showing prospect {currentIndex + 1} of {verifiedResults.length}
-                </p>
+                      <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => setCurrentIndex(prev => Math.min(prev + 1, verifiedResults.length - 1))}
+                          disabled={currentIndex === verifiedResults.length - 1}
+                          aria-label="Next prospect"
+                          className="shrink-0"
+                      >
+                          <ChevronRight className="h-6 w-6" />
+                      </Button>
+                  </div>
+                  
+                  <div className="flex flex-col items-center gap-2 mt-2">
+                      <div className="flex items-center gap-2">
+                          {verifiedResults.map((_, index) => (
+                              <button
+                                  key={index}
+                                  onClick={() => setCurrentIndex(index)}
+                                  className={cn(
+                                      "h-2 rounded-full transition-all duration-300",
+                                      currentIndex === index ? "bg-primary w-6" : "bg-muted-foreground/30 hover:bg-muted-foreground/50 w-2"
+                                  )}
+                                  aria-label={`Go to prospect ${index + 1}`}
+                              />
+                          ))}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                          Prospect {currentIndex + 1} of {verifiedResults.length}
+                      </p>
+                  </div>
               </div>
             )}
 
