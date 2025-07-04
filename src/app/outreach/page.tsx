@@ -786,6 +786,8 @@ function OutreachPage() {
     });
   }, [filteredProspects, sortConfig]);
 
+  const existingProspectHandles = useMemo(() => new Set(prospects.map(p => p.instagramHandle).filter(Boolean)), [prospects]);
+
   const getStatusBadgeVariant = (status: OutreachLeadStage): "default" | "secondary" | "outline" | "destructive" => {
     switch (status) {
       case 'Closed - Won':
@@ -1149,9 +1151,6 @@ function OutreachPage() {
         </TableRow>
     );
   };
-  
-  const existingProspectHandles = useMemo(() => new Set(prospects.map(p => p.instagramHandle).filter(Boolean)), [prospects]);
-
 
   return (
     <>
