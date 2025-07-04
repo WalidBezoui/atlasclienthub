@@ -8,8 +8,8 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import { DiscoverProspectsOutputSchema } from './discover-prospects';
-export type { DiscoverProspectsOutput, DiscoveredProspect } from './discover-prospects';
+import { DiscoverProspectsOutputSchema } from '../schemas/prospect-schemas';
+export type { DiscoverProspectsOutput, DiscoveredProspect } from '../schemas/prospect-schemas';
 
 export async function discoverHotProspects(): Promise<DiscoverProspectsOutput> {
   return discoverHotProspectsFlow();
