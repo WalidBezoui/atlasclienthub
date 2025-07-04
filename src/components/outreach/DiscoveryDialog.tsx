@@ -25,7 +25,8 @@ import { cn } from '@/lib/utils';
 interface DiscoveryDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onProspectAdded: () => void; // Callback to refresh the main list
+  onProspectAdded: () => void;
+  existingProspectHandles: Set<string>;
 }
 
 const formatNumber = (num: number | null | undefined): string => {
@@ -42,7 +43,7 @@ const getLeadScoreBadgeVariant = (score: number | null | undefined): "default" |
     return "destructive";
 };
 
-export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryDialogProps) {
+export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingProspectHandles }: DiscoveryDialogProps) {
   const [query, setQuery] = useState('');
   const [minFollowers, setMinFollowers] = useState<number | ''>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -327,7 +328,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryD
   const renderProspectCard = (prospect: DiscoveredProspect) => {
       const handle = prospect.instagramHandle.replace('@', '');
       const isEvaluating = evaluatingHandles.has(handle);
-      const isAdded = addedProspects.has(prospect.instagramHandle);
+      const isAlreadyAdded = existingProspectHandles.has(handle) || addedProspects.has(prospect.instagramHandle);
       const evaluation = evaluationResults.get(handle);
       const metrics = metricsCache.get(handle);
 
@@ -364,16 +365,16 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryD
                         </Button>
                         <Button
                             size="sm"
-                            variant={isAdded ? "secondary" : "default"}
+                            variant={isAlreadyAdded ? "secondary" : "default"}
                             onClick={() => handleAddProspect(prospect)}
-                            disabled={isAdded || isEvaluating}
+                            disabled={isAlreadyAdded || isEvaluating}
                         >
-                            {isAdded ? (
+                            {isAlreadyAdded ? (
                                 <CheckCircle className="mr-2 h-4 w-4" />
                             ) : (
                                 <PlusCircle className="mr-2 h-4 w-4" />
                             )}
-                            {isAdded ? 'Added' : 'Add'}
+                            {isAlreadyAdded ? 'Added' : 'Add'}
                         </Button>
                      </div>
                 </div>

@@ -1149,6 +1149,8 @@ function OutreachPage() {
         </TableRow>
     );
   };
+  
+  const existingProspectHandles = useMemo(() => new Set(prospects.map(p => p.instagramHandle).filter(Boolean)), [prospects]);
 
 
   return (
@@ -1173,6 +1175,7 @@ function OutreachPage() {
         isOpen={isDiscoveryOpen}
         onClose={() => setIsDiscoveryOpen(false)}
         onProspectAdded={fetchProspects}
+        existingProspectHandles={existingProspectHandles}
       />
       
       <RapidProspectDialog
