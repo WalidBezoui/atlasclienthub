@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState } from 'react';
@@ -7,9 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Telescope, Wand2, PlusCircle, CheckCircle, Link as LinkIcon, Bot, BarChart3, Sparkles } from 'lucide-react';
+import { Loader2, Telescope, Wand2, PlusCircle, CheckCircle, Link as LinkIcon, Bot, BarChart3, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { OutreachProspect, QualificationData } from '@/lib/types';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { LoadingSpinner } from '../shared/loading-spinner';
@@ -52,6 +50,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
   const [loadingStep, setLoadingStep] = useState<string | null>(null);
   const [verifiedResults, setVerifiedResults] = useState<DiscoveredProspect[] | null>(null);
   const [addedProspects, setAddedProspects] = useState<Set<string>>(new Set());
+  const [currentIndex, setCurrentIndex] = useState(0);
 
   // State for evaluation
   const [prospectToEvaluate, setProspectToEvaluate] = useState<{ prospect: DiscoveredProspect; metrics: InstagramMetrics; } | null>(null);
@@ -60,6 +59,12 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
   const [evaluationResults, setEvaluationResults] = useState<Map<string, QualifyProspectOutput>>(new Map());
 
   const { toast } = useToast();
+
+  React.useEffect(() => {
+    if (verifiedResults && verifiedResults.length > 0) {
+      setCurrentIndex(0);
+    }
+  }, [verifiedResults]);
 
   const resetState = () => {
     setQuery('');
@@ -73,6 +78,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
     setMetricsCache(new Map());
     setEvaluationResults(new Map());
     setProspectToEvaluate(null);
+    setCurrentIndex(0);
   };
 
   const handleClose = () => {
@@ -292,7 +298,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
       const displayPosts = metrics?.postCount ?? prospect.postCount;
 
       return (
-        <Card key={prospect.instagramHandle} className={cn("shadow-sm transition-all", isEvaluating && "opacity-60")}>
+        <Card key={prospect.instagramHandle} className={cn("shadow-sm", isEvaluating && "opacity-60")}>
             <CardContent className="p-4 flex flex-col gap-3">
                 <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
@@ -427,37 +433,70 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
 
           <Separator className="my-4" />
 
-          <div className="flex-grow overflow-y-auto -mx-6 px-6">
+          <div className="flex-grow overflow-y-auto -mx-6 px-6 flex flex-col">
             {isLoading && (!verifiedResults || verifiedResults.length === 0) && (
               <div className="flex flex-col items-center justify-center h-full">
                 <LoadingSpinner text={loadingStep || 'Loading...'} size="lg" />
               </div>
             )}
             
-            {verifiedResults && (
-              <ScrollArea className="h-full">
-                <div className="space-y-3 pr-4">
-                  {verifiedResults.length > 0 ? (
-                    verifiedResults.map((prospect) => renderProspectCard(prospect))
-                  ) : !isLoading ? (
-                    <div className="text-center py-10 text-muted-foreground">
-                      <p>No verifiable prospects found.</p>
-                      <p className="text-xs">Try being more specific or using different keywords.</p>
-                    </div>
-                  ) : null}
-                  {isLoading && verifiedResults.length > 0 && (
-                    <div className="py-4">
-                      <LoadingSpinner text={loadingStep || 'Loading...'} size="sm" />
-                    </div>
-                  )}
+            {verifiedResults && verifiedResults.length > 0 && !isLoading && (
+              <div className="flex-grow flex flex-col justify-center items-center gap-4">
+                <div className="w-full">
+                    {renderProspectCard(verifiedResults[currentIndex])}
                 </div>
-              </ScrollArea>
+                
+                <div className="flex items-center justify-center gap-4 w-full">
+                    <Button 
+                        variant="outline" 
+                        size="icon" 
+                        onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
+                        disabled={currentIndex === 0}
+                        aria-label="Previous prospect"
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    
+                    <div className="flex items-center gap-2">
+                        {verifiedResults.map((_, index) => (
+                            <button
+                                key={index}
+                                onClick={() => setCurrentIndex(index)}
+                                className={cn(
+                                    "h-2 w-2 rounded-full transition-colors",
+                                    currentIndex === index ? "bg-primary" : "bg-muted-foreground/30 hover:bg-muted-foreground/50"
+                                )}
+                                aria-label={`Go to prospect ${index + 1}`}
+                            />
+                        ))}
+                    </div>
+
+                    <Button 
+                        variant="outline" 
+                        size="icon" 
+                        onClick={() => setCurrentIndex(prev => Math.min(prev + 1, verifiedResults.length - 1))}
+                        disabled={currentIndex === verifiedResults.length - 1}
+                        aria-label="Next prospect"
+                    >
+                        <ChevronRight className="h-4 w-4" />
+                    </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                    Showing prospect {currentIndex + 1} of {verifiedResults.length}
+                </p>
+              </div>
             )}
 
-            {!isLoading && !verifiedResults && (
-              <div className="text-center py-10 text-muted-foreground">
-                <p>Your discovered & verified prospects will appear here.</p>
-              </div>
+            {!isLoading && (!verifiedResults || verifiedResults.length === 0) && (
+                <div className="text-center py-10 text-muted-foreground flex-grow flex flex-col justify-center items-center">
+                    <p>Your discovered & verified prospects will appear here.</p>
+                </div>
+            )}
+            
+            {isLoading && verifiedResults && verifiedResults.length > 0 && (
+                <div className="py-4">
+                    <LoadingSpinner text={loadingStep || 'Loading...'} size="sm" />
+                </div>
             )}
           </div>
           
