@@ -109,7 +109,7 @@ function OutreachPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilters, setStatusFilters] = useState<Set<OutreachLeadStage>>(new Set(OUTREACH_LEAD_STAGE_OPTIONS));
   const [showOnlyNeedsFollowUp, setShowOnlyNeedsFollowUp] = useState(false);
-  const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'desc' });
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'lastActivity', direction: 'desc' });
   
   // State for forms
   const [isEditFormOpen, setIsEditFormOpen] = useState(false);
@@ -1329,14 +1329,15 @@ function OutreachPage() {
                 <DropdownMenuContent align="end">
                   <DropdownMenuLabel>Sort Prospects By</DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setSortConfig({ key: 'lastActivity', direction: 'desc' })}>Last Activity (Recent)</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortConfig({ key: 'lastActivity', direction: 'asc' })}>Last Activity (Oldest)</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setSortConfig({ key: 'createdAt', direction: 'desc' })}>Date Added (Newest)</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setSortConfig({ key: 'createdAt', direction: 'asc' })}>Date Added (Oldest)</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setSortConfig({ key: 'leadScore', direction: 'desc' })}>Lead Score (High-Low)</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setSortConfig({ key: 'leadScore', direction: 'asc' })}>Lead Score (Low-High)</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setSortConfig({ key: 'followerCount', direction: 'desc' })}>Followers (High-Low)</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setSortConfig({ key: 'followerCount', direction: 'asc' })}>Followers (Low-High)</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortConfig({ key: 'lastActivity', direction: 'desc' })}>Last Activity (Recent)</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortConfig({ key: 'lastActivity', direction: 'asc' })}>Last Activity (Oldest)</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortConfig({ key: 'name', direction: 'asc' })}>Name (A-Z)</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
               <DropdownMenu>

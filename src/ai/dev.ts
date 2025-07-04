@@ -7,3 +7,4 @@ import '@/ai/flows/generate-contextual-script.ts';
 import '@/ai/flows/generate-qualifier-question.ts';
 import '@/ai/flows/qualify-prospect.ts';
 import '@/ai/flows/discover-prospects.ts';
+import '@/ai/flows/discover-hot-prospects.ts';

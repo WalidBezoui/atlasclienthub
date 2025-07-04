@@ -7,14 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Telescope, Wand2, PlusCircle, CheckCircle, Link as LinkIcon, Bot, BarChart3 } from 'lucide-react';
+import { Loader2, Telescope, Wand2, PlusCircle, CheckCircle, Link as LinkIcon, Bot, BarChart3, Sparkles } from 'lucide-react';
 import type { OutreachProspect, QualificationData } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { LoadingSpinner } from '../shared/loading-spinner';
 import { discoverProspects } from '@/ai/flows/discover-prospects';
-import type { DiscoveredProspect } from '@/ai/flows/discover-prospects';
+import { discoverHotProspects, type DiscoveredProspect } from '@/ai/flows/discover-hot-prospects';
 import { addProspect } from '@/lib/firebase/services';
 import { Badge } from '../ui/badge';
 import { fetchInstagramMetrics, type InstagramMetrics } from '@/app/actions/fetch-ig-metrics';
@@ -46,6 +46,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryD
   const [query, setQuery] = useState('');
   const [minFollowers, setMinFollowers] = useState<number | ''>('');
   const [isLoading, setIsLoading] = useState(false);
+  const [activeSearch, setActiveSearch] = useState<'manual' | 'smart' | null>(null);
   const [loadingStep, setLoadingStep] = useState<string | null>(null);
   const [verifiedResults, setVerifiedResults] = useState<DiscoveredProspect[] | null>(null);
   const [addedProspects, setAddedProspects] = useState<Set<string>>(new Set());
@@ -61,6 +62,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryD
     setQuery('');
     setMinFollowers('');
     setIsLoading(false);
+    setActiveSearch(null);
     setLoadingStep(null);
     setVerifiedResults(null);
     setAddedProspects(new Set());
@@ -79,6 +81,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryD
       toast({ title: 'Search query cannot be empty.', variant: 'destructive' });
       return;
     }
+    setActiveSearch('manual');
     setIsLoading(true);
     setLoadingStep('AI is discovering prospects...');
     setVerifiedResults([]); // Reset to empty array to show progressive loading
@@ -145,9 +148,76 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryD
     } finally {
       setIsLoading(false);
       setLoadingStep(null);
+      setActiveSearch(null);
     }
   };
 
+  const handleSmartDiscovery = async () => {
+    setActiveSearch('smart');
+    setIsLoading(true);
+    setLoadingStep('AI is discovering hot prospects...');
+    setVerifiedResults([]);
+    setEvaluationResults(new Map());
+    setMetricsCache(new Map());
+    setAddedProspects(new Set());
+    setQuery(''); // Clear query field
+    setMinFollowers(''); // Clear min followers field
+
+    try {
+      // Step 1: Discover hot prospects with AI (no query)
+      const response = await discoverHotProspects();
+
+      if (response.prospects.length === 0) {
+        toast({ title: 'No initial prospects found', description: 'The AI could not find any hot prospects at this time. Try again later.' });
+        setIsLoading(false);
+        setLoadingStep(null);
+        return;
+      }
+
+      // Step 2: Verify prospects sequentially (same logic as handleSearch)
+      const newVerifiedResults: DiscoveredProspect[] = [];
+      const newMetricsCache = new Map<string, InstagramMetrics>();
+
+      for (const [index, prospect] of response.prospects.entries()) {
+        setLoadingStep(`Verifying ${index + 1} of ${response.prospects.length}: @${prospect.instagramHandle}`);
+        
+        try {
+            const result = await fetchInstagramMetrics(prospect.instagramHandle.replace('@', ''));
+            if (result.data) {
+                const updatedProspect = {
+                    ...prospect,
+                    followerCount: result.data.followerCount,
+                    postCount: result.data.postCount,
+                };
+                newVerifiedResults.push(updatedProspect);
+                const handle = prospect.instagramHandle.replace('@', '');
+                newMetricsCache.set(handle, result.data);
+                // Update state inside the loop to show progressive results
+                setVerifiedResults([...newVerifiedResults]);
+                setMetricsCache(new Map(newMetricsCache));
+            }
+        } catch (e) {
+            console.warn(`Could not verify @${prospect.instagramHandle}`, e);
+        }
+      }
+
+      if (newVerifiedResults.length === 0) {
+        toast({
+          title: 'No verifiable prospects found',
+          description: "AI suggested some accounts, but none could be confirmed. Try again.",
+          duration: 6000,
+        });
+      }
+
+    } catch (error: any) {
+      console.error("Smart Discovery process failed:", error);
+      toast({ title: 'Discovery Failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+      setLoadingStep(null);
+      setActiveSearch(null);
+    }
+  };
 
   const handleEvaluate = async (prospect: DiscoveredProspect) => {
     const handle = prospect.instagramHandle.replace('@', '');
@@ -201,7 +271,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryD
         instagramHandle: handle,
         status: 'To Contact',
         source: 'Discovery Tool',
-        notes: `AI Suggestion: "${prospect.reason}"\nOriginal query: "${query}"`,
+        notes: `AI Suggestion: "${prospect.reason}"\nOriginal query: "${query || 'Smart Discovery'}"`,
         createdAt: new Date().toISOString(),
         
         // Populate with evaluation data if it exists
@@ -349,36 +419,54 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded }: DiscoveryD
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid sm:grid-cols-[1fr_auto] gap-2 items-end">
-            <div className="grid grid-cols-2 gap-2">
-                <div>
-                    <Label htmlFor="discovery-query" className="text-xs">Search Query</Label>
-                    <Input
-                        id="discovery-query"
-                        placeholder="e.g., 'handmade jewelry brands'"
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                        disabled={isLoading}
-                    />
+        <div className="space-y-4">
+            <div className="grid sm:grid-cols-[1fr_auto] gap-2 items-end">
+                <div className="grid grid-cols-2 gap-2">
+                    <div>
+                        <Label htmlFor="discovery-query" className="text-xs">Manual Search Query</Label>
+                        <Input
+                            id="discovery-query"
+                            placeholder="e.g., 'handmade jewelry brands'"
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                            disabled={isLoading}
+                        />
+                    </div>
+                    <div>
+                        <Label htmlFor="min-followers" className="text-xs">Min Followers</Label>
+                        <Input
+                            id="min-followers"
+                            type="number"
+                            placeholder="e.g., 1000"
+                            value={minFollowers}
+                            onChange={(e) => setMinFollowers(e.target.value === '' ? '' : Number(e.target.value))}
+                            disabled={isLoading}
+                        />
+                    </div>
                 </div>
-                <div>
-                    <Label htmlFor="min-followers" className="text-xs">Min Followers</Label>
-                    <Input
-                        id="min-followers"
-                        type="number"
-                        placeholder="e.g., 1000"
-                        value={minFollowers}
-                        onChange={(e) => setMinFollowers(e.target.value === '' ? '' : Number(e.target.value))}
-                        disabled={isLoading}
-                    />
+                <Button onClick={handleSearch} disabled={isLoading || !query.trim()}>
+                    {isLoading && activeSearch === 'manual' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                    Search
+                </Button>
+            </div>
+
+            <div className="relative">
+                <Separator />
+                <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                    <div className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center">
+                    <span className="bg-background px-2 text-xs text-muted-foreground">OR</span>
                 </div>
             </div>
-            <Button onClick={handleSearch} disabled={isLoading || !query.trim()}>
-                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                Discover
+
+            <Button variant="secondary" className="w-full" onClick={handleSmartDiscovery} disabled={isLoading}>
+                {isLoading && activeSearch === 'smart' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                Auto-Discover Hot Prospects
             </Button>
         </div>
+
         <Separator className="my-4" />
 
         <div className="flex-grow overflow-y-auto -mx-6 px-6">
