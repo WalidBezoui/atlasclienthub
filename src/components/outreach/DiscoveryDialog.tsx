@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState } from 'react';
@@ -441,27 +442,27 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
             )}
             
             {verifiedResults && verifiedResults.length > 0 && !isLoading && (
-              <div className="flex-grow flex flex-col justify-center items-center gap-4 py-2">
-                  <div className="flex items-center w-full max-w-full">
-                      <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
+              <div className="flex-grow flex flex-col justify-between items-center gap-2 py-4">
+                  <div className="w-full flex-grow flex items-center">
+                      <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
                           disabled={currentIndex === 0}
                           aria-label="Previous prospect"
                           className="shrink-0"
                       >
                           <ChevronLeft className="h-6 w-6" />
                       </Button>
-                      
+
                       <div className="flex-grow w-full min-w-0 px-2">
                           {renderProspectCard(verifiedResults[currentIndex])}
                       </div>
 
-                      <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={() => setCurrentIndex(prev => Math.min(prev + 1, verifiedResults.length - 1))}
+                      <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setCurrentIndex((prev) => Math.min(prev + 1, verifiedResults.length - 1))}
                           disabled={currentIndex === verifiedResults.length - 1}
                           aria-label="Next prospect"
                           className="shrink-0"
@@ -469,16 +470,18 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
                           <ChevronRight className="h-6 w-6" />
                       </Button>
                   </div>
-                  
-                  <div className="flex flex-col items-center gap-2 mt-2">
+
+                  <div className="shrink-0 flex flex-col items-center gap-2 pt-2">
                       <div className="flex items-center gap-2">
                           {verifiedResults.map((_, index) => (
                               <button
                                   key={index}
                                   onClick={() => setCurrentIndex(index)}
                                   className={cn(
-                                      "h-2 rounded-full transition-all duration-300",
-                                      currentIndex === index ? "bg-primary w-6" : "bg-muted-foreground/30 hover:bg-muted-foreground/50 w-2"
+                                      'h-2 rounded-full transition-all duration-300',
+                                      currentIndex === index
+                                          ? 'bg-primary w-6'
+                                          : 'bg-muted-foreground/30 hover:bg-muted-foreground/50 w-2'
                                   )}
                                   aria-label={`Go to prospect ${index + 1}`}
                               />
