@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Telescope, Wand2, PlusCircle, CheckCircle, Link as LinkIcon, Bot, BarChart3, Sparkles, ChevronLeft, ChevronRight, HelpCircle, BrainCircuit } from 'lucide-react';
+import { Loader2, Telescope, Wand2, PlusCircle, CheckCircle, Link as LinkIcon, Bot, BarChart3, Sparkles, ChevronLeft, ChevronRight, HelpCircle, BrainCircuit, ArrowRight } from 'lucide-react';
 import type { OutreachProspect, QualificationData } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -20,6 +20,8 @@ import { fetchInstagramMetrics, type InstagramMetrics } from '@/app/actions/fetc
 import { qualifyProspect, type QualifyProspectInput, type QualifyProspectOutput } from '@/ai/flows/qualify-prospect';
 import { cn } from '@/lib/utils';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const profitabilityQuestions = [
   "High-ticket services (coaching, consulting, agency work)",
@@ -62,6 +64,41 @@ const getLeadScoreBadgeVariant = (score: number | null | undefined): "default" |
     return "destructive";
 };
 
+const EvaluationForm = ({ onAnalyze, onCancel, isAnalyzing, setProfitability, setVisuals, setStrategy, canSubmit }: {
+    onAnalyze: () => void;
+    onCancel: () => void;
+    isAnalyzing: boolean;
+    setProfitability: (value: string) => void;
+    setVisuals: (value: string) => void;
+    setStrategy: (value: string) => void;
+    canSubmit: boolean;
+}) => (
+    <div className="bg-muted/30 p-4 -mx-4 -mb-4 border-t">
+        <p className="text-sm font-semibold mb-3">Your expertise is needed to qualify this prospect.</p>
+        <div className="space-y-4">
+            <div>
+                <Label className="font-medium text-xs mb-2 block">1. How does this account likely make money?</Label>
+                <RadioGroup onValueChange={setProfitability} className="space-y-1">{profitabilityQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><RadioGroupItem value={o} id={`profit-${o}`} /><Label htmlFor={`profit-${o}`} className="font-normal text-xs">{o}</Label></div>)}</RadioGroup>
+            </div>
+            <div>
+                <Label className="font-medium text-xs mb-2 block">2. Describe their visual branding.</Label>
+                <RadioGroup onValueChange={setVisuals} className="space-y-1">{visualsQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><RadioGroupItem value={o} id={`visual-${o}`} /><Label htmlFor={`visual-${o}`} className="font-normal text-xs">{o}</Label></div>)}</RadioGroup>
+            </div>
+            <div>
+                <Label className="font-medium text-xs mb-2 block">3. What's their biggest strategic opportunity?</Label>
+                <RadioGroup onValueChange={setStrategy} className="space-y-1">{strategyQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><RadioGroupItem value={o} id={`strategy-${o}`} /><Label htmlFor={`strategy-${o}`} className="font-normal text-xs">{o}</Label></div>)}</RadioGroup>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+                <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
+                <Button size="sm" onClick={onAnalyze} disabled={isAnalyzing || !canSubmit}>
+                    {isAnalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <BrainCircuit className="mr-2 h-4 w-4"/>} Analyze
+                </Button>
+            </div>
+        </div>
+    </div>
+);
+
+
 export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingProspectHandles }: DiscoveryDialogProps) {
   const [query, setQuery] = useState('');
   const [minFollowers, setMinFollowers] = useState<number | ''>('');
@@ -70,26 +107,20 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
   const [loadingStep, setLoadingStep] = useState<string | null>(null);
   const [verifiedResults, setVerifiedResults] = useState<DiscoveredProspect[] | null>(null);
   const [addedProspects, setAddedProspects] = useState<Set<string>>(new Set());
-  const [currentIndex, setCurrentIndex] = useState(0);
-
+  
   // State for evaluation
   const [metricsCache, setMetricsCache] = useState<Map<string, InstagramMetrics>>(new Map());
   const [evaluationResults, setEvaluationResults] = useState<Map<string, QualifyProspectOutput>>(new Map());
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [evaluationState, setEvaluationState] = useState<{
-      handle: string;
-      profitabilityAnswer?: string;
-      visualsAnswer?: string;
-      strategyAnswer?: string;
-  } | null>(null);
+
+  // State for the inline evaluation form
+  const [evaluatingHandle, setEvaluatingHandle] = useState<string | null>(null);
+  const [profitabilityAnswer, setProfitabilityAnswer] = useState<string | undefined>();
+  const [visualsAnswer, setVisualsAnswer] = useState<string | undefined>();
+  const [strategyAnswer, setStrategyAnswer] = useState<string | undefined>();
+
 
   const { toast } = useToast();
-
-  useEffect(() => {
-    if (verifiedResults && verifiedResults.length > 0) {
-      setCurrentIndex(0);
-    }
-  }, [verifiedResults]);
 
   const resetState = () => {
     setQuery('');
@@ -101,9 +132,11 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
     setAddedProspects(new Set());
     setMetricsCache(new Map());
     setEvaluationResults(new Map());
-    setEvaluationState(null);
+    setEvaluatingHandle(null);
     setIsAnalyzing(false);
-    setCurrentIndex(0);
+    setProfitabilityAnswer(undefined);
+    setVisualsAnswer(undefined);
+    setStrategyAnswer(undefined);
   };
 
   const handleClose = () => {
@@ -111,6 +144,17 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
     onClose();
   };
   
+  const handleAccordionChange = (value: string) => {
+    if (value) { // Accordion is opening
+      setProfitabilityAnswer(undefined);
+      setVisualsAnswer(undefined);
+      setStrategyAnswer(undefined);
+      setEvaluatingHandle(value);
+    } else { // Accordion is closing
+      setEvaluatingHandle(null);
+    }
+  };
+
   const runDiscovery = async (type: 'manual' | 'smart') => {
     if (type === 'manual' && !query.trim()) {
       toast({ title: 'Search query cannot be empty.', variant: 'destructive' });
@@ -191,18 +235,12 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
     }
   };
   
-  const handleTriggerEvaluation = (prospect: DiscoveredProspect) => {
-    setEvaluationState({ handle: prospect.instagramHandle.replace('@', '') });
-  };
-  
-  const handleCancelEvaluation = () => setEvaluationState(null);
-
   const handleEvaluationSubmit = async () => {
-    if (!evaluationState || !evaluationState.profitabilityAnswer || !evaluationState.visualsAnswer || !evaluationState.strategyAnswer) {
+    if (!evaluatingHandle || !profitabilityAnswer || !visualsAnswer || !strategyAnswer) {
       toast({ title: "Missing Input", description: "Please answer all three questions to proceed.", variant: "destructive" });
       return;
     }
-    const handle = evaluationState.handle;
+    const handle = evaluatingHandle;
     const metrics = metricsCache.get(handle);
     const prospect = verifiedResults?.find(p => p.instagramHandle.replace('@', '') === handle);
     if (!metrics || !prospect) {
@@ -215,14 +253,14 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
         instagramHandle: prospect.instagramHandle,
         followerCount: metrics.followerCount, postCount: metrics.postCount, avgLikes: metrics.avgLikes, avgComments: metrics.avgComments,
         biography: metrics.biography || null,
-        userProfitabilityAssessment: evaluationState.profitabilityAnswer,
-        userVisualsAssessment: evaluationState.visualsAnswer,
-        userStrategyAssessment: evaluationState.strategyAnswer,
+        userProfitabilityAssessment: profitabilityAnswer,
+        userVisualsAssessment: visualsAnswer,
+        userStrategyAssessment: strategyAnswer,
       };
       const result = await qualifyProspect(input);
       setEvaluationResults(prev => new Map(prev).set(handle, result));
       toast({ title: "Analysis Complete!", description: "Prospect has been evaluated." });
-      setEvaluationState(null);
+      setEvaluatingHandle(null);
     } catch (error: any) {
       toast({ title: 'Analysis Failed', description: error.message, variant: 'destructive' });
     } finally {
@@ -258,106 +296,6 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
       toast({ title: 'Failed to Add Prospect', description: error.message, variant: 'destructive' });
     }
   };
-
-  const currentProspect = verifiedResults ? verifiedResults[currentIndex] : null;
-  const isEvaluatingCurrent = !!currentProspect && evaluationState?.handle === currentProspect.instagramHandle.replace('@', '');
-
-  const renderProspectCard = (prospect: DiscoveredProspect) => {
-    const handle = prospect.instagramHandle.replace('@', '');
-    const evaluation = evaluationResults.get(handle);
-
-    return (
-        <Card className="w-full h-full flex flex-col shadow-lg">
-            <CardHeader className="p-4">
-                <div className="flex items-start justify-between gap-4">
-                    <div>
-                        <a href={`https://instagram.com/${handle}`} target="_blank" rel="noopener noreferrer" className="font-headline text-lg text-primary hover:underline">{prospect.name}</a>
-                        <p className="text-sm text-muted-foreground">@{prospect.instagramHandle}</p>
-                    </div>
-                    {evaluation ? (
-                        <div className="text-right">
-                            <p className="text-xs text-muted-foreground">Lead Score</p>
-                            <Badge variant={getLeadScoreBadgeVariant(evaluation.leadScore)} className="text-2xl">{evaluation.leadScore}</Badge>
-                        </div>
-                    ) : (
-                        <Button size="sm" variant="outline" onClick={() => handleTriggerEvaluation(prospect)}><Bot className="mr-2 h-4 w-4" />Evaluate</Button>
-                    )}
-                </div>
-            </CardHeader>
-            <CardContent className="p-4 pt-0 flex-grow flex flex-col gap-4">
-                <div className="grid grid-cols-2 gap-4 text-center">
-                    <div className="bg-muted/50 p-2 rounded-md">
-                        <p className="font-bold text-lg text-foreground">{formatNumber(prospect.followerCount)}</p>
-                        <p className="text-xs text-muted-foreground">Followers</p>
-                    </div>
-                    <div className="bg-muted/50 p-2 rounded-md">
-                        <p className="font-bold text-lg text-foreground">{formatNumber(prospect.postCount)}</p>
-                        <p className="text-xs text-muted-foreground">Posts</p>
-                    </div>
-                </div>
-                <div className="space-y-2 flex-grow">
-                    <Label className="text-xs text-muted-foreground">AI Discovery Note</Label>
-                    <blockquote className="border-l-2 pl-3 italic text-sm">
-                        "{prospect.reason}"
-                    </blockquote>
-                    {evaluation && (
-                         <div className="p-3 mt-2 rounded-md border bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-500/30">
-                             <p className="font-semibold text-green-800 dark:text-green-300 flex items-center gap-2"><Sparkles className="h-4 w-4" />AI Qualification Summary</p>
-                             <p className="italic text-sm text-green-700/80 dark:text-green-400/80 mt-1">"{evaluation.summary}"</p>
-                         </div>
-                    )}
-                </div>
-            </CardContent>
-            <CardFooter className="p-4">
-                <Button 
-                    className="w-full" 
-                    size="lg" 
-                    variant={existingProspectHandles.has(handle) || addedProspects.has(prospect.instagramHandle) ? "secondary" : "default"} 
-                    onClick={() => handleAddProspect(prospect)} 
-                    disabled={existingProspectHandles.has(handle) || addedProspects.has(prospect.instagramHandle)}
-                >
-                    {existingProspectHandles.has(handle) || addedProspects.has(prospect.instagramHandle) ? <CheckCircle className="mr-2 h-4 w-4" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-                    {existingProspectHandles.has(handle) || addedProspects.has(prospect.instagramHandle) ? 'Already Added' : 'Add to Outreach List'}
-                </Button>
-            </CardFooter>
-        </Card>
-    )
-  };
-
-  const renderEvaluationForm = () => {
-    if (!evaluationState) return null;
-    return (
-        <Card className="w-full h-full flex flex-col">
-            <CardHeader className="p-4">
-                <CardTitle className="font-headline flex items-center gap-2"><BrainCircuit className="h-5 w-5 text-primary"/>Manual Assessment</CardTitle>
-                <CardDescription>Your insight helps the AI make a better judgment for @{evaluationState.handle}.</CardDescription>
-            </CardHeader>
-            <CardContent className="p-4 pt-0 flex-grow overflow-y-auto space-y-4">
-                <div>
-                    <Label className="font-semibold flex items-center text-sm mb-2">How does this account likely make money?</Label>
-                    <RadioGroup value={evaluationState.profitabilityAnswer} onValueChange={(v) => setEvaluationState(s => s ? {...s, profitabilityAnswer: v} : null)} className="space-y-1">{profitabilityQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><RadioGroupItem value={o} id={`profit-${o}`} /><Label htmlFor={`profit-${o}`} className="font-normal text-xs">{o}</Label></div>)}</RadioGroup>
-                </div>
-                <Separator/>
-                <div>
-                    <Label className="font-semibold flex items-center text-sm mb-2">Describe their visual branding.</Label>
-                    <RadioGroup value={evaluationState.visualsAnswer} onValueChange={(v) => setEvaluationState(s => s ? {...s, visualsAnswer: v} : null)} className="space-y-1">{visualsQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><RadioGroupItem value={o} id={`visual-${o}`} /><Label htmlFor={`visual-${o}`} className="font-normal text-xs">{o}</Label></div>)}</RadioGroup>
-                </div>
-                <Separator/>
-                <div>
-                    <Label className="font-semibold flex items-center text-sm mb-2">What's their biggest strategic opportunity?</Label>
-                    <RadioGroup value={evaluationState.strategyAnswer} onValueChange={(v) => setEvaluationState(s => s ? {...s, strategyAnswer: v} : null)} className="space-y-1">{strategyQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><RadioGroupItem value={o} id={`strategy-${o}`} /><Label htmlFor={`strategy-${o}`} className="font-normal text-xs">{o}</Label></div>)}</RadioGroup>
-                </div>
-            </CardContent>
-            <CardFooter className="p-4 border-t flex justify-end gap-2 shrink-0">
-                <Button variant="ghost" onClick={handleCancelEvaluation}>Cancel</Button>
-                <Button onClick={handleEvaluationSubmit} disabled={isAnalyzing || !evaluationState?.profitabilityAnswer || !evaluationState?.visualsAnswer || !evaluationState?.strategyAnswer}>
-                    {isAnalyzing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} Analyze
-                </Button>
-            </CardFooter>
-        </Card>
-    );
-  };
-
 
   return (
       <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -404,23 +342,72 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
             )}
             
             {verifiedResults && verifiedResults.length > 0 && (
-                <div className="flex flex-col flex-grow h-full">
-                    <div className="flex-grow flex items-center justify-between gap-1 md:gap-2 min-h-0">
-                        <Button variant="ghost" size="icon" onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))} disabled={currentIndex === 0} aria-label="Previous prospect" className="shrink-0"><ChevronLeft className="h-6 w-6" /></Button>
-                        
-                        <div className="w-full h-full flex-1 flex flex-col min-w-0">
-                           {isEvaluatingCurrent ? renderEvaluationForm() : (currentProspect && renderProspectCard(currentProspect))}
+                <ScrollArea className="h-full -mx-4 px-4">
+                    <Accordion type="single" collapsible value={evaluatingHandle || undefined} onValueChange={handleAccordionChange}>
+                        <div className="space-y-3">
+                        {verifiedResults.map((prospect) => {
+                            const handle = prospect.instagramHandle.replace('@', '');
+                            const isAdded = existingProspectHandles.has(handle) || addedProspects.has(prospect.instagramHandle);
+                            const evaluation = evaluationResults.get(handle);
+                            return (
+                            <AccordionItem value={handle} key={handle} className="border-b-0">
+                                <Card className="shadow-sm hover:shadow-md transition-shadow">
+                                    <div className="p-3">
+                                        <div className="flex items-start justify-between gap-4">
+                                            <div>
+                                                <a href={`https://instagram.com/${handle}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-foreground hover:text-primary hover:underline">{prospect.name}</a>
+                                                <p className="text-xs text-muted-foreground">@{handle}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                {evaluation ? <Badge variant={getLeadScoreBadgeVariant(evaluation.leadScore)}>{evaluation.leadScore}</Badge> : <Badge variant="outline">Unevaluated</Badge>}
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2 text-center text-xs mt-3">
+                                            <div className="bg-muted/50 p-1.5 rounded-md">
+                                                <p className="font-semibold">{formatNumber(prospect.followerCount)}</p>
+                                                <p className="text-muted-foreground">Followers</p>
+                                            </div>
+                                             <div className="bg-muted/50 p-1.5 rounded-md">
+                                                <p className="font-semibold">{formatNumber(prospect.postCount)}</p>
+                                                <p className="text-muted-foreground">Posts</p>
+                                            </div>
+                                        </div>
+                                         <blockquote className="mt-3 border-l-2 pl-3 text-xs italic text-muted-foreground">"{prospect.reason}"</blockquote>
+                                         {evaluation && (
+                                            <div className="mt-2 text-xs italic text-green-700 dark:text-green-400">
+                                                <span className="font-semibold not-italic text-green-800 dark:text-green-300">Analysis:</span> "{evaluation.summary}"
+                                            </div>
+                                         )}
+                                        <div className="flex items-center justify-end gap-2 mt-3">
+                                            <Button size="sm" variant="default" onClick={() => handleAddProspect(prospect)} disabled={isAdded}>
+                                                {isAdded ? <CheckCircle className="mr-2 h-4 w-4" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+                                                {isAdded ? 'Added' : 'Add'}
+                                            </Button>
+                                            <AccordionTrigger asChild>
+                                                <Button size="sm" variant="outline">
+                                                    <BrainCircuit className="mr-2 h-4 w-4" /> {evaluation ? "Re-evaluate" : "Evaluate"}
+                                                </Button>
+                                            </AccordionTrigger>
+                                        </div>
+                                    </div>
+                                    <AccordionContent>
+                                        <EvaluationForm
+                                            isAnalyzing={isAnalyzing && evaluatingHandle === handle}
+                                            onCancel={() => setEvaluatingHandle(null)}
+                                            onAnalyze={handleEvaluationSubmit}
+                                            setProfitability={setProfitabilityAnswer}
+                                            setVisuals={setVisualsAnswer}
+                                            setStrategy={setStrategyAnswer}
+                                            canSubmit={!!(profitabilityAnswer && visualsAnswer && strategyAnswer)}
+                                        />
+                                    </AccordionContent>
+                                </Card>
+                            </AccordionItem>
+                            )
+                        })}
                         </div>
-                        
-                        <Button variant="ghost" size="icon" onClick={() => setCurrentIndex((prev) => Math.min(prev + 1, verifiedResults.length - 1))} disabled={currentIndex === verifiedResults.length - 1} aria-label="Next prospect" className="shrink-0"><ChevronRight className="h-6 w-6" /></Button>
-                    </div>
-                    <div className="shrink-0 flex flex-col items-center gap-2 pt-4">
-                        <div className="flex items-center gap-2">
-                          {verifiedResults.map((_, index) => <button key={index} onClick={() => setCurrentIndex(index)} className={cn('h-2 rounded-full transition-all duration-300', currentIndex === index ? 'bg-primary w-6' : 'bg-muted-foreground/30 hover:bg-muted-foreground/50 w-2')} aria-label={`Go to prospect ${index + 1}`}/>)}
-                        </div>
-                        <p className="text-xs text-muted-foreground">Prospect {currentIndex + 1} of {verifiedResults.length}</p>
-                    </div>
-                </div>
+                    </Accordion>
+                </ScrollArea>
             )}
           </div>
           <DialogFooter className="mt-auto pt-4 border-t">
