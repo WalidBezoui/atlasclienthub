@@ -18,31 +18,28 @@ export async function discoverHotProspects(): Promise<DiscoverProspectsOutput> {
 const prompt = ai.definePrompt({
   name: 'discoverHotProspectsPrompt',
   output: {schema: DiscoverProspectsOutputSchema},
-  prompt: `You are an expert growth hacker for a social media agency called "Atlas Social Studio".
-Your mission is to automatically find 15-20 "undervalued" Instagram accounts that are high-potential, profitable prospects we can help. These are hidden gems.
+  prompt: `You are a market researcher specializing in finding high-potential Instagram accounts for a social media agency.
+Your task is to identify 15-20 Instagram accounts that are prime candidates for growth services.
 
-**CRITERIA FOR A HIGH-POTENTIAL, "UNDERVALUED" PROSPECT:**
+**CRITICAL INSTRUCTIONS - READ CAREFULLY:**
 
-1.  **Active & Recently Posting:** This is critical. The account MUST be active. Look for signs of recent posts (e.g., within the last week or two). Do not suggest abandoned or inactive accounts.
+1.  **VERIFIABLE ACCOUNTS ONLY:** The Instagram handles you provide **MUST** be real, public accounts. Your suggestions will be automatically checked. Providing fake or non-existent handles will fail the task. It is better to provide fewer, real accounts than many fake ones.
 
-2.  **Good Product/Service, Poor Marketing:** The core offering (product, coaching, service) must be legitimate and appealing. However, their marketing, visual identity, or content strategy is weak. Look for signs like:
-    *   Inconsistent visual theme, messy grid, or generic templates.
-    *   Low-quality photos, poor lighting, or amateurish graphics.
-    *   Captions are unengaging, short, or non-existent.
-    *   They clearly sell something valuable, but their profile doesn't communicate its value effectively.
+2.  **TARGET FOLLOWER RANGE: 5,000 to 50,000.** This is a strict requirement. **DO NOT suggest accounts with less than 5,000 followers.** Focus on accounts that have an established audience but are not yet massive corporations.
 
-3.  **Passionate but Underserved Audience (5k-50k Followers):** Prioritize accounts with a follower count between **5,000 and 50,000**. This is the sweet spot. **DO NOT suggest accounts with fewer than 5,000 followers.** We are looking for accounts with an established audience that we can help grow, not brand new accounts. They should have a real, engaged community. Genuine, conversational comments are more important than a high follower count with spammy engagement.
+3.  **IDENTIFY THE "DIAMOND IN THE ROUGH":** The best candidates are businesses or creators with a good product, service, or message, but their Instagram marketing is weak. Look for these signs of weakness:
+    *   Inconsistent or messy visual grid.
+    *   Low-quality photos or amateur graphics.
+    *   Unengaging or very short captions.
+    *   A weak call-to-action (or no CTA) in their bio.
 
-4.  **Clear Monetization but Weak Sales Funnel:** The account is clearly trying to make money but is leaving a lot on the table.
-    *   Their bio has a generic Linktree, a broken link, or no link at all.
-    *   They post products but have no clear "Shop Now" call-to-action.
-    *   They are a coach or consultant but don't clearly explain how to book a session or see their offerings.
+4.  **DIVERSIFY YOUR SEARCH:** Think beyond common niches. Explore areas like:
+    *   Local businesses with an online presence (e.g., artisan bakeries, boutique fitness studios).
+    *   Niche B2B consultants (e.g., financial advisors for freelancers, marketing coaches for therapists).
+    *   Skilled creators who haven't monetized well (e.g., potters, woodworkers, custom painters).
 
-5.  **Diverse & Niche Industries:** Brainstorm a diverse list. Go beyond typical fashion and cosmetic brands. Think about: local businesses with an online presence, niche hobby-to-business creators (e.g., custom pottery, specialized baking), B2B consultants, authors, etc.
-
-**VERY IMPORTANT**: Your suggestions will be automatically verified for existence. Therefore, it is better to provide more diverse and plausible candidates rather than fewer.
-
-For each prospect you brainstorm, provide their Instagram handle, their name, an estimated follower and post count, and a concise reason for why they are a good "undervalued" prospect based on the criteria above, especially noting their marketing weaknesses.
+**OUTPUT FORMAT:**
+For each prospect, provide their Instagram handle (without the '@'), their name, an estimated follower and post count, and a concise reason explaining *why* they are a good "diamond in the rough" based on the criteria above.
 `,
 });
 

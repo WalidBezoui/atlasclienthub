@@ -54,8 +54,8 @@ export type InstagramMetrics = {
 // This could be something like 'apify/instagram-profile-scraper' or a custom actor.
 const ACTOR_ID = 'apify/instagram-profile-scraper'; // Example: 'username/actor-name'
 const APIFY_BASE_URL = 'https://api.apify.com/v2';
-const MAX_POLL_RETRIES = 8; // Max number of times to poll for status (e.g., 8 * 5s = 40s timeout)
-const POLL_INTERVAL_MS = 5000; // 5 seconds
+const MAX_POLL_RETRIES = 6; // Max number of times to poll for status (e.g., 6 * 4s = 24s timeout)
+const POLL_INTERVAL_MS = 4000; // 4 seconds
 
 export async function fetchInstagramMetrics(
   username: string
