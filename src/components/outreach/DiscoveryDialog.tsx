@@ -139,10 +139,15 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
           }
           const metrics = result.data;
           
-          let meetsFollowerCriteria = true;
-          if (type === 'manual' && minFollowers !== '') {
-            meetsFollowerCriteria = metrics.followerCount >= Number(minFollowers);
+          let meetsFollowerCriteria;
+          if (type === 'smart') {
+            // For smart discovery, enforce the 5k minimum as a hard rule
+            meetsFollowerCriteria = metrics.followerCount >= 5000;
+          } else { // type === 'manual'
+            // For manual, respect the user's input, or allow all if empty
+            meetsFollowerCriteria = minFollowers === '' || metrics.followerCount >= Number(minFollowers);
           }
+
 
           if (meetsFollowerCriteria) {
             const handle = prospect.instagramHandle.replace('@', '');
