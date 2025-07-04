@@ -7,9 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Telescope, Wand2, PlusCircle, CheckCircle, Link as LinkIcon, Bot, BarChart3, Sparkles, ChevronLeft, ChevronRight, HelpCircle } from 'lucide-react';
+import { Loader2, Telescope, Wand2, PlusCircle, CheckCircle, Link as LinkIcon, Bot, BarChart3, Sparkles, ChevronLeft, ChevronRight, HelpCircle, BrainCircuit } from 'lucide-react';
 import type { OutreachProspect, QualificationData } from '@/lib/types';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { LoadingSpinner } from '../shared/loading-spinner';
 import { discoverProspects } from '@/ai/flows/discover-prospects';
@@ -262,6 +262,103 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
   const currentProspect = verifiedResults ? verifiedResults[currentIndex] : null;
   const isEvaluatingCurrent = !!currentProspect && evaluationState?.handle === currentProspect.instagramHandle.replace('@', '');
 
+  const renderProspectCard = (prospect: DiscoveredProspect) => {
+    const handle = prospect.instagramHandle.replace('@', '');
+    const evaluation = evaluationResults.get(handle);
+
+    return (
+        <Card className="w-full h-full flex flex-col shadow-lg">
+            <CardHeader className="p-4">
+                <div className="flex items-start justify-between gap-4">
+                    <div>
+                        <a href={`https://instagram.com/${handle}`} target="_blank" rel="noopener noreferrer" className="font-headline text-lg text-primary hover:underline">{prospect.name}</a>
+                        <p className="text-sm text-muted-foreground">@{prospect.instagramHandle}</p>
+                    </div>
+                    {evaluation ? (
+                        <div className="text-right">
+                            <p className="text-xs text-muted-foreground">Lead Score</p>
+                            <Badge variant={getLeadScoreBadgeVariant(evaluation.leadScore)} className="text-2xl">{evaluation.leadScore}</Badge>
+                        </div>
+                    ) : (
+                        <Button size="sm" variant="outline" onClick={() => handleTriggerEvaluation(prospect)}><Bot className="mr-2 h-4 w-4" />Evaluate</Button>
+                    )}
+                </div>
+            </CardHeader>
+            <CardContent className="p-4 pt-0 flex-grow flex flex-col gap-4">
+                <div className="grid grid-cols-2 gap-4 text-center">
+                    <div className="bg-muted/50 p-2 rounded-md">
+                        <p className="font-bold text-lg text-foreground">{formatNumber(prospect.followerCount)}</p>
+                        <p className="text-xs text-muted-foreground">Followers</p>
+                    </div>
+                    <div className="bg-muted/50 p-2 rounded-md">
+                        <p className="font-bold text-lg text-foreground">{formatNumber(prospect.postCount)}</p>
+                        <p className="text-xs text-muted-foreground">Posts</p>
+                    </div>
+                </div>
+                <div className="space-y-2 flex-grow">
+                    <Label className="text-xs text-muted-foreground">AI Discovery Note</Label>
+                    <blockquote className="border-l-2 pl-3 italic text-sm">
+                        "{prospect.reason}"
+                    </blockquote>
+                    {evaluation && (
+                         <div className="p-3 mt-2 rounded-md border bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-500/30">
+                             <p className="font-semibold text-green-800 dark:text-green-300 flex items-center gap-2"><Sparkles className="h-4 w-4" />AI Qualification Summary</p>
+                             <p className="italic text-sm text-green-700/80 dark:text-green-400/80 mt-1">"{evaluation.summary}"</p>
+                         </div>
+                    )}
+                </div>
+            </CardContent>
+            <CardFooter className="p-4">
+                <Button 
+                    className="w-full" 
+                    size="lg" 
+                    variant={existingProspectHandles.has(handle) || addedProspects.has(prospect.instagramHandle) ? "secondary" : "default"} 
+                    onClick={() => handleAddProspect(prospect)} 
+                    disabled={existingProspectHandles.has(handle) || addedProspects.has(prospect.instagramHandle)}
+                >
+                    {existingProspectHandles.has(handle) || addedProspects.has(prospect.instagramHandle) ? <CheckCircle className="mr-2 h-4 w-4" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+                    {existingProspectHandles.has(handle) || addedProspects.has(prospect.instagramHandle) ? 'Already Added' : 'Add to Outreach List'}
+                </Button>
+            </CardFooter>
+        </Card>
+    )
+  };
+
+  const renderEvaluationForm = () => {
+    if (!evaluationState) return null;
+    return (
+        <Card className="w-full h-full flex flex-col">
+            <CardHeader className="p-4">
+                <CardTitle className="font-headline flex items-center gap-2"><BrainCircuit className="h-5 w-5 text-primary"/>Manual Assessment</CardTitle>
+                <CardDescription>Your insight helps the AI make a better judgment for @{evaluationState.handle}.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 pt-0 flex-grow overflow-y-auto space-y-4">
+                <div>
+                    <Label className="font-semibold flex items-center text-sm mb-2">How does this account likely make money?</Label>
+                    <RadioGroup value={evaluationState.profitabilityAnswer} onValueChange={(v) => setEvaluationState(s => s ? {...s, profitabilityAnswer: v} : null)} className="space-y-1">{profitabilityQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><RadioGroupItem value={o} id={`profit-${o}`} /><Label htmlFor={`profit-${o}`} className="font-normal text-xs">{o}</Label></div>)}</RadioGroup>
+                </div>
+                <Separator/>
+                <div>
+                    <Label className="font-semibold flex items-center text-sm mb-2">Describe their visual branding.</Label>
+                    <RadioGroup value={evaluationState.visualsAnswer} onValueChange={(v) => setEvaluationState(s => s ? {...s, visualsAnswer: v} : null)} className="space-y-1">{visualsQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><RadioGroupItem value={o} id={`visual-${o}`} /><Label htmlFor={`visual-${o}`} className="font-normal text-xs">{o}</Label></div>)}</RadioGroup>
+                </div>
+                <Separator/>
+                <div>
+                    <Label className="font-semibold flex items-center text-sm mb-2">What's their biggest strategic opportunity?</Label>
+                    <RadioGroup value={evaluationState.strategyAnswer} onValueChange={(v) => setEvaluationState(s => s ? {...s, strategyAnswer: v} : null)} className="space-y-1">{strategyQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><RadioGroupItem value={o} id={`strategy-${o}`} /><Label htmlFor={`strategy-${o}`} className="font-normal text-xs">{o}</Label></div>)}</RadioGroup>
+                </div>
+            </CardContent>
+            <CardFooter className="p-4 border-t flex justify-end gap-2 shrink-0">
+                <Button variant="ghost" onClick={handleCancelEvaluation}>Cancel</Button>
+                <Button onClick={handleEvaluationSubmit} disabled={isAnalyzing || !evaluationState?.profitabilityAnswer || !evaluationState?.visualsAnswer || !evaluationState?.strategyAnswer}>
+                    {isAnalyzing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} Analyze
+                </Button>
+            </CardFooter>
+        </Card>
+    );
+  };
+
+
   return (
       <Dialog open={isOpen} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-xl md:max-w-2xl h-[90vh] flex flex-col">
@@ -312,71 +409,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
                         <Button variant="ghost" size="icon" onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))} disabled={currentIndex === 0} aria-label="Previous prospect" className="shrink-0"><ChevronLeft className="h-6 w-6" /></Button>
                         
                         <div className="w-full h-full flex-1 flex flex-col min-w-0">
-                           {isEvaluatingCurrent ? (
-                                <Card className="w-full h-full flex flex-col">
-                                    <CardContent className="p-4 flex-grow overflow-y-auto space-y-4">
-                                        <h3 className="font-semibold text-center">Manual Assessment for @{evaluationState.handle}</h3>
-                                        <Separator/>
-                                        <div>
-                                            <Label className="font-semibold flex items-center text-sm mb-2"><HelpCircle className="mr-2 h-4 w-4 text-primary" />How does this account make money?</Label>
-                                            <RadioGroup value={evaluationState.profitabilityAnswer} onValueChange={(v) => setEvaluationState(s => s ? {...s, profitabilityAnswer: v} : null)} className="space-y-1">{profitabilityQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><RadioGroupItem value={o} id={`profit-${o}`} /><Label htmlFor={`profit-${o}`} className="font-normal text-xs">{o}</Label></div>)}</RadioGroup>
-                                        </div>
-                                         <Separator/>
-                                        <div>
-                                            <Label className="font-semibold flex items-center text-sm mb-2"><HelpCircle className="mr-2 h-4 w-4 text-primary" />Describe their visual branding.</Label>
-                                            <RadioGroup value={evaluationState.visualsAnswer} onValueChange={(v) => setEvaluationState(s => s ? {...s, visualsAnswer: v} : null)} className="space-y-1">{visualsQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><RadioGroupItem value={o} id={`visual-${o}`} /><Label htmlFor={`visual-${o}`} className="font-normal text-xs">{o}</Label></div>)}</RadioGroup>
-                                        </div>
-                                         <Separator/>
-                                        <div>
-                                            <Label className="font-semibold flex items-center text-sm mb-2"><HelpCircle className="mr-2 h-4 w-4 text-primary" />What's their biggest strategic opportunity?</Label>
-                                            <RadioGroup value={evaluationState.strategyAnswer} onValueChange={(v) => setEvaluationState(s => s ? {...s, strategyAnswer: v} : null)} className="space-y-1">{strategyQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><RadioGroupItem value={o} id={`strategy-${o}`} /><Label htmlFor={`strategy-${o}`} className="font-normal text-xs">{o}</Label></div>)}</RadioGroup>
-                                        </div>
-                                    </CardContent>
-                                    <div className="p-4 border-t flex justify-end gap-2 shrink-0">
-                                        <Button variant="ghost" onClick={handleCancelEvaluation}>Cancel</Button>
-                                        <Button onClick={handleEvaluationSubmit} disabled={isAnalyzing || !evaluationState?.profitabilityAnswer || !evaluationState?.visualsAnswer || !evaluationState?.strategyAnswer}>
-                                            {isAnalyzing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} Analyze
-                                        </Button>
-                                    </div>
-                                </Card>
-                            ) : currentProspect && (
-                                <Card className="w-full h-full flex flex-col shadow-lg border-2 border-transparent hover:border-primary transition-colors duration-300">
-                                  <CardContent className="p-4 flex-grow flex flex-col gap-3">
-                                      <div className="flex items-start justify-between gap-4">
-                                          <div>
-                                              <a href={`https://instagram.com/${currentProspect.instagramHandle.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="font-headline text-lg text-primary hover:underline">{currentProspect.name}</a>
-                                              <p className="text-sm text-muted-foreground">@{currentProspect.instagramHandle}</p>
-                                          </div>
-                                          <div className="flex items-center gap-2">
-                                              {evaluationResults.has(currentProspect.instagramHandle.replace('@', '')) ? (
-                                                  <Badge variant={getLeadScoreBadgeVariant(evaluationResults.get(currentProspect.instagramHandle.replace('@', ''))?.leadScore)} className="text-lg">{evaluationResults.get(currentProspect.instagramHandle.replace('@', ''))?.leadScore}</Badge>
-                                              ) : (
-                                                  <Button size="sm" variant="outline" onClick={() => handleTriggerEvaluation(currentProspect)}><Bot className="mr-2 h-4 w-4" />Evaluate</Button>
-                                              )}
-                                          </div>
-                                      </div>
-                                      <div className="flex items-center justify-around text-sm text-muted-foreground bg-muted/50 p-2 rounded-md">
-                                          <div className="text-center"><div className="font-bold text-lg text-foreground">{formatNumber(currentProspect.followerCount)}</div><div className="text-xs">Followers</div></div>
-                                          <div className="text-center"><div className="font-bold text-lg text-foreground">{formatNumber(currentProspect.postCount)}</div><div className="text-xs">Posts</div></div>
-                                      </div>
-                                      <div className="flex-grow space-y-2">
-                                          <p className="text-sm italic text-center p-2 bg-background rounded-md">"{currentProspect.reason}"</p>
-                                          {evaluationResults.has(currentProspect.instagramHandle.replace('@', '')) && (
-                                              <div className="text-sm text-center p-2 rounded-md border bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-500/30">
-                                                  <p className="font-semibold text-green-800 dark:text-green-300">AI Summary</p>
-                                                  <p className="italic text-green-700/80 dark:text-green-400/80">"{evaluationResults.get(currentProspect.instagramHandle.replace('@', ''))?.summary}"</p>
-                                              </div>
-                                          )}
-                                      </div>
-                                  </CardContent>
-                                   <div className="p-4 border-t shrink-0">
-                                      <Button className="w-full" size="lg" variant={existingProspectHandles.has(currentProspect.instagramHandle.replace('@', '')) || addedProspects.has(currentProspect.instagramHandle) ? "secondary" : "default"} onClick={() => handleAddProspect(currentProspect)} disabled={existingProspectHandles.has(currentProspect.instagramHandle.replace('@', '')) || addedProspects.has(currentProspect.instagramHandle)}>
-                                          {existingProspectHandles.has(currentProspect.instagramHandle.replace('@', '')) || addedProspects.has(currentProspect.instagramHandle) ? <CheckCircle className="mr-2 h-4 w-4" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-                                          {existingProspectHandles.has(currentProspect.instagramHandle.replace('@', '')) || addedProspects.has(currentProspect.instagramHandle) ? 'Already Added' : 'Add to Outreach List'}
-                                      </Button>
-                                  </div>
-                                </Card>
-                            )}
+                           {isEvaluatingCurrent ? renderEvaluationForm() : (currentProspect && renderProspectCard(currentProspect))}
                         </div>
                         
                         <Button variant="ghost" size="icon" onClick={() => setCurrentIndex((prev) => Math.min(prev + 1, verifiedResults.length - 1))} disabled={currentIndex === verifiedResults.length - 1} aria-label="Next prospect" className="shrink-0"><ChevronRight className="h-6 w-6" /></Button>
