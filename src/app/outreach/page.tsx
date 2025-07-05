@@ -63,41 +63,8 @@ import { DiscoveryDialog } from '@/components/outreach/DiscoveryDialog';
 import { fetchInstagramMetrics } from '@/app/actions/fetch-ig-metrics';
 import { qualifyProspect, type QualifyProspectInput } from '@/ai/flows/qualify-prospect';
 import { CommentGeneratorDialog } from '@/components/outreach/CommentGeneratorDialog';
-
-
-const ProspectTimelineTooltip = ({ prospect }: { prospect: OutreachProspect }) => {
-    if (!prospect.createdAt) return null;
-
-    const history = [
-        { status: 'Added' as const, date: prospect.createdAt },
-        ...(prospect.statusHistory || [])
-    ];
-    
-    const uniqueHistoryMap = new Map<string, {status: OutreachLeadStage | 'Added', date: string}>();
-    history.forEach(event => {
-        // Use a more robust key to avoid merging events on the same day with the same status
-        const key = `${event.status}_${new Date(event.date).toISOString()}`;
-        if (!uniqueHistoryMap.has(key)) {
-            uniqueHistoryMap.set(key, event);
-        }
-    });
-    const uniqueHistory = Array.from(uniqueHistoryMap.values());
-
-    return (
-        <TooltipContent>
-            <div className="p-2 space-y-1.5 text-xs w-56">
-                <p className="font-bold mb-1">Prospect Timeline</p>
-                <Separator />
-                {uniqueHistory.map((event, index) => (
-                    <div key={index} className="flex justify-between gap-4">
-                        <span className="text-muted-foreground">{event.status}</span>
-                        <span className="font-medium">{new Date(event.date).toLocaleDateString()}</span>
-                    </div>
-                ))}
-            </div>
-        </TooltipContent>
-    );
-};
+import { ProspectTableRow } from '@/components/outreach/prospect-table-row';
+import { ProspectMobileCard } from '@/components/outreach/prospect-mobile-card';
 
 
 function OutreachPage() {
@@ -150,14 +117,6 @@ function OutreachPage() {
   const [prospectsToBulkEvaluate, setProspectsToBulkEvaluate] = useState<OutreachProspect[] | null>(null);
 
   const { toast } = useToast();
-
-  const scriptMenuItems: Array<{label: string, type: GenerateContextualScriptInput['scriptType']}> = [
-    { label: "Cold Outreach DM", type: "Cold Outreach DM" },
-    { label: "Warm Follow-Up DM", type: "Warm Follow-Up DM" },
-    { label: "Audit Delivery Message", type: "Audit Delivery Message" },
-    { label: "Send Reminder", type: "Send Reminder" },
-    { label: "Soft Close", type: "Soft Close" },
-  ];
   
   const sortProspects = (prospectList: OutreachProspect[]) => {
     return [...prospectList].sort((a, b) => {
@@ -173,13 +132,6 @@ function OutreachPage() {
         
         return dateB.getTime() - dateA.getTime();
     });
-  };
-
-  const formatNumber = (num: number | null | undefined): string => {
-    if (num === null || num === undefined) return '-';
-    if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + 'M';
-    if (num >= 1_000) return (num / 1_000).toFixed(1) + 'K';
-    return num.toString();
   };
 
   const fetchProspects = useCallback(async () => {
@@ -837,55 +789,6 @@ function OutreachPage() {
 
   const existingProspectHandles = useMemo(() => new Set(prospects.map(p => p.instagramHandle).filter(Boolean)), [prospects]);
 
-  const getStatusBadgeVariant = (status: OutreachLeadStage): "default" | "secondary" | "outline" | "destructive" => {
-    switch (status) {
-      case 'Closed - Won':
-      case 'Audit Delivered':
-      case 'Ready for Audit':
-      case 'Replied':
-      case 'Interested': return 'default';
-      case 'Warm':
-      case 'Qualifier Sent': return 'secondary';
-      case 'Cold':
-      case 'To Contact': return 'outline';
-      case 'Closed - Lost':
-      case 'Not Interested': return 'destructive';
-      default: return 'default';
-    }
-  };
-
-  const getLeadScoreBadgeVariant = (score: number | null | undefined): "default" | "secondary" | "destructive" => {
-      if (score === null || score === undefined) return "secondary";
-      if (score >= 60) return "default";
-      if (score >= 30) return "secondary";
-      return "destructive";
-  };
-
-  const getLastActivityText = (prospect: OutreachProspect): string => {
-      const lastStatusEvent = prospect.statusHistory?.[prospect.statusHistory.length - 1];
-      let lastEventDateString: string | undefined | null = lastStatusEvent?.date;
-
-      if (prospect.lastContacted) {
-          if (!lastEventDateString || new Date(prospect.lastContacted) > new Date(lastEventDateString)) {
-              lastEventDateString = prospect.lastContacted;
-          }
-      }
-
-      if (!lastEventDateString) {
-          lastEventDateString = prospect.createdAt;
-      }
-      
-      if (!lastEventDateString) return '-';
-      
-      try {
-        const lastEventDate = new Date(lastEventDateString);
-        if (isNaN(lastEventDate.getTime())) return '-';
-        return formatDistanceToNow(lastEventDate, { addSuffix: true });
-      } catch {
-        return '-';
-      }
-  };
-
   const handleExportToCSV = () => {
     if (sortedAndFilteredProspects.length === 0) {
       toast({
@@ -992,6 +895,27 @@ function OutreachPage() {
     } else {
       setIsConversationModalOpen(false);
     }
+  };
+
+  const handleStartAudit = (prospect: OutreachProspect) => {
+    const buildQuestionnaireFromProspect = (p: OutreachProspect) => {
+        const parts = [
+            `Analyzing profile for: ${p.name || 'N/A'} (@${p.instagramHandle || 'N/A'})`,
+            `Entity ID: ${p.id}`,
+            `Industry: ${p.industry || 'Not specified'}`,
+            `Business Type: ${p.businessType || 'Not specified'}${p.businessType === 'Other' ? ` (${p.businessTypeOther || ''})` : ''}`,
+            `Account Stage: ${p.accountStage || 'N/A'}`,
+            `Follower Count: ${p.followerCount ?? 'N/A'}`,
+            `\n--- GOALS ---\n${p.goals && p.goals.length > 0 ? p.goals.map(g => `- ${g}`).join('\n') : 'No specific goals listed.'}`,
+            `\n--- PAIN POINTS ---\n${p.painPoints && p.painPoints.length > 0 ? p.painPoints.map(pp => `- ${pp}`).join('\n') : 'No specific pain points listed.'}`,
+            `\n--- QUALIFIER ---\nQ: ${p.qualifierQuestion || 'None sent.'}\nA: ${p.qualifierReply || 'No reply logged.'}`,
+            `\n--- CONVERSATION HISTORY ---\n${p.conversationHistory || 'No history logged.'}`,
+            `\n--- ADDITIONAL NOTES ---\n${p.notes || 'None'}`
+        ];
+        return encodeURIComponent(parts.join('\n\n'));
+    };
+    const auditLink = `/audits/new?handle=${prospect.instagramHandle || ''}&name=${prospect.name}&entityId=${prospect.id}&q=${buildQuestionnaireFromProspect(prospect)}`;
+    router.push(auditLink);
   };
 
   const handleToggleAll = (checked: boolean) => {
@@ -1248,59 +1172,20 @@ function OutreachPage() {
                   <LoadingSpinner text="Fetching prospects..." />
               ) : sortedAndFilteredProspects.length > 0 ? (
                   sortedAndFilteredProspects.map(prospect => (
-                      <Card key={prospect.id} className={cn("p-4", prospect.followUpNeeded && 'bg-primary/10')}>
-                          <div className="flex justify-between items-start gap-4">
-                              <div className="flex items-start gap-3">
-                                  <Checkbox
-                                      checked={selectedProspects.has(prospect.id)}
-                                      onCheckedChange={() => handleToggleProspect(prospect.id)}
-                                      className="mt-1"
-                                  />
-                                  <div>
-                                      <p className="font-semibold">{prospect.name}</p>
-                                      <a 
-                                          href={`https://instagram.com/${prospect.instagramHandle?.replace('@', '')}`}
-                                          target="_blank" rel="noopener noreferrer"
-                                          className="text-sm text-muted-foreground hover:underline"
-                                      >
-                                          {prospect.instagramHandle || 'N/A'}
-                                      </a>
-                                  </div>
-                              </div>
-                              <Select 
-                                value={prospect.status} 
-                                onValueChange={(newStatus: OutreachLeadStage) => handleStatusChange(prospect.id, newStatus)}
-                              >
-                                <SelectTrigger className="h-auto py-0.5 px-2.5 border-none shadow-none [&>span]:flex [&>span]:items-center text-xs w-auto min-w-[100px] max-w-[150px]">
-                                  <SelectValue asChild>
-                                    <Badge variant={getStatusBadgeVariant(prospect.status)} className="cursor-pointer text-xs whitespace-nowrap">
-                                      {prospect.status}
-                                    </Badge>
-                                  </SelectValue>
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {OUTREACH_LEAD_STAGE_OPTIONS.map(s => <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                          </div>
-                          <div className="grid grid-cols-3 gap-2 text-center mt-3 text-xs">
-                              <div className="bg-muted/50 p-1.5 rounded-md">
-                                  <p className="font-bold">{formatNumber(prospect.followerCount)}</p>
-                                  <p className="text-muted-foreground">Followers</p>
-                              </div>
-                               <div className="bg-muted/50 p-1.5 rounded-md">
-                                  <p className="font-bold">{formatNumber(prospect.postCount)}</p>
-                                  <p className="text-muted-foreground">Posts</p>
-                              </div>
-                               <div className="bg-muted/50 p-1.5 rounded-md">
-                                 <p className="font-bold">{prospect.leadScore ?? '-'}</p>
-                                 <p className="text-muted-foreground">Score</p>
-                              </div>
-                          </div>
-                          <div className="flex justify-end mt-3">
-                              {/* Mobile actions can be placed here */}
-                          </div>
-                      </Card>
+                      <ProspectMobileCard
+                        key={prospect.id}
+                        prospect={prospect}
+                        isSelected={selectedProspects.has(prospect.id)}
+                        onToggleSelect={handleToggleProspect}
+                        onStatusChange={handleStatusChange}
+                        onEdit={handleOpenEditProspectForm}
+                        onViewConversation={handleOpenConversationModal}
+                        onStartAudit={handleStartAudit}
+                        onGenerateComment={handleOpenCommentGenerator}
+                        onGenerateQualifier={handleGenerateQualifier}
+                        onEvaluate={handleEvaluateProspect}
+                        onDelete={setProspectToDelete}
+                      />
                   ))
               ) : (
                   <div className="text-center py-10">
@@ -1338,188 +1223,25 @@ function OutreachPage() {
                       </TableCell>
                     </TableRow>
                   ) : sortedAndFilteredProspects.length > 0 ? (
-                    sortedAndFilteredProspects.map((prospect) => {
-                      const isEvaluating = evaluatingProspectIds.has(prospect.id);
-                      return (
-                        <TableRow key={prospect.id} data-follow-up={!!prospect.followUpNeeded} className="data-[follow-up=true]:bg-primary/10" data-selected={selectedProspects.has(prospect.id)}>
-                           <TableCell>
-                            <Checkbox 
-                              checked={selectedProspects.has(prospect.id)}
-                              onCheckedChange={() => handleToggleProspect(prospect.id)}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Checkbox
-                                            checked={!!prospect.followUpNeeded}
-                                            onCheckedChange={() => handleFollowUpToggle(prospect.id, !!prospect.followUpNeeded)}
-                                            aria-label={`Mark ${prospect.name} as needs follow-up`}
-                                            className="h-5 w-5"
-                                        />
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>Mark for Follow-up</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            <div className="flex items-center gap-2">
-                              <div>
-                                {prospect.name}
-                                <br/>
-                                {prospect.instagramHandle ? (
-                                  <a 
-                                    href={`https://instagram.com/${prospect.instagramHandle.replace('@', '')}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-xs text-muted-foreground hover:text-primary hover:underline inline-flex items-center gap-1"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    {prospect.instagramHandle}
-                                    <LinkIcon className="h-3 w-3" />
-                                  </a>
-                                ) : (
-                                  <span className="text-xs text-muted-foreground italic">No handle</span>
-                                )}
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="hidden lg:table-cell text-muted-foreground">{formatNumber(prospect.followerCount)}</TableCell>
-                          <TableCell className="hidden lg:table-cell text-muted-foreground">{formatNumber(prospect.postCount)}</TableCell>
-                          <TableCell className="hidden sm:table-cell">
-                            <Select 
-                              value={prospect.status} 
-                              onValueChange={(newStatus: OutreachLeadStage) => handleStatusChange(prospect.id, newStatus)}
-                            >
-                              <SelectTrigger className="h-auto py-0.5 px-2.5 border-none shadow-none [&>span]:flex [&>span]:items-center text-xs w-auto min-w-[100px]">
-                                <SelectValue asChild>
-                                  <Badge variant={getStatusBadgeVariant(prospect.status)} className="cursor-pointer text-xs whitespace-nowrap">
-                                    {prospect.status}
-                                  </Badge>
-                                </SelectValue>
-                              </SelectTrigger>
-                              <SelectContent>
-                                {OUTREACH_LEAD_STAGE_OPTIONS.map(s => <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                           <TableCell className="hidden md:table-cell">
-                            {prospect.leadScore !== null && prospect.leadScore !== undefined ? (
-                              <Badge variant={getLeadScoreBadgeVariant(prospect.leadScore)}>{prospect.leadScore}</Badge>
-                            ) : (
-                              <Badge variant="outline">-</Badge>
-                            )}
-                          </TableCell>
-                          <TableCell className="hidden xl:table-cell text-muted-foreground text-xs">
-                             <TooltipProvider>
-                                  <Tooltip>
-                                      <TooltipTrigger asChild>
-                                          <span className="cursor-help">{getLastActivityText(prospect)}</span>
-                                      </TooltipTrigger>
-                                      <ProspectTimelineTooltip prospect={prospect} />
-                                  </Tooltip>
-                              </TooltipProvider>
-                          </TableCell>
-                          <TableCell className="text-right space-x-0.5">
-                              <TooltipProvider>
-                                  <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
-                                          <Button variant="ghost" size="icon" disabled={isEvaluating}>
-                                             {isEvaluating ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
-                                              <span className="sr-only">Actions</span>
-                                          </Button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent align="end">
-                                          <DropdownMenuGroup>
-                                              <DropdownMenuItem onClick={() => handleOpenEditProspectForm(prospect)}>
-                                                  <Edit className="mr-2 h-4 w-4" /> Edit Prospect
-                                              </DropdownMenuItem>
-                                              <DropdownMenuItem onClick={() => handleOpenConversationModal(prospect)}>
-                                                  <MessagesSquare className="mr-2 h-4 w-4" /> Manage Conversation
-                                              </DropdownMenuItem>
-                                               <Tooltip>
-                                                  <TooltipTrigger asChild>
-                                                      <div className={cn(!prospect.status.startsWith("Ready") && "cursor-not-allowed w-full")}>
-                                                           <DropdownMenuItem
-                                                              disabled={!prospect.status.startsWith("Ready")}
-                                                              className={cn(!prospect.status.startsWith("Ready") && "cursor-not-allowed")}
-                                                              onClick={() => {
-                                                                  if (prospect.status.startsWith("Ready")) {
-                                                                      const buildQuestionnaireFromProspect = (p: OutreachProspect) => {
-                                                                          const parts = [
-                                                                              `Analyzing profile for: ${p.name || 'N/A'} (@${p.instagramHandle || 'N/A'})`,
-                                                                              `Entity ID: ${p.id}`,
-                                                                              `Industry: ${p.industry || 'Not specified'}`,
-                                                                              `Business Type: ${p.businessType || 'Not specified'}${p.businessType === 'Other' ? ` (${p.businessTypeOther || ''})` : ''}`,
-                                                                              `Account Stage: ${p.accountStage || 'N/A'}`,
-                                                                              `Follower Count: ${p.followerCount ?? 'N/A'}`,
-                                                                              `\n--- GOALS ---\n${p.goals && p.goals.length > 0 ? p.goals.map(g => `- ${g}`).join('\n') : 'No specific goals listed.'}`,
-                                                                              `\n--- PAIN POINTS ---\n${p.painPoints && p.painPoints.length > 0 ? p.painPoints.map(pp => `- ${pp}`).join('\n') : 'No specific pain points listed.'}`,
-                                                                              `\n--- QUALIFIER ---\nQ: ${p.qualifierQuestion || 'None sent.'}\nA: ${p.qualifierReply || 'No reply logged.'}`,
-                                                                              `\n--- CONVERSATION HISTORY ---\n${p.conversationHistory || 'No history logged.'}`,
-                                                                              `\n--- ADDITIONAL NOTES ---\n${p.notes || 'None'}`
-                                                                          ];
-                                                                          return encodeURIComponent(parts.join('\n\n'));
-                                                                      };
-                                                                      const auditLink = `/audits/new?handle=${prospect.instagramHandle || ''}&name=${prospect.name}&entityId=${prospect.id}&q=${buildQuestionnaireFromProspect(prospect)}`;
-                                                                      router.push(auditLink);
-                                                                  }
-                                                              }}
-                                                          >
-                                                              <GraduationCap className="mr-2 h-4 w-4" /> Create Audit
-                                                          </DropdownMenuItem>
-                                                      </div>
-                                                  </TooltipTrigger>
-                                                  {!prospect.status.startsWith("Ready") && <TooltipContent><p>Status must be 'Ready for Audit'</p></TooltipContent>}
-                                              </Tooltip>
-                                          </DropdownMenuGroup>
-                                          
-                                          <DropdownMenuSeparator />
-
-                                          <DropdownMenuGroup>
-                                              <DropdownMenuLabel>AI Actions</DropdownMenuLabel>
-                                               <DropdownMenuItem onClick={() => handleEvaluateProspect(prospect)} disabled={!prospect.instagramHandle}>
-                                                  <Bot className="mr-2 h-4 w-4" /> Fetch & Evaluate
-                                              </DropdownMenuItem>
-                                              <DropdownMenuItem onClick={() => handleOpenCommentGenerator(prospect)}>
-                                                  <MessageCircle className="mr-2 h-4 w-4" /> Generate Comment
-                                              </DropdownMenuItem>
-                                              <Tooltip>
-                                                  <TooltipTrigger asChild>
-                                                      <div className={cn(!['Interested', 'Replied'].includes(prospect.status) && "cursor-not-allowed w-full")}>
-                                                          <DropdownMenuItem
-                                                              disabled={!['Interested', 'Replied'].includes(prospect.status)}
-                                                              className={cn(!['Interested', 'Replied'].includes(prospect.status) && "cursor-not-allowed")}
-                                                              onClick={() => ['Interested', 'Replied'].includes(prospect.status) && handleGenerateQualifier(prospect)}
-                                                          >
-                                                              <FileQuestion className="mr-2 h-4 w-4" /> Ask Qualifier Question
-                                                          </DropdownMenuItem>
-                                                      </div>
-                                                  </TooltipTrigger>
-                                                  {!['Interested', 'Replied'].includes(prospect.status) && <TooltipContent><p>Status must be 'Interested' or 'Replied'</p></TooltipContent>}
-                                              </Tooltip>
-                                             {scriptMenuItems.map(item => (
-                                                  <DropdownMenuItem key={item.type} onClick={() => handleGenerateScript(prospect, item.type)}>
-                                                      <Bot className="mr-2 h-4 w-4" />
-                                                      <span>{item.label}</span>
-                                                  </DropdownMenuItem>
-                                              ))}
-                                          </DropdownMenuGroup>
-
-                                          <DropdownMenuSeparator />
-                                          <DropdownMenuItem onClick={() => setProspectToDelete(prospect)} className="text-destructive">
-                                              <Trash2 className="mr-2 h-4 w-4" /> Delete Prospect
-                                          </DropdownMenuItem>
-                                      </DropdownMenuContent>
-                                  </DropdownMenu>
-                              </TooltipProvider>
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })
+                    sortedAndFilteredProspects.map((prospect) => (
+                       <ProspectTableRow
+                          key={prospect.id}
+                          prospect={prospect}
+                          isSelected={selectedProspects.has(prospect.id)}
+                          isEvaluating={evaluatingProspectIds.has(prospect.id)}
+                          onToggleSelect={handleToggleProspect}
+                          onFollowUpToggle={handleFollowUpToggle}
+                          onStatusChange={handleStatusChange}
+                          onEdit={handleOpenEditProspectForm}
+                          onViewConversation={handleOpenConversationModal}
+                          onStartAudit={handleStartAudit}
+                          onGenerateComment={handleOpenCommentGenerator}
+                          onGenerateQualifier={handleGenerateQualifier}
+                          onGenerateScript={handleGenerateScript}
+                          onEvaluate={handleEvaluateProspect}
+                          onDelete={setProspectToDelete}
+                        />
+                    ))
                   ) : (
                     <TableRow>
                       <TableCell colSpan={9} className="h-24 text-center">
