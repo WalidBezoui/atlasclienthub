@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
-import { UserCircle, Bell, LogIn, LogOut, BotMessageSquare, Loader2 } from 'lucide-react';
+import { UserCircle, Bell, LogIn, LogOut, BotMessageSquare, Loader2, Wand2 } from 'lucide-react';
 import Link from 'next/link';
 import {
   DropdownMenu,
@@ -31,6 +31,7 @@ import { useScriptContext, ClientScriptContext, ContentScriptContext } from '@/c
 import { generateContextualScript, GenerateContextualScriptInput, GenerateContextualScriptOutput } from '@/ai/flows/generate-contextual-script';
 import { ScriptModal } from '@/components/scripts/script-modal';
 import { useToast } from '@/hooks/use-toast';
+import { GenericCommentGeneratorDialog } from '@/components/tools/GenericCommentGeneratorDialog';
 
 type ScriptType = GenerateContextualScriptInput['scriptType'];
 
@@ -45,6 +46,7 @@ export function AppHeader() {
   const [scriptModalTitle, setScriptModalTitle] = useState("Generated Script");
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   const [currentScriptGenerationInput, setCurrentScriptGenerationInput] = useState<GenerateContextualScriptInput | null>(null);
+  const [isGenericCommentOpen, setIsGenericCommentOpen] = useState(false);
 
 
   const getUserInitials = (email?: string | null) => {
@@ -168,6 +170,11 @@ export function AppHeader() {
                         </MenubarItem>
                     );
                   })}
+                  <MenubarSeparator />
+                  <MenubarItem onClick={() => setIsGenericCommentOpen(true)}>
+                    <Wand2 className="mr-2 h-4 w-4" />
+                    General Comment Generator
+                  </MenubarItem>
                 </MenubarContent>
               </MenubarMenu>
             </Menubar>
@@ -221,6 +228,10 @@ export function AppHeader() {
         title={scriptModalTitle}
         onRegenerate={handleRegenerateScript}
         isLoadingInitially={isGeneratingScript && !generatedScript}
+      />
+      <GenericCommentGeneratorDialog
+        isOpen={isGenericCommentOpen}
+        onClose={() => setIsGenericCommentOpen(false)}
       />
     </>
   );
