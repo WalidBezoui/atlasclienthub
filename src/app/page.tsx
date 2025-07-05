@@ -101,7 +101,7 @@ const AgendaItemCard = ({ item }: { item: AgendaItem }) => {
         <Link href={link} className="block group">
             <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors cursor-pointer">
                 <div className="flex items-center gap-4">
-                    <div className={cn("p-2 rounded-full bg-background group-hover:bg-primary/10", iconColor)}>
+                    <div className={cn("p-2 rounded-full bg-background group-hover:bg-primary/10 transition-transform group-hover:scale-110", iconColor)}>
                         {icon}
                     </div>
                     <div>
@@ -248,7 +248,7 @@ export default function DashboardPage() {
     <>
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         {displayOverviewData.map((item) => (
-          <Card key={item.metric} className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+          <Card key={item.metric} className="shadow-sm hover:shadow-md transition-shadow duration-300">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 {item.metric}

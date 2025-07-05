@@ -17,6 +17,7 @@ import { OUTREACH_LEAD_STAGE_OPTIONS, BUSINESS_TYPES, PAIN_POINTS, GOALS, LEAD_S
 import { RefreshCw, Loader2, Info, Briefcase, BarChart3, AlertCircle, Target, MessageSquare, Settings2, FileQuestion, Star } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { qualifyProspect } from '@/ai/flows/qualify-prospect';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 const initialFormData: Omit<OutreachProspect, 'id' | 'userId'> = {
     name: '',
@@ -196,253 +197,223 @@ export function ProspectForm({ prospect, onSave, onCancel }: { prospect?: Outrea
         </DialogDescription>
       </DialogHeader>
 
-      <div className="flex-grow overflow-y-auto pr-4 -mr-4 space-y-4 py-4">
-        {/* Section 1 */}
-        <section>
-          <h4 className="font-semibold text-lg flex items-center mb-2"><Info className="mr-2 h-5 w-5 text-primary"/>Basic Prospect Info</h4>
-          <div className="space-y-3 p-4 border rounded-md">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <Label htmlFor="name">Prospect Name *</Label>
-                <Input id="name" name="name" value={formData.name || ''} onChange={handleChange} required />
-              </div>
-              <div>
-                <Label htmlFor="instagramHandle">IG Handle</Label>
-                <Input id="instagramHandle" name="instagramHandle" placeholder="@username" value={formData.instagramHandle || ''} onChange={handleChange} />
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="businessName">Business Name (Optional)</Label>
-              <Input id="businessName" name="businessName" value={formData.businessName || ''} onChange={handleChange} />
-            </div>
-             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <Label htmlFor="website">Website (Optional)</Label>
-                <Input id="website" name="website" type="url" placeholder="https://example.com" value={formData.website || ''} onChange={handleChange} />
-              </div>
-               <div>
-                <Label htmlFor="email">Email (Optional)</Label>
-                <Input id="email" name="email" type="email" value={formData.email || ''} onChange={handleChange} />
-              </div>
-            </div>
-             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <Label htmlFor="prospectLocation">Prospect Location</Label>
-                <Select value={formData.prospectLocation || undefined} onValueChange={(value: ProspectLocation) => handleSelectChange('prospectLocation', value)}>
-                  <SelectTrigger id="prospectLocation"><SelectValue placeholder="Select location" /></SelectTrigger>
-                  <SelectContent>{PROSPECT_LOCATIONS.map(loc => <SelectItem key={loc} value={loc}>{loc}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="industry">Industry</Label>
-                <Input id="industry" name="industry" placeholder="e.g., Fashion, SaaS" value={formData.industry || ''} onChange={handleChange} />
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="visualStyle">Visual Style Notes</Label>
-              <Input id="visualStyle" name="visualStyle" placeholder="e.g., Luxe, clean, messy..." value={formData.visualStyle || ''} onChange={handleChange} />
-            </div>
-            <div>
-              <Label htmlFor="bioSummary">Bio Summary</Label>
-              <Textarea id="bioSummary" name="bioSummary" placeholder="Summary of their Instagram bio" value={formData.bioSummary || ''} onChange={handleChange} rows={3}/>
-            </div>
-          </div>
-        </section>
-
-        {/* Section 2 */}
-        <section>
-          <h4 className="font-semibold text-lg flex items-center mb-2"><Briefcase className="mr-2 h-5 w-5 text-primary"/>Business Type</h4>
-          <div className="p-4 border rounded-md">
-            <RadioGroup value={formData.businessType || undefined} onValueChange={(value) => handleSelectChange('businessType', value as BusinessType)} className="space-y-1">
-              {BUSINESS_TYPES.map(type => (
-                <div key={type} className="flex items-center space-x-2">
-                  <RadioGroupItem value={type} id={`businessType-${type.replace(/\s*\/\s*|\s+/g, '-')}`} />
-                  <Label htmlFor={`businessType-${type.replace(/\s*\/\s*|\s+/g, '-')}`} className="font-normal">{type}</Label>
-                </div>
-              ))}
-            </RadioGroup>
-            {formData.businessType === "Other" && (
-              <div className="mt-2">
-                <Label htmlFor="businessTypeOther">Specify Other Business Type</Label>
-                <Input id="businessTypeOther" name="businessTypeOther" value={formData.businessTypeOther || ''} onChange={handleChange} />
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* Section 3 */}
-        <section>
-          <h4 className="font-semibold text-lg flex items-center mb-2"><BarChart3 className="mr-2 h-5 w-5 text-primary"/>Metrics & Qualification</h4>
-          <div className="p-4 border rounded-md space-y-3">
-              <Button type="button" variant="outline" onClick={handleFetchAndQualify} disabled={isFetchingMetrics || isQualifying || !formData.instagramHandle}>
-                  {isFetchingMetrics || isQualifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                  {isFetchingMetrics ? 'Fetching...' : isQualifying ? 'Re-qualifying...' : 'Fetch & Re-qualify'}
-              </Button>
-              {formData.leadScore !== null && formData.leadScore !== undefined && (
-                <div className="p-3 bg-muted/50 rounded-md">
-                  <Label>Lead Score</Label>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="text-base">{formData.leadScore}</Badge>
-                    <p className="text-xs text-muted-foreground">This score was automatically calculated.</p>
+      <div className="flex-grow overflow-y-auto pr-4 -mr-4 space-y-2 py-4">
+        <Accordion type="multiple" defaultValue={['basic-info', 'lead-status']} className="w-full">
+            <AccordionItem value="basic-info">
+              <AccordionTrigger><h4 className="font-semibold text-base flex items-center"><Info className="mr-2 h-5 w-5 text-primary"/>Basic Info</h4></AccordionTrigger>
+              <AccordionContent className="space-y-3 pt-2">
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="name">Prospect Name *</Label>
+                      <Input id="name" name="name" value={formData.name || ''} onChange={handleChange} required />
+                    </div>
+                    <div>
+                      <Label htmlFor="instagramHandle">IG Handle</Label>
+                      <Input id="instagramHandle" name="instagramHandle" placeholder="@username" value={formData.instagramHandle || ''} onChange={handleChange} />
+                    </div>
                   </div>
-                </div>
-              )}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                      <Label htmlFor="accountStage">Account Stage</Label>
-                      <Select value={formData.accountStage || undefined} onValueChange={(value: AccountStage) => handleSelectChange('accountStage', value)}>
-                        <SelectTrigger id="accountStage"><SelectValue placeholder="Select account stage" /></SelectTrigger>
-                        <SelectContent>{ACCOUNT_STAGES.map(stage => <SelectItem key={stage} value={stage}>{stage}</SelectItem>)}</SelectContent>
+                    <Label htmlFor="businessName">Business Name</Label>
+                    <Input id="businessName" name="businessName" value={formData.businessName || ''} onChange={handleChange} />
+                  </div>
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="website">Website</Label>
+                      <Input id="website" name="website" type="url" placeholder="https://example.com" value={formData.website || ''} onChange={handleChange} />
+                    </div>
+                     <div>
+                      <Label htmlFor="email">Email</Label>
+                      <Input id="email" name="email" type="email" value={formData.email || ''} onChange={handleChange} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="prospectLocation">Prospect Location</Label>
+                      <Select value={formData.prospectLocation || undefined} onValueChange={(value: ProspectLocation) => handleSelectChange('prospectLocation', value)}>
+                        <SelectTrigger id="prospectLocation"><SelectValue placeholder="Select location" /></SelectTrigger>
+                        <SelectContent>{PROSPECT_LOCATIONS.map(loc => <SelectItem key={loc} value={loc}>{loc}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="industry">Industry</Label>
+                      <Input id="industry" name="industry" placeholder="e.g., Fashion, SaaS" value={formData.industry || ''} onChange={handleChange} />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="visualStyle">Visual Style Notes</Label>
+                    <Input id="visualStyle" name="visualStyle" placeholder="e.g., Luxe, clean, messy..." value={formData.visualStyle || ''} onChange={handleChange} />
+                  </div>
+                  <div>
+                    <Label htmlFor="bioSummary">Bio Summary</Label>
+                    <Textarea id="bioSummary" name="bioSummary" placeholder="Summary of their Instagram bio" value={formData.bioSummary || ''} onChange={handleChange} rows={3}/>
+                  </div>
+              </AccordionContent>
+            </AccordionItem>
+            
+            <AccordionItem value="business-profile">
+               <AccordionTrigger><h4 className="font-semibold text-base flex items-center"><Briefcase className="mr-2 h-5 w-5 text-primary"/>Business Profile</h4></AccordionTrigger>
+               <AccordionContent className="pt-2">
+                 <RadioGroup value={formData.businessType || undefined} onValueChange={(value) => handleSelectChange('businessType', value as BusinessType)} className="space-y-1">
+                    {BUSINESS_TYPES.map(type => (
+                      <div key={type} className="flex items-center space-x-2">
+                        <RadioGroupItem value={type} id={`businessType-${type.replace(/\s*\/\s*|\s+/g, '-')}`} />
+                        <Label htmlFor={`businessType-${type.replace(/\s*\/\s*|\s+/g, '-')}`} className="font-normal">{type}</Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                  {formData.businessType === "Other" && (
+                    <div className="mt-2">
+                      <Label htmlFor="businessTypeOther">Specify Other Business Type</Label>
+                      <Input id="businessTypeOther" name="businessTypeOther" value={formData.businessTypeOther || ''} onChange={handleChange} />
+                    </div>
+                  )}
+               </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="metrics">
+              <AccordionTrigger><h4 className="font-semibold text-base flex items-center"><BarChart3 className="mr-2 h-5 w-5 text-primary"/>Metrics & Qualification</h4></AccordionTrigger>
+              <AccordionContent className="space-y-3 pt-2">
+                <Button type="button" variant="outline" onClick={handleFetchAndQualify} disabled={isFetchingMetrics || isQualifying || !formData.instagramHandle}>
+                    {isFetchingMetrics || isQualifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                    {isFetchingMetrics ? 'Fetching...' : isQualifying ? 'Re-qualifying...' : 'Fetch & Re-qualify'}
+                </Button>
+                {formData.leadScore !== null && formData.leadScore !== undefined && (
+                  <div className="p-3 bg-muted/50 rounded-md">
+                    <Label>Lead Score</Label>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-base">{formData.leadScore}</Badge>
+                      <p className="text-xs text-muted-foreground">This score was automatically calculated.</p>
+                    </div>
+                  </div>
+                )}
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <Label htmlFor="accountStage">Account Stage</Label>
+                        <Select value={formData.accountStage || undefined} onValueChange={(value: AccountStage) => handleSelectChange('accountStage', value)}>
+                          <SelectTrigger id="accountStage"><SelectValue placeholder="Select account stage" /></SelectTrigger>
+                          <SelectContent>{ACCOUNT_STAGES.map(stage => <SelectItem key={stage} value={stage}>{stage}</SelectItem>)}</SelectContent>
+                        </Select>
+                    </div>
+                    <div>
+                        <Label htmlFor="followerCount">Follower Count</Label>
+                        <Input id="followerCount" name="followerCount" type="number" value={formData.followerCount ?? ''} onChange={handleChange} />
+                    </div>
+                    <div>
+                        <Label htmlFor="postCount">Post Count</Label>
+                        <Input id="postCount" name="postCount" type="number" value={formData.postCount ?? ''} onChange={handleChange} />
+                    </div>
+                    <div>
+                        <Label htmlFor="avgLikes">Avg Likes</Label>
+                        <Input id="avgLikes" name="avgLikes" type="number" step="0.1" value={formData.avgLikes ?? ''} onChange={handleChange} />
+                    </div>
+                    <div>
+                        <Label htmlFor="avgComments">Avg Comments</Label>
+                        <Input id="avgComments" name="avgComments" type="number" step="0.1" value={formData.avgComments ?? ''} onChange={handleChange} />
+                    </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="pains-goals">
+               <AccordionTrigger><h4 className="font-semibold text-base flex items-center"><AlertCircle className="mr-2 h-5 w-5 text-primary"/>Pain Points & Goals</h4></AccordionTrigger>
+               <AccordionContent className="space-y-4 pt-2">
+                  <div>
+                    <Label>Current Problems / Pain Points</Label>
+                    <div className="p-3 border rounded-md mt-1 space-y-2 columns-1 sm:columns-2">
+                        {PAIN_POINTS.map(point => (
+                            <div key={point} className="flex items-center space-x-2 break-inside-avoid-column">
+                                <Checkbox id={`pain-${point.replace(/\s*\/\s*|\s+/g, '-')}`} checked={(formData.painPoints || []).includes(point)} onCheckedChange={() => handleCheckboxFieldChange('painPoints', point)} />
+                                <Label htmlFor={`pain-${point.replace(/\s*\/\s*|\s+/g, '-')}`} className="font-normal">{point}</Label>
+                            </div>
+                        ))}
+                    </div>
+                  </div>
+                   <div>
+                    <Label>Goals They Might Want</Label>
+                    <div className="p-3 border rounded-md mt-1 space-y-2 columns-1 sm:columns-2">
+                        {GOALS.map(goal => (
+                            <div key={goal} className="flex items-center space-x-2 break-inside-avoid-column">
+                                <Checkbox id={`goal-${goal.replace(/\s*\/\s*|\s+/g, '-')}`} checked={(formData.goals || []).includes(goal)} onCheckedChange={() => handleCheckboxFieldChange('goals', goal)} />
+                                <Label htmlFor={`goal-${goal.replace(/\s*\/\s*|\s+/g, '-')}`} className="font-normal">{goal}</Label>
+                            </div>
+                        ))}
+                    </div>
+                  </div>
+               </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="lead-status">
+               <AccordionTrigger><h4 className="font-semibold text-base flex items-center"><Star className="mr-2 h-5 w-5 text-primary"/>Lead & Interaction Status</h4></AccordionTrigger>
+               <AccordionContent className="space-y-3 pt-2">
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                      <Label htmlFor="status">Lead Stage *</Label>
+                      <Select value={formData.status} onValueChange={(value: OutreachLeadStage) => handleSelectChange('status', value)} required>
+                        <SelectTrigger id="status"><SelectValue placeholder="Select lead stage" /></SelectTrigger>
+                        <SelectContent>{OUTREACH_LEAD_STAGE_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                       </Select>
                   </div>
                   <div>
-                      <Label htmlFor="followerCount">Follower Count</Label>
-                      <Input id="followerCount" name="followerCount" type="number" value={formData.followerCount ?? ''} onChange={handleChange} />
+                      <Label htmlFor="source">Source</Label>
+                      <Select value={formData.source || undefined} onValueChange={(value: LeadSource) => handleSelectChange('source', value)}>
+                        <SelectTrigger id="source"><SelectValue placeholder="Select source" /></SelectTrigger>
+                        <SelectContent>{LEAD_SOURCES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                      </Select>
                   </div>
-                  <div>
-                      <Label htmlFor="postCount">Post Count</Label>
-                      <Input id="postCount" name="postCount" type="number" value={formData.postCount ?? ''} onChange={handleChange} />
-                  </div>
-                  <div>
-                      <Label htmlFor="avgLikes">Avg Likes</Label>
-                      <Input id="avgLikes" name="avgLikes" type="number" step="0.1" value={formData.avgLikes ?? ''} onChange={handleChange} />
-                  </div>
-                  <div>
-                      <Label htmlFor="avgComments">Avg Comments</Label>
-                      <Input id="avgComments" name="avgComments" type="number" step="0.1" value={formData.avgComments ?? ''} onChange={handleChange} />
-                  </div>
-              </div>
-          </div>
-        </section>
-
-        {/* Section 4 */}
-        <section>
-          <h4 className="font-semibold text-lg flex items-center mb-2"><AlertCircle className="mr-2 h-5 w-5 text-primary"/>Current Problems / Pain Points</h4>
-          <div className="p-4 border rounded-md space-y-2 columns-1 sm:columns-2">
-              {PAIN_POINTS.map(point => (
-                  <div key={point} className="flex items-center space-x-2 break-inside-avoid-column">
-                      <Checkbox id={`pain-${point.replace(/\s*\/\s*|\s+/g, '-')}`} checked={(formData.painPoints || []).includes(point)} onCheckedChange={() => handleCheckboxFieldChange('painPoints', point)} />
-                      <Label htmlFor={`pain-${point.replace(/\s*\/\s*|\s+/g, '-')}`} className="font-normal">{point}</Label>
-                  </div>
-              ))}
-          </div>
-        </section>
-
-        {/* Section 5 */}
-        <section>
-          <h4 className="font-semibold text-lg flex items-center mb-2"><Target className="mr-2 h-5 w-5 text-primary"/>Goals They Might Want</h4>
-          <div className="p-4 border rounded-md space-y-2 columns-1 sm:columns-2">
-              {GOALS.map(goal => (
-                  <div key={goal} className="flex items-center space-x-2 break-inside-avoid-column">
-                      <Checkbox id={`goal-${goal.replace(/\s*\/\s*|\s+/g, '-')}`} checked={(formData.goals || []).includes(goal)} onCheckedChange={() => handleCheckboxFieldChange('goals', goal)} />
-                      <Label htmlFor={`goal-${goal.replace(/\s*\/\s*|\s+/g, '-')}`} className="font-normal">{goal}</Label>
-                  </div>
-              ))}
-          </div>
-        </section>
-
-        {/* Section 6 */}
-        <section>
-          <h4 className="font-semibold text-lg flex items-center mb-2"><Star className="mr-2 h-5 w-5 text-primary"/>Lead & Interaction Status</h4>
-           <div className="p-4 border rounded-md space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                    <Label htmlFor="status">Lead Stage *</Label>
-                    <Select value={formData.status} onValueChange={(value: OutreachLeadStage) => handleSelectChange('status', value)} required>
-                      <SelectTrigger id="status"><SelectValue placeholder="Select lead stage" /></SelectTrigger>
-                      <SelectContent>{OUTREACH_LEAD_STAGE_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                    </Select>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div><Label htmlFor="lastContacted">Last Contacted</Label><Input id="lastContacted" name="lastContacted" type="date" value={formData.lastContacted || ''} onChange={handleChange} /></div>
+                    <div><Label htmlFor="followUpDate">Follow-up Date</Label><Input id="followUpDate" name="followUpDate" type="date" value={formData.followUpDate || ''} onChange={handleChange} /></div>
                 </div>
                 <div>
-                    <Label htmlFor="source">Source</Label>
-                    <Select value={formData.source || undefined} onValueChange={(value: LeadSource) => handleSelectChange('source', value)}>
-                      <SelectTrigger id="source"><SelectValue placeholder="Select source" /></SelectTrigger>
-                      <SelectContent>{LEAD_SOURCES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                    </Select>
+                    <Label htmlFor="lastMessageSnippet">Last Message from Prospect</Label>
+                    <Textarea id="lastMessageSnippet" name="lastMessageSnippet" placeholder="e.g., 'Thanks, I'll check it out'" value={formData.lastMessageSnippet || ''} onChange={handleChange} rows={2}/>
                 </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div><Label htmlFor="lastContacted">Last Contacted</Label><Input id="lastContacted" name="lastContacted" type="date" value={formData.lastContacted || ''} onChange={handleChange} /></div>
-                  <div><Label htmlFor="followUpDate">Follow-up Date</Label><Input id="followUpDate" name="followUpDate" type="date" value={formData.followUpDate || ''} onChange={handleChange} /></div>
-              </div>
-              <div>
-                  <Label htmlFor="lastMessageSnippet">Last Message from Prospect</Label>
-                  <Textarea id="lastMessageSnippet" name="lastMessageSnippet" placeholder="e.g., 'Thanks, I'll check it out'" value={formData.lastMessageSnippet || ''} onChange={handleChange} rows={2}/>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2">
-                <div className="flex items-center space-x-2"><Checkbox id="followUpNeeded" checked={!!formData.followUpNeeded} onCheckedChange={(checked) => handleSingleCheckboxChange('followUpNeeded', !!checked)} /><Label htmlFor="followUpNeeded" className="font-normal">Follow-Up?</Label></div>
-                <div className="flex items-center space-x-2"><Checkbox id="linkSent" checked={!!formData.linkSent} onCheckedChange={(checked) => handleSingleCheckboxChange('linkSent', !!checked)} /><Label htmlFor="linkSent" className="font-normal">Link Sent?</Label></div>
-                <div className="flex items-center space-x-2"><Checkbox id="carouselOffered" checked={!!formData.carouselOffered} onCheckedChange={(checked) => handleSingleCheckboxChange('carouselOffered', !!checked)} /><Label htmlFor="carouselOffered" className="font-normal">Carousel Offered?</Label></div>
-              </div>
-          </div>
-        </section>
-
-        {/* Section 7 */}
-        <section>
-          <h4 className="font-semibold text-lg flex items-center mb-2"><FileQuestion className="mr-2 h-5 w-5 text-primary"/>Qualifier Details</h4>
-          <div className="p-4 border rounded-md space-y-3">
-               <div>
-                  <Label htmlFor="qualifierQuestion">Qualifier Question Sent</Label>
-                  <Textarea id="qualifierQuestion" name="qualifierQuestion" value={formData.qualifierQuestion || ''} onChange={handleChange} rows={2}/>
-                  {formData.qualifierSentAt && <p className="text-xs text-muted-foreground mt-1">Sent on: {new Date(formData.qualifierSentAt).toLocaleString()}</p>}
-              </div>
-              <div>
-                  <Label htmlFor="qualifierReply">Prospect's Reply to Qualifier</Label>
-                  <Textarea id="qualifierReply" name="qualifierReply" placeholder="Log the prospect's response here..." value={formData.qualifierReply || ''} onChange={handleChange} rows={2}/>
-              </div>
-          </div>
-        </section>
-
-        {/* Section 8 */}
-        <section>
-          <h4 className="font-semibold text-lg flex items-center mb-2"><MessageSquare className="mr-2 h-5 w-5 text-primary"/>Offer Interest (If replied)</h4>
-           <div className="p-4 border rounded-md space-y-2 columns-1 sm:columns-2">
-              {OFFER_INTERESTS.map(interest => (
-                  <div key={interest} className="flex items-center space-x-2 break-inside-avoid-column">
-                      <Checkbox id={`interest-${interest.replace(/\s*\/\s*|\s+/g, '-')}`} checked={(formData.offerInterest || []).includes(interest)} onCheckedChange={() => handleCheckboxFieldChange('offerInterest', interest)} />
-                      <Label htmlFor={`interest-${interest.replace(/\s*\/\s*|\s+/g, '-')}`} className="font-normal">{interest}</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2">
+                  <div className="flex items-center space-x-2"><Checkbox id="followUpNeeded" checked={!!formData.followUpNeeded} onCheckedChange={(checked) => handleSingleCheckboxChange('followUpNeeded', !!checked)} /><Label htmlFor="followUpNeeded" className="font-normal">Follow-Up?</Label></div>
+                  <div className="flex items-center space-x-2"><Checkbox id="linkSent" checked={!!formData.linkSent} onCheckedChange={(checked) => handleSingleCheckboxChange('linkSent', !!checked)} /><Label htmlFor="linkSent" className="font-normal">Link Sent?</Label></div>
+                  <div className="flex items-center space-x-2"><Checkbox id="carouselOffered" checked={!!formData.carouselOffered} onCheckedChange={(checked) => handleSingleCheckboxChange('carouselOffered', !!checked)} /><Label htmlFor="carouselOffered" className="font-normal">Carousel Offered?</Label></div>
+                </div>
+               </AccordionContent>
+            </AccordionItem>
+            
+            <AccordionItem value="prompts-notes">
+               <AccordionTrigger><h4 className="font-semibold text-base flex items-center"><Settings2 className="mr-2 h-5 w-5 text-primary"/>Smart Prompts & Notes</h4></AccordionTrigger>
+               <AccordionContent className="space-y-3 pt-2">
+                 <div>
+                      <Label htmlFor="uniqueNote">Unique observation about this brand? (1-2 sentences)</Label>
+                      <Textarea id="uniqueNote" name="uniqueNote" placeholder="e.g., They post skincare tips in Darija" value={formData.uniqueNote || ''} onChange={handleChange} rows={2}/>
                   </div>
-              ))}
-          </div>
-        </section>
-
-        {/* Section 9 */}
-        <section>
-          <h4 className="font-semibold text-lg flex items-center mb-2"><Settings2 className="mr-2 h-5 w-5 text-primary"/>Smart Prompts & Notes</h4>
-           <div className="p-4 border rounded-md space-y-3">
-              <div>
-                  <Label htmlFor="uniqueNote">Unique observation about this brand? (1-2 sentences)</Label>
-                  <Textarea id="uniqueNote" name="uniqueNote" placeholder="e.g., They post skincare tips in Darija" value={formData.uniqueNote || ''} onChange={handleChange} rows={2}/>
-              </div>
-              <div>
-                  <Label htmlFor="helpStatement">Help statement (AI-generated summary)</Label>
-                  <Textarea id="helpStatement" name="helpStatement" placeholder="e.g., Their highlights and bio confuse visitors." value={formData.helpStatement || ''} onChange={handleChange} rows={2}/>
-              </div>
-              <div>
-                  <Label htmlFor="nextStep">Next Step (Manual)</Label>
-                  <Textarea id="nextStep" name="nextStep" placeholder="e.g., 'Follow up on audit feedback next week.'" value={formData.nextStep || ''} onChange={handleChange} rows={2}/>
-              </div>
-              <div>
-                  <Label>Tone Preference?</Label>
-                  <RadioGroup value={formData.tonePreference || undefined} onValueChange={(value) => handleSelectChange('tonePreference', value as TonePreference)} className="mt-1 space-y-1">
-                      {TONE_PREFERENCES.map(tone => (
-                        <div key={tone} className="flex items-center space-x-2">
-                          <RadioGroupItem value={tone} id={`tone-${tone.replace(/\s*\/\s*|\s+/g, '-')}`} />
-                          <Label htmlFor={`tone-${tone.replace(/\s*\/\s*|\s+/g, '-')}`} className="font-normal">{tone}</Label>
-                        </div>
-                      ))}
-                    </RadioGroup>
-              </div>
-              <div className="pt-2">
-                <Label htmlFor="lastScriptSent">Last Script Sent (Label)</Label>
-                <Input id="lastScriptSent" name="lastScriptSent" placeholder="e.g., 'Initial Cold DM'" value={formData.lastScriptSent || ''} onChange={handleChange} />
-              </div>
-              <div className="pt-2">
-                <Label htmlFor="notes">General Notes</Label>
-                <Textarea id="notes" name="notes" value={formData.notes || ''} onChange={handleChange} />
-              </div>
-          </div>
-        </section>
+                  <div>
+                      <Label htmlFor="helpStatement">Help statement (AI-generated summary)</Label>
+                      <Textarea id="helpStatement" name="helpStatement" placeholder="e.g., Their highlights and bio confuse visitors." value={formData.helpStatement || ''} onChange={handleChange} rows={2}/>
+                  </div>
+                  <div>
+                      <Label htmlFor="nextStep">Next Step (Manual)</Label>
+                      <Textarea id="nextStep" name="nextStep" placeholder="e.g., 'Follow up on audit feedback next week.'" value={formData.nextStep || ''} onChange={handleChange} rows={2}/>
+                  </div>
+                  <div>
+                      <Label>Tone Preference?</Label>
+                      <RadioGroup value={formData.tonePreference || undefined} onValueChange={(value) => handleSelectChange('tonePreference', value as TonePreference)} className="mt-1 space-y-1">
+                          {TONE_PREFERENCES.map(tone => (
+                            <div key={tone} className="flex items-center space-x-2">
+                              <RadioGroupItem value={tone} id={`tone-${tone.replace(/\s*\/\s*|\s+/g, '-')}`} />
+                              <Label htmlFor={`tone-${tone.replace(/\s*\/\s*|\s+/g, '-')}`} className="font-normal">{tone}</Label>
+                            </div>
+                          ))}
+                        </RadioGroup>
+                  </div>
+                  <div className="pt-2">
+                    <Label htmlFor="lastScriptSent">Last Script Sent (Label)</Label>
+                    <Input id="lastScriptSent" name="lastScriptSent" placeholder="e.g., 'Initial Cold DM'" value={formData.lastScriptSent || ''} onChange={handleChange} />
+                  </div>
+                  <div className="pt-2">
+                    <Label htmlFor="notes">General Notes</Label>
+                    <Textarea id="notes" name="notes" value={formData.notes || ''} onChange={handleChange} />
+                  </div>
+               </AccordionContent>
+            </AccordionItem>
+        </Accordion>
       </div>
 
       <DialogFooter className="border-t pt-4 shrink-0">

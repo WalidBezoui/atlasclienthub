@@ -20,7 +20,7 @@
     --secondary-foreground: 0 0% 17%; /* Charcoal Black */
 
     --muted: 80 15% 90%; /* Subtle Sage/Gray */
-    --muted-foreground: 0 0% 30%; /* Darker gray */
+    --muted-foreground: 0 0% 40%; /* Slightly darker gray for better contrast */
 
     --accent: 41 80% 57%; /* Mustard Gold #E8B23C (for CTA highlights) */
     --accent-foreground: 0 0% 17%; /* Charcoal Black */
