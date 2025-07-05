@@ -213,6 +213,7 @@ export const addProspect = async (prospectData: Omit<OutreachProspect, 'id' | 'u
     carouselOffered: prospectData.carouselOffered || false,
     nextStep: prospectData.nextStep || null,
     conversationHistory: prospectData.conversationHistory || null,
+    comments: prospectData.comments || [],
 
     qualifierQuestion: prospectData.qualifierQuestion || null,
     qualifierSentAt: processDateForFirestore(prospectData.qualifierSentAt),
@@ -276,6 +277,7 @@ export const getProspects = async (): Promise<OutreachProspect[]> => {
       carouselOffered: data.carouselOffered || false,
       nextStep: data.nextStep || null,
       conversationHistory: data.conversationHistory || null,
+      comments: data.comments || null,
       qualifierQuestion: data.qualifierQuestion || null,
       qualifierSentAt: convertTimestampToISO(data.qualifierSentAt),
       qualifierReply: data.qualifierReply || null,
@@ -334,7 +336,7 @@ export const updateProspect = async (id: string, prospectData: Partial<Omit<Outr
     }
   });
   
-  const arrayFields: (keyof OutreachProspect)[] = ['painPoints', 'goals', 'offerInterest'];
+  const arrayFields: (keyof OutreachProspect)[] = ['painPoints', 'goals', 'offerInterest', 'comments'];
   arrayFields.forEach(field => {
     if (prospectData.hasOwnProperty(field)) {
       dataToUpdate[field] = prospectData[field] || [];

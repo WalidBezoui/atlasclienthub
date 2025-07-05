@@ -62,6 +62,7 @@ import { ToastAction } from '@/components/ui/toast';
 import { DiscoveryDialog } from '@/components/outreach/DiscoveryDialog';
 import { fetchInstagramMetrics } from '@/app/actions/fetch-ig-metrics';
 import { qualifyProspect, type QualifyProspectInput } from '@/ai/flows/qualify-prospect';
+import { CommentGeneratorDialog } from '@/components/outreach/CommentGeneratorDialog';
 
 
 const ProspectTimelineTooltip = ({ prospect }: { prospect: OutreachProspect }) => {
@@ -133,6 +134,10 @@ function OutreachPage() {
   const [conversationHistoryContent, setConversationHistoryContent] = useState<string | null>(null);
   const [isSavingConversation, setIsSavingConversation] = useState(false);
   const [showUnsavedConfirm, setShowUnsavedConfirm] = useState(false);
+
+  // State for comment generator
+  const [isCommentGeneratorOpen, setIsCommentGeneratorOpen] = useState(false);
+  const [prospectForComment, setProspectForComment] = useState<OutreachProspect | null>(null);
   
   // State for Undo Delete
   const [pendingDeletes, setPendingDeletes] = useState<Map<string, { prospect: OutreachProspect; dismissToast: () => void;}>>(new Map());
@@ -904,6 +909,11 @@ function OutreachPage() {
     setEditingProspect(prospect);
     setIsEditFormOpen(true);
   };
+  
+  const handleOpenCommentGenerator = (prospect: OutreachProspect) => {
+    setProspectForComment(prospect);
+    setIsCommentGeneratorOpen(true);
+  };
 
   const handleOpenConversationModal = (prospect: OutreachProspect) => {
     setCurrentProspectForConversation(prospect);
@@ -1006,6 +1016,9 @@ function OutreachPage() {
                             <DropdownMenuLabel>AI Actions</DropdownMenuLabel>
                              <DropdownMenuItem onClick={() => handleEvaluateProspect(prospect)} disabled={!prospect.instagramHandle}>
                                 <Bot className="mr-2 h-4 w-4" /> Fetch & Evaluate
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleOpenCommentGenerator(prospect)}>
+                                <MessageCircle className="mr-2 h-4 w-4" /> Generate Comment
                             </DropdownMenuItem>
                             <Tooltip>
                                 <TooltipTrigger asChild>
@@ -1168,6 +1181,13 @@ function OutreachPage() {
             </Button>
           </div>
         }
+      />
+
+      <CommentGeneratorDialog
+        isOpen={isCommentGeneratorOpen}
+        onClose={() => setIsCommentGeneratorOpen(false)}
+        prospect={prospectForComment}
+        onCommentAdded={fetchProspects}
       />
 
       <DiscoveryDialog

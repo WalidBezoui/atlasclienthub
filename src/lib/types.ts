@@ -43,6 +43,17 @@ export type TonePreference = typeof TONE_PREFERENCES[number];
 export type OutreachLeadStage = "To Contact" | "Cold" | "Warm" | "Replied" | "Interested" | "Qualifier Sent" | "Ready for Audit" | "Audit Delivered" | "Closed - Won" | "Closed - Lost" | "Not Interested";
 export const OUTREACH_LEAD_STAGE_OPTIONS: OutreachLeadStage[] = ["To Contact", "Cold", "Warm", "Replied", "Interested", "Qualifier Sent", "Ready for Audit", "Audit Delivered", "Closed - Won", "Closed - Lost", "Not Interested"];
 
+export const COMMENT_TYPES = ["Value-add", "Question", "Compliment", "Story-based"] as const;
+export type CommentType = typeof COMMENT_TYPES[number];
+
+export type GeneratedComment = {
+  id: string; // Will use crypto.randomUUID() on the client
+  postDescription: string;
+  commentText: string;
+  commentType: CommentType;
+  generatedAt: string; // ISO date string
+};
+
 export type StatusHistoryItem = {
   status: OutreachLeadStage;
   date: string; // ISO date string
@@ -115,6 +126,7 @@ export type OutreachProspect = {
   carouselOffered?: boolean | null; // e.g., a free sample was offered
   nextStep?: string | null; // Manually defined next action
   conversationHistory?: string | null;
+  comments?: GeneratedComment[] | null;
 
   // Qualifier Question Fields
   qualifierQuestion?: string | null;
