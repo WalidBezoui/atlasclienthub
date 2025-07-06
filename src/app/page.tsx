@@ -120,19 +120,19 @@ const AgendaItemCard = ({ item }: { item: AgendaItem }) => {
 
 const DashboardSkeleton = () => (
     <div className="space-y-6">
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-            {Array(4).fill(0).map((_, index) => (
-                <Card key={index}>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <Card>
+            <CardHeader>
+                <Skeleton className="h-5 w-1/3" />
+            </CardHeader>
+            <CardContent className="grid gap-4 grid-cols-2 md:grid-cols-4">
+                {Array(4).fill(0).map((_, index) => (
+                    <div key={index} className="p-3 bg-muted/50 rounded-lg space-y-2">
                         <Skeleton className="h-4 w-3/4" />
-                        <Skeleton className="h-5 w-5 rounded-full" />
-                    </CardHeader>
-                    <CardContent>
                         <Skeleton className="h-8 w-1/2" />
-                    </CardContent>
-                </Card>
-            ))}
-        </div>
+                    </div>
+                ))}
+            </CardContent>
+        </Card>
         <Card>
             <CardHeader>
                 <CardTitle className="font-headline flex items-center"><ListChecks className="mr-3 h-7 w-7 text-primary" />Daily Agenda</CardTitle>
@@ -237,7 +237,7 @@ export default function DashboardPage() {
         description="Welcome back! Here's your smart overview for today."
         icon={LayoutDashboard}
         actions={
-          <Link href="/outreach/new" passHref>
+          <Link href="/outreach" passHref>
             <Button>
               <PlusCircle className="mr-2 h-4 w-4" /> Add Prospect
             </Button>
@@ -246,21 +246,22 @@ export default function DashboardPage() {
       />
     {isLoadingData ? <DashboardSkeleton /> : (
     <>
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        {displayOverviewData.map((item) => (
-          <Card key={item.metric} className="shadow-sm hover:shadow-md transition-shadow duration-300">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {item.metric}
-              </CardTitle>
-              <item.icon className={`h-5 w-5 ${item.color}`} />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl sm:text-3xl font-bold font-headline">{item.value}</div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <Card>
+        <CardHeader className="pb-4">
+            <CardTitle className="font-headline text-lg">At a Glance</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 grid-cols-2 md:grid-cols-4">
+            {displayOverviewData.map((item) => (
+                <div key={item.metric} className="p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-2 mb-1 text-muted-foreground">
+                        <item.icon className={`h-4 w-4 ${item.color}`} />
+                        <h3 className="text-xs font-medium ">{item.metric}</h3>
+                    </div>
+                    <p className="text-2xl font-bold font-headline">{item.value}</p>
+                </div>
+            ))}
+        </CardContent>
+      </Card>
 
       <Card className="shadow-lg">
         <CardHeader>
@@ -285,7 +286,7 @@ export default function DashboardPage() {
               <p className="mt-4 font-semibold">You're all caught up!</p>
               <p className="text-sm">No high-priority items on your agenda for today. Great work!</p>
                <Button variant="outline" size="sm" className="mt-4" asChild>
-                 <Link href="/outreach">
+                 <Link href="/outreach/new">
                     <PlusCircle className="mr-2 h-4 w-4" /> Add a new prospect
                  </Link>
                </Button>
