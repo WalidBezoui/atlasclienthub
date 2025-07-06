@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useEffect, useState, useCallback } from 'react';
 import { LayoutDashboard, Users, Send, ListChecks, PlusCircle, TrendingUp, CheckSquare, Rocket, Calendar, HelpCircle, BarChart3, Building } from 'lucide-react';
@@ -14,7 +13,7 @@ import { getDashboardOverview, getMonthlyActivityData, getDailyAgendaItems } fro
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
 import type { MonthlyActivity, AgendaItem } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
-import { formatDistanceToNow, isPast } from 'date-fns';
+import { format, subMonths, formatDistanceToNow, isPast } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { FileQuestion, Clock } from 'lucide-react';
@@ -91,20 +90,18 @@ const AgendaItemCard = ({ item }: { item: AgendaItem }) => {
 const DashboardSkeleton = () => (
     <div className="space-y-6">
         <PageHeader title="Dashboard" description="Welcome back! Here's your smart overview for today." icon={LayoutDashboard} />
-        <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
             {Array(4).fill(0).map((_, index) => (
                 <Card key={index}><CardHeader className="pb-2"><Skeleton className="h-4 w-3/4" /></CardHeader><CardContent><Skeleton className="h-8 w-1/2" /></CardContent></Card>
             ))}
         </div>
-        <Card>
-            <CardHeader><CardTitle>Daily Agenda</CardTitle><CardDescription>Your prioritized list of outreach tasks for today.</CardDescription></CardHeader>
+        <div className="grid gap-6 grid-cols-1 xl:grid-cols-3">
+             <Card className="xl:col-span-2"><CardHeader><CardTitle>Activity Overview</CardTitle></CardHeader><CardContent><Skeleton className="h-[300px] w-full"/></CardContent></Card>
+            <Card><CardHeader><CardTitle>Daily Agenda</CardTitle><CardDescription>Your prioritized list of outreach tasks for today.</CardDescription></CardHeader>
             <CardContent className="space-y-2">
                 {Array(3).fill(0).map((_, index) => <Skeleton key={index} className="h-16 w-full" />)}
             </CardContent>
         </Card>
-        <div className="grid gap-6 md:grid-cols-2">
-            <Card><CardHeader><CardTitle>Activity Overview</CardTitle></CardHeader><CardContent><Skeleton className="h-[300px] w-full"/></CardContent></Card>
-            <Card><CardHeader><CardTitle>Quick Actions</CardTitle></CardHeader><CardContent className="grid gap-4">{Array(4).fill(0).map((_, index) => <Skeleton key={index} className="h-10 w-full" />)}</CardContent></Card>
         </div>
     </div>
 );
@@ -150,12 +147,15 @@ export default function DashboardPage() {
     { metric: 'Awaiting Reply', value: overviewData.awaitingQualifierReply, icon: HelpCircle, color: 'text-purple-500' },
   ];
 
-  if (!isClient || isLoadingData || authLoading) {
+  if (!isClient || authLoading) {
     return <DashboardSkeleton />;
+  }
+  if (isLoadingData) {
+     return <DashboardSkeleton />;
   }
 
   return (
-    <div className="flex-1 space-y-6">
+    <div className="space-y-6">
       <PageHeader
         title="Dashboard"
         description="Welcome back! Here's your smart overview for today."
@@ -167,19 +167,19 @@ export default function DashboardPage() {
         }
       />
 
-      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+       <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
         {displayOverviewData.map((item) => (
           <Card key={item.metric}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{item.metric}</CardTitle>
-              <item.icon className={cn("h-4 w-4 text-muted-foreground", item.color)} />
+              <CardTitle className="text-sm font-medium truncate">{item.metric}</CardTitle>
+              <item.icon className={cn("h-4 w-4 text-muted-foreground shrink-0", item.color)} />
             </CardHeader>
             <CardContent><div className="text-2xl font-bold">{item.value}</div></CardContent>
           </Card>
         ))}
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-3">
         <Card className="xl:col-span-2 shadow-lg">
           <CardHeader>
             <CardTitle className="font-headline">Activity Overview</CardTitle>
