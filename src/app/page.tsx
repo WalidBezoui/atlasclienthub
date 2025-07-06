@@ -120,6 +120,7 @@ const AgendaItemCard = ({ item }: { item: AgendaItem }) => {
 
 const DashboardSkeleton = () => (
     <div className="space-y-6">
+        <PageHeader title="Dashboard" description="Welcome back! Here's your smart overview for today." icon={LayoutDashboard} />
         <Card>
             <CardHeader>
                 <Skeleton className="h-5 w-1/3" />
@@ -223,11 +224,12 @@ export default function DashboardPage() {
     { metric: 'Awaiting Qualifier Reply', value: overviewData.awaitingQualifierReply, icon: HelpCircle, color: 'text-purple-500' },
   ];
 
-  if (authLoading) {
+  if (authLoading || !isClient) {
     return <DashboardSkeleton />;
   }
+  
   if (!user && !authLoading) {
-    return null;
+    return null; // AuthProvider should handle redirect
   }
 
   return (
@@ -303,7 +305,7 @@ export default function DashboardPage() {
             <CardDescription>Monthly client, outreach, and audit trends for the current year.</CardDescription>
           </CardHeader>
           <CardContent>
-            {isClient && chartData.some(d => d.clients > 0 || d.outreach > 0 || d.audits > 0) ? (
+            {chartData.some(d => d.clients > 0 || d.outreach > 0 || d.audits > 0) ? (
                <ChartContainer config={chartConfig} className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={chartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
