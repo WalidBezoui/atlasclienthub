@@ -252,10 +252,10 @@ export default function DashboardPage() {
         </CardHeader>
         <CardContent className="grid gap-4 grid-cols-2 md:grid-cols-4">
             {displayOverviewData.map((item) => (
-                <div key={item.metric} className="p-3 bg-muted/50 rounded-lg">
+                <div key={item.metric} className="p-3 bg-muted/50 rounded-lg min-w-0">
                     <div className="flex items-center gap-2 mb-1 text-muted-foreground">
-                        <item.icon className={`h-4 w-4 ${item.color}`} />
-                        <h3 className="text-xs font-medium ">{item.metric}</h3>
+                        <item.icon className={`h-4 w-4 ${item.color} shrink-0`} />
+                        <h3 className="text-xs font-medium truncate">{item.metric}</h3>
                     </div>
                     <p className="text-2xl font-bold font-headline">{item.value}</p>
                 </div>
