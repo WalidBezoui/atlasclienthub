@@ -12,7 +12,14 @@ interface PageHeaderProps {
 export function PageHeader({ title, description, icon: Icon, actions }: PageHeaderProps) {
   return (
     <div className="mb-6 sm:mb-8 pb-4 border-b border-border">
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] items-center gap-4">
+      {/* 
+        This component uses a simple grid layout.
+        - On mobile (default): It's a single column grid, so items stack vertically.
+        - On medium screens and up (md:): It switches to a two-column grid.
+        This approach is robust and avoids flexbox wrapping issues that caused overflow.
+      */}
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] items-start md:items-center gap-4">
+        
         {/* Title, Description, and Icon Block */}
         <div className="flex items-start gap-3 min-w-0">
           {Icon && <Icon className="h-6 w-6 sm:h-7 sm:w-7 text-primary shrink-0" />}
@@ -24,7 +31,7 @@ export function PageHeader({ title, description, icon: Icon, actions }: PageHead
         
         {/* Actions Block */}
         {actions && (
-          <div className="md:justify-self-end">
+          <div className="md:justify-self-end w-full md:w-auto">
             {actions}
           </div>
         )}
