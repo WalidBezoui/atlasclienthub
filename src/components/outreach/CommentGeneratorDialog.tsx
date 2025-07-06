@@ -142,8 +142,8 @@ export function CommentGeneratorDialog({ isOpen, onClose, prospect, onCommentAdd
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-xl md:max-w-2xl h-[90vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-xl md:max-w-2xl max-h-[90vh] flex flex-col">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="font-headline text-2xl flex items-center">
             <Wand2 className="mr-2 h-6 w-6 text-primary" /> Generate Strategic Comment
           </DialogTitle>
@@ -152,8 +152,8 @@ export function CommentGeneratorDialog({ isOpen, onClose, prospect, onCommentAdd
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-grow min-h-0 -mx-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4 px-6">
+        <ScrollArea className="flex-grow min-h-0 -mx-6 px-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
             {/* Left Side: Input */}
             <div className="flex flex-col gap-4">
               <div className="space-y-2">

@@ -2,13 +2,13 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { ListChecks, PlusCircle, Eye, Filter, ChevronDown, Search, Edit, Trash2, AlertTriangle } from 'lucide-react';
+import { ListChecks, PlusCircle, Eye, Filter, ChevronDown, Search, Edit, Trash2, AlertTriangle, MoreHorizontal } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
 import { Input } from '@/components/ui/input';
-import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import type { InstagramAudit, AuditStatus } from '@/lib/types';
@@ -18,6 +18,49 @@ import { useAuth } from '@/hooks/useAuth';
 import { getAudits, deleteAudit as fbDeleteAudit } from '@/lib/firebase/services';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
 import { useRouter } from 'next/navigation';
+
+const getStatusBadgeVariant = (status: AuditStatus): "default" | "secondary" | "outline" | "destructive" => {
+    switch (status) {
+      case 'Completed': return 'default';
+      case 'Exported': return 'default'; 
+      case 'In Progress': return 'secondary';
+      case 'Requested': return 'outline';
+      case 'Needs Follow-up': return 'default'; 
+      case 'Canceled': return 'destructive';
+      default: return 'outline';
+    }
+};
+
+const AuditMobileCard = ({ audit, onDelete }: { audit: InstagramAudit, onDelete: (id: string, handle: string) => void }) => {
+    return (
+        <Card className="p-4">
+            <div className="flex justify-between items-start gap-4">
+                <div className="flex-1 min-w-0">
+                    <p className="font-semibold truncate">{audit.instagramHandle}</p>
+                    <p className="text-sm text-muted-foreground truncate">{audit.entityName || 'N/A'}</p>
+                </div>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0 -mr-2 -mt-1"><MoreHorizontal className="h-4 w-4"/></Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem asChild>
+                            <Link href={`/audits/${audit.id}`} className="flex items-center w-full"><Eye className="mr-2 h-4 w-4"/> View</Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                            <Link href={`/audits/${audit.id}/edit`} className="flex items-center w-full"><Edit className="mr-2 h-4 w-4"/> Edit</Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onDelete(audit.id, audit.instagramHandle)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4"/> Delete</DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
+            <div className="flex items-center justify-between mt-3">
+                <Badge variant={getStatusBadgeVariant(audit.status)}>{audit.status}</Badge>
+                <p className="text-xs text-muted-foreground">Req: {new Date(audit.requestedDate).toLocaleDateString()}</p>
+            </div>
+        </Card>
+    );
+};
 
 
 export default function AuditsPage() {
@@ -88,17 +131,6 @@ export default function AuditsPage() {
     (statusFilters.size === AUDIT_STATUS_OPTIONS.length || statusFilters.has(audit.status)) // Apply filter only if not all are selected
   );
   
-  const getStatusBadgeVariant = (status: AuditStatus): "default" | "secondary" | "outline" | "destructive" => {
-    switch (status) {
-      case 'Completed': return 'default';
-      case 'Exported': return 'default'; 
-      case 'In Progress': return 'secondary';
-      case 'Requested': return 'outline';
-      case 'Needs Follow-up': return 'default'; 
-      case 'Canceled': return 'destructive';
-      default: return 'outline';
-    }
-  };
 
   if (authLoading || (isLoading && !audits.length && user)) { // Show loading if auth is loading OR data is loading for an authenticated user
     return <div className="flex justify-center items-center h-screen"><LoadingSpinner text="Loading audits..." size="lg"/></div>;
@@ -161,78 +193,95 @@ export default function AuditsPage() {
           </div>
         </CardHeader>
         <CardContent>
-         {isLoading && audits.length === 0 ? (
-             <div className="py-10"><LoadingSpinner text="Fetching audits..." /></div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>IG Handle</TableHead>
-                    <TableHead className="hidden md:table-cell">Client/Prospect</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="hidden sm:table-cell">Requested</TableHead>
-                    <TableHead className="hidden lg:table-cell">Completed</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredAudits.length > 0 ? (
-                    filteredAudits.map((audit) => (
-                      <TableRow key={audit.id}>
-                        <TableCell className="font-medium">{audit.instagramHandle}</TableCell>
-                        <TableCell className="hidden md:table-cell text-muted-foreground">{audit.entityName || 'N/A'}</TableCell>
-                        <TableCell>
-                          <Badge variant={getStatusBadgeVariant(audit.status)}>{audit.status}</Badge>
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell text-muted-foreground">{new Date(audit.requestedDate).toLocaleDateString()}</TableCell>
-                        <TableCell className="hidden lg:table-cell text-muted-foreground">
-                          {audit.completedDate ? new Date(audit.completedDate).toLocaleDateString() : '-'}
-                        </TableCell>
-                        <TableCell className="text-right space-x-1">
-                          <Link href={`/audits/${audit.id}`} passHref>
-                            <Button variant="ghost" size="icon" aria-label={`View audit for ${audit.instagramHandle}`}>
-                              <Eye className="h-4 w-4" />
-                               <span className="sr-only">View Audit</span>
-                            </Button>
-                          </Link>
-                           <Link href={`/audits/${audit.id}/edit`} passHref>
-                             <Button variant="ghost" size="icon" aria-label={`Edit audit for ${audit.instagramHandle}`}> 
-                               <Edit className="h-4 w-4" />
-                               <span className="sr-only">Edit Audit</span>
-                             </Button>
-                           </Link>
-                          <Button variant="ghost" size="icon" onClick={() => handleDeleteAudit(audit.id, audit.instagramHandle)} className="text-destructive hover:text-destructive" aria-label={`Delete audit for ${audit.instagramHandle}`}>
-                            <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">Delete Audit</span>
-                          </Button>
-                        </TableCell>
-                      </TableRow>
+            {/* Mobile View */}
+            <div className="md:hidden space-y-3">
+                {isLoading && audits.length === 0 ? (
+                    <div className="py-10"><LoadingSpinner text="Fetching audits..." /></div>
+                ) : filteredAudits.length > 0 ? (
+                    filteredAudits.map(audit => (
+                        <AuditMobileCard key={audit.id} audit={audit} onDelete={handleDeleteAudit} />
                     ))
-                  ) : (
-                   <TableRow>
-                      <TableCell colSpan={6} className="h-24 text-center">
-                          <div className="flex flex-col items-center justify-center">
-                              <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
-                              <p className="font-semibold">
-                                {audits.length === 0 && searchTerm === '' && (statusFilters.size === AUDIT_STATUS_OPTIONS.length || statusFilters.size === 0)
-                                  ? "No audits found."
-                                  : "No audits found matching your criteria."
-                                }
-                              </p>
-                              {audits.length === 0 && searchTerm === '' && (statusFilters.size === AUDIT_STATUS_OPTIONS.length || statusFilters.size === 0) && (
-                                   <p className="text-sm text-muted-foreground">
-                                      Get started by <Link href="/audits/new" className="text-primary hover:underline">creating your first audit</Link>!
-                                   </p>
-                              )}
-                          </div>
-                      </TableCell>
-                   </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                ) : (
+                    <div className="h-24 text-center flex flex-col items-center justify-center">
+                        <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
+                        <p className="font-semibold">No audits found.</p>
+                    </div>
+                )}
             </div>
-          )}
+            
+            {/* Desktop View */}
+            <div className="overflow-x-auto hidden md:block">
+             {isLoading && audits.length === 0 ? (
+                 <div className="py-10"><LoadingSpinner text="Fetching audits..." /></div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>IG Handle</TableHead>
+                      <TableHead className="hidden md:table-cell">Client/Prospect</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="hidden sm:table-cell">Requested</TableHead>
+                      <TableHead className="hidden lg:table-cell">Completed</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredAudits.length > 0 ? (
+                      filteredAudits.map((audit) => (
+                        <TableRow key={audit.id}>
+                          <TableCell className="font-medium">{audit.instagramHandle}</TableCell>
+                          <TableCell className="hidden md:table-cell text-muted-foreground">{audit.entityName || 'N/A'}</TableCell>
+                          <TableCell>
+                            <Badge variant={getStatusBadgeVariant(audit.status)}>{audit.status}</Badge>
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell text-muted-foreground">{new Date(audit.requestedDate).toLocaleDateString()}</TableCell>
+                          <TableCell className="hidden lg:table-cell text-muted-foreground">
+                            {audit.completedDate ? new Date(audit.completedDate).toLocaleDateString() : '-'}
+                          </TableCell>
+                          <TableCell className="text-right space-x-1">
+                            <Link href={`/audits/${audit.id}`} passHref>
+                              <Button variant="ghost" size="icon" aria-label={`View audit for ${audit.instagramHandle}`}>
+                                <Eye className="h-4 w-4" />
+                                 <span className="sr-only">View Audit</span>
+                              </Button>
+                            </Link>
+                             <Link href={`/audits/${audit.id}/edit`} passHref>
+                               <Button variant="ghost" size="icon" aria-label={`Edit audit for ${audit.instagramHandle}`}> 
+                                 <Edit className="h-4 w-4" />
+                                 <span className="sr-only">Edit Audit</span>
+                               </Button>
+                             </Link>
+                            <Button variant="ghost" size="icon" onClick={() => handleDeleteAudit(audit.id, audit.instagramHandle)} className="text-destructive hover:text-destructive" aria-label={`Delete audit for ${audit.instagramHandle}`}>
+                              <Trash2 className="h-4 w-4" />
+                              <span className="sr-only">Delete Audit</span>
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                     <TableRow>
+                        <TableCell colSpan={6} className="h-24 text-center">
+                            <div className="flex flex-col items-center justify-center">
+                                <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
+                                <p className="font-semibold">
+                                  {audits.length === 0 && searchTerm === '' && (statusFilters.size === AUDIT_STATUS_OPTIONS.length || statusFilters.size === 0)
+                                    ? "No audits found."
+                                    : "No audits found matching your criteria."
+                                  }
+                                </p>
+                                {audits.length === 0 && searchTerm === '' && (statusFilters.size === AUDIT_STATUS_OPTIONS.length || statusFilters.size === 0) && (
+                                     <p className="text-sm text-muted-foreground">
+                                        Get started by <Link href="/audits/new" className="text-primary hover:underline">creating your first audit</Link>!
+                                     </p>
+                                )}
+                            </div>
+                        </TableCell>
+                     </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
         </CardContent>
       </Card>
     </div>

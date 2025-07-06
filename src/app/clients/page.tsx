@@ -2,12 +2,12 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Users, PlusCircle, Edit, Trash2, Search, ChevronDown, Filter, AlertTriangle } from 'lucide-react';
+import { Users, PlusCircle, Edit, Trash2, Search, ChevronDown, Filter, AlertTriangle, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
 import { Input } from '@/components/ui/input';
-import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import type { Client, ClientStatus } from '@/lib/types';
@@ -44,6 +44,41 @@ const initialFormDataState: Omit<Client, 'id' | 'userId'> = {
   contactPhone: '',
   notes: '',
   industry: '',
+};
+
+const getStatusBadgeVariant = (status: ClientStatus): "default" | "secondary" | "outline" => {
+    switch (status) {
+      case 'Active': return 'default';
+      case 'On Hold': return 'secondary';
+      case 'Past': return 'outline';
+      default: return 'default';
+    }
+};
+
+const ClientMobileCard = ({ client, onEdit, onDelete }: { client: Client, onEdit: (client: Client) => void, onDelete: (id: string, name: string) => void }) => {
+    return (
+        <Card className="p-4">
+            <div className="flex justify-between items-start gap-4">
+                <div className="flex-1 min-w-0">
+                    <p className="font-semibold truncate">{client.name}</p>
+                    <p className="text-sm text-muted-foreground truncate">{client.companyName}</p>
+                </div>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0 -mr-2 -mt-1"><MoreHorizontal className="h-4 w-4"/></Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => onEdit(client)}><Edit className="mr-2 h-4 w-4"/> Edit</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onDelete(client.id, client.name)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4"/> Delete</DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
+            <div className="flex items-center justify-between mt-3">
+                <Badge variant={getStatusBadgeVariant(client.status)}>{client.status}</Badge>
+                <p className="text-xs text-muted-foreground">Joined: {new Date(client.joinedDate).toLocaleDateString()}</p>
+            </div>
+        </Card>
+    );
 };
 
 
@@ -256,14 +291,6 @@ export default function ClientsPage() {
     (statusFilters.size === CLIENT_STATUS_OPTIONS.length || statusFilters.has(client.status))
   );
 
-  const getStatusBadgeVariant = (status: ClientStatus) => {
-    switch (status) {
-      case 'Active': return 'default';
-      case 'On Hold': return 'secondary';
-      case 'Past': return 'outline';
-      default: return 'default';
-    }
-  };
   
   if (authLoading || (isLoading && !clients.length && user)) {
     return <div className="flex justify-center items-center h-screen"><LoadingSpinner text="Loading clients..." size="lg"/></div>;
@@ -362,86 +389,94 @@ export default function ClientsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {isLoading && clients.length === 0 ? (
-             <div className="overflow-x-auto">
-              <Table>
-                  <TableBody>
+          {/* Mobile View */}
+          <div className="md:hidden space-y-3">
+              {isLoading && clients.length === 0 ? (
+                  <div className="py-10"><LoadingSpinner text="Fetching clients..." /></div>
+              ) : filteredClients.length > 0 ? (
+                  filteredClients.map(client => (
+                      <ClientMobileCard 
+                          key={client.id}
+                          client={client} 
+                          onEdit={handleOpenEditClientForm}
+                          onDelete={handleDeleteClient}
+                      />
+                  ))
+              ) : (
+                  <div className="text-center py-10 flex flex-col items-center justify-center">
+                      <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
+                      <p className="font-semibold">No clients found.</p>
+                  </div>
+              )}
+          </div>
+          
+          {/* Desktop View */}
+          <div className="overflow-x-auto hidden md:block">
+              {isLoading && clients.length === 0 ? (
+                 <div className="py-10"><LoadingSpinner text="Fetching clients..." /></div>
+              ) : filteredClients.length > 0 ? (
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={6} className="h-24 text-center">
-                        <LoadingSpinner text="Fetching clients..." />
-                      </TableCell>
+                      <TableHead>Name</TableHead>
+                      <TableHead className="hidden md:table-cell">Email</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="hidden sm:table-cell">Joined Date</TableHead>
+                      <TableHead className="hidden lg:table-cell">IG Handle</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                      {filteredClients.map((client) => (
+                        <TableRow key={client.id}>
+                          <TableCell className="font-medium">{client.name}</TableCell>
+                          <TableCell className="hidden md:table-cell text-muted-foreground">{client.contactEmail}</TableCell>
+                          <TableCell>
+                            <Badge variant={getStatusBadgeVariant(client.status)}>{client.status}</Badge>
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell text-muted-foreground">{new Date(client.joinedDate).toLocaleDateString()}</TableCell>
+                          <TableCell className="hidden lg:table-cell text-muted-foreground">{client.instagramHandle || '-'}</TableCell>
+                          <TableCell className="text-right">
+                            <Button variant="ghost" size="icon" onClick={() => handleOpenEditClientForm(client)} className="mr-2" aria-label={`Edit client ${client.name}`}>
+                              <Edit className="h-4 w-4" />
+                               <span className="sr-only">Edit Client</span>
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleDeleteClient(client.id, client.name)} className="text-destructive hover:text-destructive" aria-label={`Delete client ${client.name}`}>
+                              <Trash2 className="h-4 w-4" />
+                              <span className="sr-only">Delete Client</span>
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
                   </TableBody>
                 </Table>
-             </div>
-          ) : filteredClients.length > 0 ? (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead className="hidden md:table-cell">Email</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="hidden sm:table-cell">Joined Date</TableHead>
-                    <TableHead className="hidden lg:table-cell">IG Handle</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {filteredClients.map((client) => (
-                      <TableRow key={client.id}>
-                        <TableCell className="font-medium">{client.name}</TableCell>
-                        <TableCell className="hidden md:table-cell text-muted-foreground">{client.contactEmail}</TableCell>
-                        <TableCell>
-                          <Badge variant={getStatusBadgeVariant(client.status)}>{client.status}</Badge>
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell text-muted-foreground">{new Date(client.joinedDate).toLocaleDateString()}</TableCell>
-                        <TableCell className="hidden lg:table-cell text-muted-foreground">{client.instagramHandle || '-'}</TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" onClick={() => handleOpenEditClientForm(client)} className="mr-2" aria-label={`Edit client ${client.name}`}>
-                            <Edit className="h-4 w-4" />
-                             <span className="sr-only">Edit Client</span>
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleDeleteClient(client.id, client.name)} className="text-destructive hover:text-destructive" aria-label={`Delete client ${client.name}`}>
-                            <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">Delete Client</span>
-                          </Button>
+              ) : (
+                  <Table>
+                    <TableBody>
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center h-24">
+                            <div className="flex flex-col items-center justify-center">
+                                <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
+                                <p className="font-semibold">
+                                  {clients.length === 0 && searchTerm === '' && (statusFilters.size === CLIENT_STATUS_OPTIONS.length || statusFilters.size === 0)
+                                    ? "No clients found."
+                                    : "No clients found matching your criteria."
+                                  }
+                                </p>
+                                {clients.length === 0 && searchTerm === '' && (statusFilters.size === CLIENT_STATUS_OPTIONS.length || statusFilters.size === 0) && (
+                                    <p className="text-sm text-muted-foreground">
+                                      Get started by <Button variant="link" className="p-0 h-auto" onClick={handleOpenNewClientForm}>adding your first client</Button>!
+                                    </p>
+                                )}
+                            </div>
                         </TableCell>
                       </TableRow>
-                    ))}
-                </TableBody>
-              </Table>
+                    </TableBody>
+                  </Table>
+              )}
             </div>
-          ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableBody>
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center h-24">
-                          <div className="flex flex-col items-center justify-center">
-                              <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
-                              <p className="font-semibold">
-                                {clients.length === 0 && searchTerm === '' && (statusFilters.size === CLIENT_STATUS_OPTIONS.length || statusFilters.size === 0)
-                                  ? "No clients found."
-                                  : "No clients found matching your criteria."
-                                }
-                              </p>
-                              {clients.length === 0 && searchTerm === '' && (statusFilters.size === CLIENT_STATUS_OPTIONS.length || statusFilters.size === 0) && (
-                                  <p className="text-sm text-muted-foreground">
-                                    Get started by <Button variant="link" className="p-0 h-auto" onClick={handleOpenNewClientForm}>adding your first client</Button>!
-                                  </p>
-                              )}
-                          </div>
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </div>
-          )}
         </CardContent>
       </Card>
     </div>
   );
 }
-
-    

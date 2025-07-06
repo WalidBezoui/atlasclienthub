@@ -100,16 +100,16 @@ const AgendaItemCard = ({ item }: { item: AgendaItem }) => {
     return (
         <Link href={link} className="block group">
             <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors cursor-pointer">
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 min-w-0">
                     <div className={cn("p-2 rounded-full bg-background group-hover:bg-primary/10 transition-transform group-hover:scale-110", iconColor)}>
                         {icon}
                     </div>
-                    <div>
-                        <p className="font-semibold text-sm group-hover:text-primary">{title}</p>
-                        <p className="text-xs text-muted-foreground">{description}</p>
+                    <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm group-hover:text-primary truncate">{title}</p>
+                        <p className="text-xs text-muted-foreground truncate">{description}</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-shrink-0">
                     {badgeText && <Badge variant={badgeVariant} className="hidden sm:inline-flex">{badgeText}</Badge>}
                 </div>
             </div>

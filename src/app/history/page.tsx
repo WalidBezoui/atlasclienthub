@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { MessagesSquare, Search, Eye, AlertTriangle, Loader2, Save } from 'lucide-react';
+import { MessagesSquare, Search, Eye, AlertTriangle, Loader2, Save, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
@@ -34,6 +34,21 @@ import {
 import { ConversationTracker } from '@/components/outreach/conversation-tracker';
 import { generateContextualScript, type GenerateContextualScriptInput } from '@/ai/flows/generate-contextual-script';
 
+
+const HistoryMobileCard = ({ prospect, onView }: { prospect: OutreachProspect, onView: (prospect: OutreachProspect) => void }) => (
+    <Card className="p-4">
+        <div className="flex justify-between items-start gap-4">
+            <div className="flex-1 min-w-0">
+                <p className="font-semibold truncate">{prospect.name}</p>
+                <p className="text-sm text-muted-foreground truncate">{prospect.instagramHandle || 'N/A'}</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => onView(prospect)}><Eye className="mr-2 h-4 w-4"/>View</Button>
+        </div>
+        <blockquote className="border-l-2 pl-3 mt-3 text-xs italic text-muted-foreground truncate">
+            {prospect.conversationHistory?.split('\n').pop() || '...'}
+        </blockquote>
+    </Card>
+);
 
 export default function ConversationHistoryPage() {
   const { user, loading: authLoading } = useAuth();
@@ -250,70 +265,87 @@ export default function ConversationHistoryPage() {
           </div>
         </CardHeader>
         <CardContent>
-         {isLoading && prospects.length === 0 ? (
-             <div className="py-10"><LoadingSpinner text="Fetching histories..." /></div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Prospect Name</TableHead>
-                    <TableHead className="hidden md:table-cell">IG Handle</TableHead>
-                    <TableHead>History Preview</TableHead>
-                    <TableHead className="hidden sm:table-cell">Last Contacted</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredProspects.length > 0 ? (
-                    filteredProspects.map((prospect) => (
-                      <TableRow key={prospect.id}>
-                        <TableCell className="font-medium">
-                          {prospect.name}
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell text-muted-foreground">
-                          {prospect.instagramHandle || <span className="italic">N/A</span>}
-                        </TableCell>
-                        <TableCell 
-                            className="max-w-xs truncate text-sm text-muted-foreground"
-                        >
-                            {prospect.conversationHistory?.split('\n').pop() || '...'}
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell text-muted-foreground">
-                          {prospect.lastContacted ? new Date(prospect.lastContacted).toLocaleDateString() : 'N/A'}
-                        </TableCell>
-                        <TableCell className="text-right space-x-1">
-                          <Button variant="ghost" size="icon" onClick={() => handleViewHistory(prospect)} aria-label={`View history for ${prospect.name}`}>
-                               <Eye className="h-4 w-4" />
-                               <span className="sr-only">View History</span>
-                          </Button>
-                        </TableCell>
-                      </TableRow>
+            {/* Mobile View */}
+            <div className="md:hidden space-y-3">
+                {isLoading && prospects.length === 0 ? (
+                    <div className="py-10"><LoadingSpinner text="Fetching histories..." /></div>
+                ) : filteredProspects.length > 0 ? (
+                    filteredProspects.map(prospect => (
+                        <HistoryMobileCard key={prospect.id} prospect={prospect} onView={handleViewHistory} />
                     ))
-                  ) : (
-                   <TableRow>
-                      <TableCell colSpan={5} className="h-24 text-center">
-                          <div className="flex flex-col items-center justify-center">
-                              <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
-                              <p className="font-semibold">
-                                {prospects.length === 0 && searchTerm === ''
-                                  ? "No conversation histories found."
-                                  : "No prospects found matching your search."
-                                }
-                              </p>
-                              {prospects.length === 0 && (
-                                   <p className="text-sm text-muted-foreground">
-                                      Start a conversation from the Outreach page.
-                                   </p>
-                              )}
-                          </div>
-                      </TableCell>
-                   </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                ) : (
+                    <div className="h-24 text-center flex flex-col items-center justify-center">
+                        <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
+                        <p className="font-semibold">No histories found.</p>
+                    </div>
+                )}
             </div>
-          )}
+
+            {/* Desktop View */}
+            <div className="overflow-x-auto hidden md:block">
+             {isLoading && prospects.length === 0 ? (
+                 <div className="py-10"><LoadingSpinner text="Fetching histories..." /></div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Prospect Name</TableHead>
+                      <TableHead className="hidden md:table-cell">IG Handle</TableHead>
+                      <TableHead>History Preview</TableHead>
+                      <TableHead className="hidden sm:table-cell">Last Contacted</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredProspects.length > 0 ? (
+                      filteredProspects.map((prospect) => (
+                        <TableRow key={prospect.id}>
+                          <TableCell className="font-medium">
+                            {prospect.name}
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell text-muted-foreground">
+                            {prospect.instagramHandle || <span className="italic">N/A</span>}
+                          </TableCell>
+                          <TableCell 
+                              className="max-w-xs truncate text-sm text-muted-foreground"
+                          >
+                              {prospect.conversationHistory?.split('\n').pop() || '...'}
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell text-muted-foreground">
+                            {prospect.lastContacted ? new Date(prospect.lastContacted).toLocaleDateString() : 'N/A'}
+                          </TableCell>
+                          <TableCell className="text-right space-x-1">
+                            <Button variant="ghost" size="icon" onClick={() => handleViewHistory(prospect)} aria-label={`View history for ${prospect.name}`}>
+                                 <Eye className="h-4 w-4" />
+                                 <span className="sr-only">View History</span>
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                     <TableRow>
+                        <TableCell colSpan={5} className="h-24 text-center">
+                            <div className="flex flex-col items-center justify-center">
+                                <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
+                                <p className="font-semibold">
+                                  {prospects.length === 0 && searchTerm === ''
+                                    ? "No conversation histories found."
+                                    : "No prospects found matching your search."
+                                  }
+                                </p>
+                                {prospects.length === 0 && (
+                                     <p className="text-sm text-muted-foreground">
+                                        Start a conversation from the Outreach page.
+                                     </p>
+                                )}
+                            </div>
+                        </TableCell>
+                     </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
         </CardContent>
       </Card>
     </div>
