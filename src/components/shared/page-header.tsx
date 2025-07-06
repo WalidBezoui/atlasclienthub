@@ -12,27 +12,27 @@ export function PageHeader({ title, description, icon: Icon, actions }: PageHead
   return (
     <div className="mb-6 sm:mb-8 pb-4 border-b border-border">
       {/* 
-        This layout is mobile-first. It defaults to a vertical column (`flex-col`).
-        On small screens and up (`sm:`), it switches to a horizontal row (`sm:flex-row`),
-        vertically centers items (`sm:items-center`), and pushes them apart (`sm:justify-between`).
-        This is a robust pattern for responsive headers.
+        This layout uses CSS Grid for a more robust responsive behavior.
+        It defaults to a single column (mobile), ensuring no overflow.
+        On medium screens and up (`md:`), it switches to a two-column grid.
+        The first column (`md:grid-cols-[1fr_auto]`) is flexible, and the second column sizes to its content.
+        This definitively solves the layout issue.
       */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] md:items-center gap-4">
         
         {/* Title, Description, and Icon Block */}
-        {/* `min-w-0` is crucial for flexbox to allow text content to shrink and wrap. */}
         <div className="flex items-center gap-3 min-w-0">
           {Icon && <Icon className="h-6 w-6 sm:h-7 sm:w-7 text-primary shrink-0" />}
-          <div className="min-w-0">
+          <div className="min-w-0"> {/* min-w-0 is still crucial for flex items to allow text wrapping */}
             <h1 className="text-xl sm:text-2xl md:text-3xl font-headline font-semibold text-foreground tracking-tight">{title}</h1>
             {description && <p className="text-sm text-muted-foreground mt-1">{description}</p>}
           </div>
         </div>
         
         {/* Actions Block */}
-        {/* `flex-shrink-0` prevents this container from being squashed by the title block. */}
+        {/* On mobile, this will stack below. On desktop, it goes into the second grid column and aligns to the end. */}
         {actions && (
-          <div className="flex-shrink-0">
+          <div className="md:justify-self-end">
             {actions}
           </div>
         )}
