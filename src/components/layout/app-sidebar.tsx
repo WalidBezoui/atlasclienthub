@@ -18,9 +18,15 @@ import { useAuth } from '@/hooks/useAuth'; // Import useAuth
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const isCollapsed = state === 'collapsed';
   const { user, loading: authLoading } = useAuth(); // Get user and loading state
+
+  const handleLinkClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
 
   // Hide sidebar content if user is not logged in and not loading
   // This prevents flashing sidebar content on login/signup pages
@@ -62,7 +68,7 @@ export function AppSidebar() {
         <SidebarMenu>
           {NAV_ITEMS.map((item) => (
             <SidebarMenuItem key={item.href}>
-              <Link href={item.href}>
+              <Link href={item.href} onClick={handleLinkClick}>
                 <SidebarMenuButton
                   asChild={false} 
                   className={cn(
