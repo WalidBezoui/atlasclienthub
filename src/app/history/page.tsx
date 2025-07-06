@@ -36,7 +36,7 @@ import { generateContextualScript, type GenerateContextualScriptInput } from '@/
 
 
 const HistoryMobileCard = ({ prospect, onView }: { prospect: OutreachProspect, onView: (prospect: OutreachProspect) => void }) => (
-    <Card className="p-4">
+    <Card className="p-4 overflow-hidden">
         <div className="flex justify-between items-start gap-4">
             <div className="flex-1 min-w-0">
                 <p className="font-semibold truncate">{prospect.name}</p>
