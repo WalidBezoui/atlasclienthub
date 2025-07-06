@@ -36,16 +36,14 @@ import { generateContextualScript, type GenerateContextualScriptInput } from '@/
 
 
 const HistoryMobileCard = ({ prospect, onView }: { prospect: OutreachProspect, onView: (prospect: OutreachProspect) => void }) => (
-    <Card className="p-4">
+    <Card className="p-4 overflow-hidden">
         <div className="flex justify-between items-start gap-4">
             <div className="flex-1 min-w-0">
                 <p className="font-semibold truncate">{prospect.name}</p>
                 <p className="text-sm text-muted-foreground truncate">{prospect.instagramHandle || 'N/A'}</p>
-                <div className="mt-2 border-l-2 pl-3 overflow-hidden">
-                    <p className="text-xs italic text-muted-foreground truncate">
-                        {prospect.conversationHistory?.split('\n').pop() || 'No history preview.'}
-                    </p>
-                </div>
+                <p className="mt-2 border-l-2 pl-3 text-xs italic text-muted-foreground truncate">
+                    {prospect.conversationHistory?.split('\n').pop() || 'No history preview.'}
+                </p>
             </div>
             <Button variant="outline" size="sm" onClick={() => onView(prospect)} className="flex-shrink-0">
                 <Eye className="mr-2 h-4 w-4"/>View
