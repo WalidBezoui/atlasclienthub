@@ -237,7 +237,7 @@ export default function DashboardPage() {
         description="Welcome back! Here's your smart overview for today."
         icon={LayoutDashboard}
         actions={
-          <Link href="/outreach" passHref>
+          <Link href="/outreach/new" passHref>
             <Button>
               <PlusCircle className="mr-2 h-4 w-4" /> Add Prospect
             </Button>

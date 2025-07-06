@@ -34,10 +34,10 @@ const QualifyProspectInputSchema = z.object({
   avgComments: z.number().nullable().describe("Average comments on recent posts."),
   biography: z.string().nullable().describe("The prospect's Instagram bio text."),
 
-  // User's Manual Assessment
-  userProfitabilityAssessment: z.string().describe("User's answer to the question about how the account makes money."),
-  userVisualsAssessment: z.string().describe("User's answer to the question about the account's visual branding."),
-  userStrategyAssessment: z.string().describe("User's answer to the question about the account's biggest strategic opportunity."),
+  // User's Manual Assessment - Optional, for when this is called without the form
+  userProfitabilityAssessment: z.string().optional().describe("User's answer to the question about how the account makes money."),
+  userVisualsAssessment: z.string().optional().describe("User's answer to the question about the account's visual branding."),
+  userStrategyAssessment: z.string().optional().describe("User's answer to the question about the account's biggest strategic opportunity."),
 });
 export type QualifyProspectInput = z.infer<typeof QualifyProspectInputSchema>;
 
@@ -68,21 +68,24 @@ const prompt = ai.definePrompt({
 - **Avg. Likes:** {{#if avgLikes}}{{avgLikes}}{{else}}N/A{{/if}}
 - **Avg. Comments:** {{#if avgComments}}{{avgComments}}{{else}}N/A{{/if}}
 
+{{#if userProfitabilityAssessment}}
 **USER'S MANUAL ASSESSMENT:**
 - **Primary way this account makes money:** "{{userProfitabilityAssessment}}"
 - **Description of their visual branding:** "{{userVisualsAssessment}}"
 - **Biggest strategic opportunity:** "{{userStrategyAssessment}}"
+{{/if}}
 
 ---
 **YOUR TASK:**
 
-1.  **Synthesize All Information**: Combine the raw data with the user's expert assessment. The user's input is a critical signal.
+1.  **Synthesize All Information**: Combine the raw data with the user's expert assessment if provided. If not, rely solely on the Instagram data. The user's input is a critical signal when available.
 2.  **Fill QualificationData Object**: Populate every field in the \`qualificationData\` object.
     -   Infer \`isBusiness\`, \`hasLowEngagement\`, \`hasNoClearCTA\`, \`contentPillarClarity\`, and \`salesFunnelStrength\` from the raw data.
-    -   **Crucially, map the user's text assessments to the correct enum values**:
+    -   **Crucially, if user assessment is present, map the user's text assessments to the correct enum values**:
         -   For \`profitabilityPotential\`: Map "{{userProfitabilityAssessment}}" to 'high', 'medium', or 'low'. (e.g., "high-ticket" -> 'high'; "products" -> 'medium'; "hobby" -> 'low').
         -   For \`hasInconsistentGrid\`: Map "{{userVisualsAssessment}}" to 'yes' or 'no'. (e.g., "Messy & Inconsistent" -> 'yes'; "Polished & On-Brand" -> 'no').
         -   For \`valueProposition\`: Map "{{userStrategyAssessment}}" to 'visuals', 'leads', or 'engagement'. (e.g., "Converting followers" -> 'leads').
+    -   **If user assessment is NOT present, make your best logical deduction from the raw data alone.**
 3.  **Calculate Lead Score**: Use the finalized \`qualificationData\` to calculate the \`leadScore\` based on the scoring model below.
 4.  **Identify Pain Points & Goals**: Based on the complete picture, select the most relevant \`painPoints\` and \`goals\`. For example, if \`hasInconsistentGrid\` is 'yes', a pain point is 'Inconsistent grid'. If \`valueProposition\` is 'leads', a goal is 'Attract ideal clients'.
 5.  **Write Summary**: Create a concise, 1-2 sentence summary of your analysis.

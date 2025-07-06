@@ -16,7 +16,7 @@ import type { OutreachProspect, OutreachLeadStage, BusinessType, PainPoint, Goal
 import { OUTREACH_LEAD_STAGE_OPTIONS, BUSINESS_TYPES, PAIN_POINTS, GOALS, LEAD_SOURCES, OFFER_INTERESTS, TONE_PREFERENCES, PROSPECT_LOCATIONS, ACCOUNT_STAGES } from '@/lib/types';
 import { RefreshCw, Loader2, Info, Briefcase, BarChart3, AlertCircle, Target, MessageSquare, Settings2, FileQuestion, Star } from 'lucide-react';
 import { Badge } from '../ui/badge';
-import { qualifyProspect } from '@/ai/flows/qualify-prospect';
+import { qualifyProspect, type QualifyProspectInput } from '@/ai/flows/qualify-prospect';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 const initialFormData: Omit<OutreachProspect, 'id' | 'userId'> = {
@@ -146,6 +146,10 @@ export function ProspectForm({ prospect, onSave, onCancel }: { prospect?: Outrea
             avgLikes: metricsResult.data.avgLikes,
             avgComments: metricsResult.data.avgComments,
             biography: metricsResult.data.biography,
+            // Provide default answers for a quicker re-qualification flow inside the form
+            userProfitabilityAssessment: 'Directly selling products (e-commerce, physical goods)',
+            userVisualsAssessment: 'Inconsistent & Messy (No clear visual direction or style)',
+            userStrategyAssessment: 'Brand Awareness (They need to establish a clear brand identity and reach new people)',
         });
 
         if (qualifyResult) {
