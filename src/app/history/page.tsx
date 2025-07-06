@@ -35,22 +35,27 @@ import { ConversationTracker } from '@/components/outreach/conversation-tracker'
 import { generateContextualScript, type GenerateContextualScriptInput } from '@/ai/flows/generate-contextual-script';
 
 
-const HistoryMobileCard = ({ prospect, onView }: { prospect: OutreachProspect, onView: (prospect: OutreachProspect) => void }) => (
-    <Card className="p-4 overflow-hidden">
-        <div className="flex justify-between items-start gap-4">
-            <div className="flex-1 min-w-0">
-                <p className="font-semibold truncate">{prospect.name}</p>
-                <p className="text-sm text-muted-foreground truncate">{prospect.instagramHandle || 'N/A'}</p>
-                <p className="mt-2 border-l-2 pl-3 text-xs italic text-muted-foreground truncate">
-                    {prospect.conversationHistory?.split('\n').pop() || 'No history preview.'}
-                </p>
+const HistoryMobileCard = ({ prospect, onView }: { prospect: OutreachProspect, onView: (prospect: OutreachProspect) => void }) => {
+    const lastMessage = prospect.conversationHistory?.split('\n').pop() || 'No history preview.';
+    const preview = lastMessage.length > 80 ? lastMessage.substring(0, 80) + '...' : lastMessage;
+
+    return (
+        <Card className="p-4 overflow-hidden">
+            <div className="flex justify-between items-start gap-4">
+                <div className="flex-1 min-w-0">
+                    <p className="font-semibold truncate">{prospect.name}</p>
+                    <p className="text-sm text-muted-foreground truncate">{prospect.instagramHandle || 'N/A'}</p>
+                    <blockquote className="mt-2 border-l-2 pl-3 text-xs italic text-muted-foreground">
+                        {preview}
+                    </blockquote>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => onView(prospect)} className="flex-shrink-0">
+                    <Eye className="mr-2 h-4 w-4"/>View
+                </Button>
             </div>
-            <Button variant="outline" size="sm" onClick={() => onView(prospect)} className="flex-shrink-0">
-                <Eye className="mr-2 h-4 w-4"/>View
-            </Button>
-        </div>
-    </Card>
-);
+        </Card>
+    );
+};
 
 export default function ConversationHistoryPage() {
   const { user, loading: authLoading } = useAuth();
