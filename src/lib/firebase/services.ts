@@ -509,9 +509,10 @@ export const getDashboardOverview = async (): Promise<{
   outreachSentThisMonth: number;
   newLeadsThisMonth: number;
   awaitingQualifierReply: number;
+  prospectsAddedThisMonth: number;
 }> => {
   const userId = getCurrentUserId();
-  if (!userId) return { activeClients: 0, auditsInProgress: 0, outreachToday: 0, outreachThisWeek: 0, outreachSentThisMonth: 0, newLeadsThisMonth: 0, awaitingQualifierReply: 0 };
+  if (!userId) return { activeClients: 0, auditsInProgress: 0, outreachToday: 0, outreachThisWeek: 0, outreachSentThisMonth: 0, newLeadsThisMonth: 0, awaitingQualifierReply: 0, prospectsAddedThisMonth: 0 };
 
   const now = new Date();
 
@@ -530,6 +531,8 @@ export const getDashboardOverview = async (): Promise<{
   const outreachTodayQuery = query(prospectsCollection, where('userId', '==', userId), where('lastContacted', '>=', todayStartTimestamp), where('lastContacted', '<=', todayEndTimestamp));
   const outreachThisWeekQuery = query(prospectsCollection, where('userId', '==', userId), where('lastContacted', '>=', weekStartTimestamp), where('lastContacted', '<=', weekEndTimestamp));
   const outreachSentThisMonthQuery = query(prospectsCollection, where('userId', '==', userId), where('lastContacted', '>=', monthStartTimestamp), where('lastContacted', '<=', monthEndTimestamp));
+  const prospectsAddedThisMonthQuery = query(prospectsCollection, where('userId', '==', userId), where('createdAt', '>=', monthStartTimestamp), where('createdAt', '<=', monthEndTimestamp));
+
 
   // For new leads, consider any positive engagement this month as a "lead"
   const newLeadsThisMonthQuery = query(prospectsCollection,
@@ -548,7 +551,8 @@ export const getDashboardOverview = async (): Promise<{
     outreachThisWeekSnapshot,
     outreachSentThisMonthSnapshot,
     newLeadsSnapshot,
-    awaitingQualifierSnapshot
+    awaitingQualifierSnapshot,
+    prospectsAddedSnapshot
   ] = await Promise.all([
     getCountFromServer(clientsQuery),
     getCountFromServer(auditsQuery),
@@ -557,6 +561,7 @@ export const getDashboardOverview = async (): Promise<{
     getCountFromServer(outreachSentThisMonthQuery),
     getCountFromServer(newLeadsThisMonthQuery),
     getCountFromServer(awaitingQualifierQuery),
+    getCountFromServer(prospectsAddedThisMonthQuery),
   ]);
 
   return {
@@ -567,6 +572,7 @@ export const getDashboardOverview = async (): Promise<{
     outreachSentThisMonth: outreachSentThisMonthSnapshot.data().count,
     newLeadsThisMonth: newLeadsSnapshot.data().count,
     awaitingQualifierReply: awaitingQualifierSnapshot.data().count,
+    prospectsAddedThisMonth: prospectsAddedSnapshot.data().count,
   };
 };
 
@@ -660,7 +666,7 @@ export const getMonthlyActivityData = async (): Promise<MonthlyActivity[]> => {
   }
   
   for (const monthName of monthLabels) {
-    activityData.push({ month: monthName, clients: 0, outreach: 0, audits: 0 });
+    activityData.push({ month: monthName, clients: 0, outreach: 0, audits: 0, prospects: 0 });
   }
 
   const sixMonthsAgoBoundary = startOfDay(startOfMonth(subMonths(today, 5)));
@@ -684,11 +690,17 @@ export const getMonthlyActivityData = async (): Promise<MonthlyActivity[]> => {
     where('requestedDate', '>=', sixMonthsAgoTimestamp),
     where('requestedDate', '<=', nowTimestamp)
   );
+  const prospectsQuery = query(prospectsCollection,
+    where('userId', '==', userId),
+    where('createdAt', '>=', sixMonthsAgoTimestamp),
+    where('createdAt', '<=', nowTimestamp)
+  );
 
-  const [clientsDocs, outreachDocs, auditsDocs] = await Promise.all([
+  const [clientsDocs, outreachDocs, auditsDocs, prospectsDocs] = await Promise.all([
     getDocs(clientsQuery),
     getDocs(outreachQuery),
     getDocs(auditsQuery),
+    getDocs(prospectsQuery),
   ]);
 
   clientsDocs.forEach(doc => {
@@ -719,9 +731,18 @@ export const getMonthlyActivityData = async (): Promise<MonthlyActivity[]> => {
       if (monthData) monthData.audits++;
     }
   });
+
+  prospectsDocs.forEach(doc => {
+    const createdAt = (doc.data().createdAt as Timestamp)?.toDate();
+    if (createdAt) {
+      const monthName = format(createdAt, 'MMM');
+      const monthData = activityData.find(m => m.month === monthName);
+      if (monthData && monthData.prospects !== undefined) monthData.prospects++;
+    }
+  });
   
   const correctlyOrderedActivityData = monthLabels.map(label => {
-    return activityData.find(ad => ad.month === label) || { month: label, clients: 0, outreach: 0, audits: 0 };
+    return activityData.find(ad => ad.month === label) || { month: label, clients: 0, outreach: 0, audits: 0, prospects: 0 };
   });
   return correctlyOrderedActivityData;
 };

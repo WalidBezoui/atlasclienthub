@@ -14,13 +14,13 @@ import {
 import { NAV_ITEMS } from '@/lib/constants';
 import { Logo } from './logo';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/hooks/useAuth'; // Import useAuth
+import { useAuth } from '@/hooks/useAuth'; 
 
 export function AppSidebar() {
   const pathname = usePathname();
   const { state, isMobile, setOpenMobile } = useSidebar();
   const isCollapsed = state === 'collapsed';
-  const { user, loading: authLoading } = useAuth(); // Get user and loading state
+  const { user, loading: authLoading } = useAuth(); 
 
   const handleLinkClick = () => {
     if (isMobile) {
@@ -28,8 +28,6 @@ export function AppSidebar() {
     }
   };
 
-  // Hide sidebar content if user is not logged in and not loading
-  // This prevents flashing sidebar content on login/signup pages
   if (!user && !authLoading && (pathname === '/login' || pathname === '/signup')) {
     return (
       <>
@@ -37,14 +35,11 @@ export function AppSidebar() {
           <Logo collapsed={isCollapsed} />
         </SidebarHeader>
         <SidebarContent>
-          {/* Optionally, show a message or minimal UI */}
         </SidebarContent>
       </>
     );
   }
   
-  // If still loading auth state, or user is not available yet (but not on login/signup)
-  // show a minimal sidebar to prevent layout shift or content flashing
   if (authLoading && !(pathname === '/login' || pathname === '/signup')) {
      return (
       <>
@@ -52,7 +47,6 @@ export function AppSidebar() {
           <Logo collapsed={isCollapsed} />
         </SidebarHeader>
         <SidebarContent>
-          {/* Can add Skeletons here if desired */}
         </SidebarContent>
       </>
     );

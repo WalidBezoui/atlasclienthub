@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, Suspense, useRef, useMemo } from 'react';
-import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, Bot, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileText, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare, Save, FileQuestion, GraduationCap, MoreHorizontal, Wrench, Telescope, Users, CheckSquare, ArrowUpDown } from 'lucide-react';
+import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, Bot, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileText, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare, Save, FileQuestion, GraduationCap, MoreHorizontal, Wrench, Telescope, Users, CheckSquare, ArrowUpDown, Check } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import * as papa from 'papaparse';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,10 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger,
   DropdownMenuItem,
-  DropdownMenuGroup
+  DropdownMenuGroup,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger
 } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -75,7 +78,7 @@ function OutreachPage() {
   const [prospects, setProspects] = useState<OutreachProspect[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilters, setStatusFilters] = useState<Set<OutreachLeadStage>>(new Set(OUTREACH_LEAD_STAGE_OPTIONS));
+  const [statusFilters, setStatusFilters] = useState<Set<OutreachLeadStage>>(new Set());
   const [showOnlyNeedsFollowUp, setShowOnlyNeedsFollowUp] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'lastActivity', direction: 'desc' });
   
@@ -126,7 +129,6 @@ function OutreachPage() {
             return aFollowUp ? -1 : 1;
         }
         
-        // Handle cases where createdAt might be missing for very old prospects
         const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
         const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
         
@@ -161,12 +163,15 @@ function OutreachPage() {
     }
   }, [user, authLoading, fetchProspects]);
   
-  // Effect for cleaning up timeouts on unmount
   useEffect(() => {
     const timeouts = timeoutMapRef.current;
     return () => {
       timeouts.forEach(clearTimeout);
     };
+  }, []);
+
+  const updateProspectInState = useCallback((id: string, updates: Partial<OutreachProspect>) => {
+    setProspects(current => current.map(p => p.id === id ? { ...p, ...updates } : p));
   }, []);
 
   const handleEvaluateProspect = async (prospect: OutreachProspect) => {
@@ -216,7 +221,7 @@ function OutreachPage() {
       await updateProspect(prospect.id, updates);
       toast({ id: toastId, title: 'Evaluation Complete!', description: `@${prospect.instagramHandle} has been updated.` });
       
-      setProspects(current => sortProspects(current.map(p => p.id === prospect.id ? { ...p, ...updates } : p)));
+      updateProspectInState(prospect.id, updates);
 
     } catch (error: any) {
       toast({ id: toastId, title: 'Evaluation Failed', description: error.message, variant: 'destructive' });
@@ -351,17 +356,16 @@ function OutreachPage() {
     if (prospectIds.length === 0) return;
 
     const contactDate = new Date().toISOString();
-    const newHistoryEntry: StatusHistoryItem = { status: newStatus, date: contactDate };
+    
+    const updatePromises = prospectIds.map(id => {
+      const prospectToUpdate = prospects.find(p => p.id === id);
+      const newHistoryEntry: StatusHistoryItem = { status: newStatus, date: contactDate };
+      const newStatusHistory = [...(prospectToUpdate?.statusHistory || []), newHistoryEntry];
+      return updateProspect(id, { status: newStatus, lastContacted: contactDate, statusHistory: newStatusHistory });
+    });
     
     try {
-        const updates = prospects
-            .filter(p => prospectIds.includes(p.id))
-            .map(p => {
-                const newStatusHistory = [...(p.statusHistory || []), newHistoryEntry];
-                return updateProspect(p.id, { status: newStatus, lastContacted: contactDate, statusHistory: newStatusHistory });
-            });
-        
-        await Promise.all(updates);
+        await Promise.all(updatePromises);
         toast({ title: 'Bulk Status Update Successful', description: `${prospectIds.length} prospects updated to "${newStatus}".` });
         setSelectedProspects(new Set());
         fetchProspects();
@@ -418,33 +422,34 @@ function OutreachPage() {
     const newHistoryEntry: StatusHistoryItem = { status: newStatus, date: newLastContacted };
     const newStatusHistory = [...(prospectToUpdate.statusHistory || []), newHistoryEntry];
     
+    const updates = { 
+      status: newStatus,
+      lastContacted: newLastContacted,
+      statusHistory: newStatusHistory
+    };
+
     try {
-      await updateProspect(prospectId, { 
-        status: newStatus,
-        lastContacted: newLastContacted,
-        statusHistory: newStatusHistory
-      });
-      fetchProspects();
+      await updateProspect(prospectId, updates);
+      updateProspectInState(prospectId, updates);
       toast({ title: "Status Updated", description: `Prospect status changed to ${newStatus}.` });
     } catch (error) {
       console.error("Error updating status:", error);
       toast({ title: "Error", description: "Failed to update status.", variant: "destructive" });
-      fetchProspects(); 
     }
-  }, [user, prospects, fetchProspects, toast]);
+  }, [user, prospects, toast, updateProspectInState]);
 
   const handleFollowUpToggle = useCallback(async (prospectId: string, currentFollowUpStatus: boolean) => {
     if (!user) return;
     const newFollowUpStatus = !currentFollowUpStatus;
     try {
         await updateProspect(prospectId, { followUpNeeded: newFollowUpStatus });
+        updateProspectInState(prospectId, { followUpNeeded: newFollowUpStatus });
         toast({ title: "Follow-up status updated." });
-        fetchProspects(); // Refetch to re-sort the list
     } catch (error) {
         console.error("Error updating follow-up status:", error);
         toast({ title: "Error", description: "Failed to update status.", variant: "destructive" });
     }
-  }, [user, fetchProspects, toast]);
+  }, [user, toast, updateProspectInState]);
 
   const handleScriptGenerationError = (error: any, title: string) => {
     console.error(title, error);
@@ -526,9 +531,9 @@ function OutreachPage() {
       
       try {
           await updateProspect(prospect.id, updates);
+          updateProspectInState(prospect.id, updates);
           toast({ title: "Conversation Updated", description: "Script has been saved to the conversation history and status updated." });
           setIsScriptModalOpen(false);
-          fetchProspects();
       } catch (error: any) {
           toast({ title: "Update Failed", description: error.message || 'Could not update prospect history.', variant: 'destructive' });
       }
@@ -555,29 +560,30 @@ function OutreachPage() {
     } finally {
         setIsGeneratingScript(false);
     }
-  }, [fetchProspects, toast]);
+  }, [toast, updateProspectInState]);
 
   const handleSendQualifier = useCallback(async (prospect: OutreachProspect, question: string) => {
       try {
           const contactDate = new Date().toISOString();
           const newStatus = 'Qualifier Sent';
           const newHistory = `${prospect.conversationHistory || ''}${prospect.conversationHistory ? '\n\n' : ''}Me: ${question}`.trim();
-          await updateProspect(prospect.id, {
+          const updates = {
               qualifierQuestion: question,
               qualifierSentAt: contactDate,
               status: newStatus,
               lastContacted: contactDate,
               statusHistory: [...(prospect.statusHistory || []), { status: newStatus, date: contactDate }],
               conversationHistory: newHistory,
-          });
+          };
+          await updateProspect(prospect.id, updates);
+          updateProspectInState(prospect.id, updates);
           toast({ title: "Qualifier Sent!", description: "Prospect status and conversation history updated." });
-          fetchProspects();
           setIsScriptModalOpen(false);
       } catch (error: any) {
           console.error("Error sending qualifier:", error);
           toast({ title: "Update Failed", description: "Could not update the prospect.", variant: "destructive" });
       }
-  }, [fetchProspects, toast]);
+  }, [toast, updateProspectInState]);
 
   const handleGenerateQualifier = useCallback(async (prospect: OutreachProspect) => {
     setCurrentProspectForScript(prospect);
@@ -729,7 +735,7 @@ function OutreachPage() {
       ].join(' ').toLowerCase();
 
       const searchTermMatch = searchTerms.every(term => prospectText.includes(term));
-      const statusMatch = (statusFilters.size === OUTREACH_LEAD_STAGE_OPTIONS.length || statusFilters.size === 0 || statusFilters.has(prospect.status));
+      const statusMatch = statusFilters.size === 0 || statusFilters.has(prospect.status);
       const followUpMatch = !showOnlyNeedsFollowUp || !!prospect.followUpNeeded;
 
       return searchTermMatch && statusMatch && followUpMatch;
@@ -740,7 +746,6 @@ function OutreachPage() {
     const { key, direction } = sortConfig;
     if (!key) return filteredProspects;
 
-    // A helper function to get the last activity date for sorting
     const getLastActivity = (prospect: OutreachProspect): number => {
       const dates = [
         prospect.createdAt,
@@ -751,7 +756,6 @@ function OutreachPage() {
     };
 
     return [...filteredProspects].sort((a, b) => {
-        // Special sort for 'Follow Up Needed' - always on top
         if (a.followUpNeeded && !b.followUpNeeded) return -1;
         if (!a.followUpNeeded && b.followUpNeeded) return 1;
 
@@ -872,14 +876,15 @@ function OutreachPage() {
     if (!currentProspectForConversation || !isConversationDirty) return;
     setIsSavingConversation(true);
     try {
-      await updateProspect(currentProspectForConversation.id, { 
+      const updates = { 
         conversationHistory: conversationHistoryContent,
         lastContacted: new Date().toISOString()
-      });
+      };
+      await updateProspect(currentProspectForConversation.id, updates);
+      updateProspectInState(currentProspectForConversation.id, updates);
       toast({ title: 'Conversation Saved', description: `History for ${currentProspectForConversation.name} updated.` });
       setIsConversationModalOpen(false);
       setCurrentProspectForConversation(null);
-      fetchProspects(); // Refetch to get the latest data
     } catch (error: any) {
       toast({ title: 'Save Failed', description: error.message || 'Could not save conversation.', variant: 'destructive' });
     } finally {
@@ -938,6 +943,13 @@ function OutreachPage() {
     });
   };
 
+  const handleSortChange = (key: string) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc'
+    }));
+  };
+
   return (
     <>
       <PageHeader
@@ -960,7 +972,7 @@ function OutreachPage() {
         isOpen={isCommentGeneratorOpen}
         onClose={() => setIsCommentGeneratorOpen(false)}
         prospect={prospectForComment}
-        onCommentAdded={fetchProspects}
+        onCommentAdded={() => updateProspectInState(prospectForComment!.id, { ...prospectForComment })}
       />
 
       <DiscoveryDialog
@@ -1122,17 +1134,11 @@ function OutreachPage() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>Sort Prospects By</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setSortConfig({ key: 'lastActivity', direction: 'desc' })}>Last Activity (Recent)</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortConfig({ key: 'lastActivity', direction: 'asc' })}>Last Activity (Oldest)</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortConfig({ key: 'createdAt', direction: 'desc' })}>Date Added (Newest)</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortConfig({ key: 'createdAt', direction: 'asc' })}>Date Added (Oldest)</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortConfig({ key: 'leadScore', direction: 'desc' })}>Lead Score (High-Low)</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortConfig({ key: 'leadScore', direction: 'asc' })}>Lead Score (Low-High)</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortConfig({ key: 'followerCount', direction: 'desc' })}>Followers (High-Low)</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortConfig({ key: 'followerCount', direction: 'asc' })}>Followers (Low-High)</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortConfig({ key: 'name', direction: 'asc' })}>Name (A-Z)</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleSortChange('lastActivity')}>Last Activity {sortConfig.key === 'lastActivity' && <Check className="ml-auto h-4 w-4" />}</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleSortChange('createdAt')}>Date Added {sortConfig.key === 'createdAt' && <Check className="ml-auto h-4 w-4" />}</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleSortChange('leadScore')}>Lead Score {sortConfig.key === 'leadScore' && <Check className="ml-auto h-4 w-4" />}</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleSortChange('followerCount')}>Followers {sortConfig.key === 'followerCount' && <Check className="ml-auto h-4 w-4" />}</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleSortChange('name')}>Name {sortConfig.key === 'name' && <Check className="ml-auto h-4 w-4" />}</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
               <DropdownMenu>
@@ -1147,7 +1153,7 @@ function OutreachPage() {
                   {OUTREACH_LEAD_STAGE_OPTIONS.map((status) => (
                     <DropdownMenuCheckboxItem
                       key={status}
-                      checked={statusFilters.size === 0 || statusFilters.has(status)}
+                      checked={statusFilters.has(status)}
                       onCheckedChange={() => toggleStatusFilter(status)}
                     >
                       {status}
@@ -1185,6 +1191,7 @@ function OutreachPage() {
                         onGenerateQualifier={handleGenerateQualifier}
                         onEvaluate={handleEvaluateProspect}
                         onDelete={setProspectToDelete}
+                        onGenerateScript={handleGenerateScript}
                       />
                   ))
               ) : (

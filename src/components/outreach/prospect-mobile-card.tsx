@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import type { OutreachProspect, OutreachLeadStage } from '@/lib/types';
 import { OUTREACH_LEAD_STAGE_OPTIONS } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuGroup, DropdownMenuLabel, DropdownMenuSeparator } from '../ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuGroup, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from '../ui/dropdown-menu';
 import { Button } from '../ui/button';
 import { MoreHorizontal, Edit, MessagesSquare, GraduationCap, Bot, MessageCircle, FileQuestion, Trash2 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
@@ -26,6 +26,7 @@ interface ProspectMobileCardProps {
   onGenerateQualifier: (prospect: OutreachProspect) => void;
   onEvaluate: (prospect: OutreachProspect) => void;
   onDelete: (prospect: OutreachProspect) => void;
+  onGenerateScript: (prospect: OutreachProspect, scriptType: any) => void;
 }
 
 const ProspectMobileCard = React.memo(({
@@ -39,7 +40,8 @@ const ProspectMobileCard = React.memo(({
   onGenerateComment,
   onGenerateQualifier,
   onEvaluate,
-  onDelete
+  onDelete,
+  onGenerateScript
 }: ProspectMobileCardProps) => {
 
     const formatNumber = (num: number | null | undefined): string => {
@@ -62,19 +64,19 @@ const ProspectMobileCard = React.memo(({
     return (
         <Card className={cn("p-4", prospect.followUpNeeded && 'bg-primary/10')}>
             <div className="flex justify-between items-start gap-4">
-                <div className="flex items-start gap-3 flex-grow">
+                <div className="flex items-start gap-3 flex-grow min-w-0">
                     <Checkbox
                         checked={isSelected}
                         onCheckedChange={() => onToggleSelect(prospect.id)}
                         className="mt-1"
                         aria-label={`Select prospect ${prospect.name}`}
                     />
-                    <div className="flex-grow">
-                        <p className="font-semibold">{prospect.name}</p>
+                    <div className="flex-grow min-w-0">
+                        <p className="font-semibold truncate">{prospect.name}</p>
                         <a
                             href={`https://instagram.com/${prospect.instagramHandle?.replace('@', '')}`}
                             target="_blank" rel="noopener noreferrer"
-                            className="text-sm text-muted-foreground hover:underline"
+                            className="text-sm text-muted-foreground hover:underline truncate"
                         >
                             {prospect.instagramHandle || 'N/A'}
                         </a>
@@ -87,9 +89,24 @@ const ProspectMobileCard = React.memo(({
                     <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => onEdit(prospect)}><Edit className="mr-2 h-4 w-4"/>Edit</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onViewConversation(prospect)}><MessagesSquare className="mr-2 h-4 w-4"/>Conversation</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onGenerateComment(prospect)}><MessageCircle className="mr-2 h-4 w-4"/>Generate Comment</DropdownMenuItem>
                         <DropdownMenuSeparator/>
-                        <DropdownMenuItem onClick={() => onEvaluate(prospect)}><Bot className="mr-2 h-4 w-4"/>Evaluate</DropdownMenuItem>
+                        <DropdownMenuSub>
+                           <DropdownMenuSubTrigger><Bot className="mr-2 h-4 w-4"/>AI Actions</DropdownMenuSubTrigger>
+                           <DropdownMenuSubContent>
+                                <DropdownMenuItem onClick={() => onEvaluate(prospect)}>Evaluate</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => onGenerateComment(prospect)}>Generate Comment</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => onGenerateQualifier(prospect)}>Ask Qualifier Question</DropdownMenuItem>
+                           </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+                        <DropdownMenuSub>
+                           <DropdownMenuSubTrigger><Bot className="mr-2 h-4 w-4"/>Generate Script</DropdownMenuSubTrigger>
+                           <DropdownMenuSubContent>
+                                <DropdownMenuItem onClick={() => onGenerateScript(prospect, 'Cold Outreach DM')}>Cold Outreach DM</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => onGenerateScript(prospect, 'Warm Follow-Up DM')}>Warm Follow-Up</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => onGenerateScript(prospect, 'Audit Delivery Message')}>Deliver Audit</DropdownMenuItem>
+                           </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+                        <DropdownMenuSeparator/>
                          <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>

@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useEffect, useState, useCallback } from 'react';
 import { LayoutDashboard, Users, Send, ListChecks, PlusCircle, TrendingUp, CheckSquare, Rocket, Calendar, HelpCircle, BarChart3, Building } from 'lucide-react';
@@ -11,7 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { getDashboardOverview, getMonthlyActivityData, getDailyAgendaItems } from '@/lib/firebase/services';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
-import type { MonthlyActivity, AgendaItem } from '@/lib/types';
+import type { MonthlyActivity, AgendaItem, OutreachProspect } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { format, subMonths, formatDistanceToNow, isPast } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -26,6 +27,7 @@ const initialOverviewData = {
   outreachSentThisMonth: 0,
   newLeadsThisMonth: 0,
   awaitingQualifierReply: 0,
+  prospectsAddedThisMonth: 0,
 };
 
 const initialChartData: MonthlyActivity[] = Array(6).fill(null).map((_, i) => ({ month: format(subMonths(new Date(), 5 - i), 'MMM'), clients: 0, outreach: 0, audits: 0 }));
@@ -90,7 +92,7 @@ const AgendaItemCard = ({ item }: { item: AgendaItem }) => {
 const DashboardSkeleton = () => (
     <div className="space-y-6">
         <PageHeader title="Dashboard" description="Welcome back! Here's your smart overview for today." icon={LayoutDashboard} />
-        <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
             {Array(4).fill(0).map((_, index) => (
                 <Card key={index}><CardHeader className="pb-2"><Skeleton className="h-4 w-3/4" /></CardHeader><CardContent><Skeleton className="h-8 w-1/2" /></CardContent></Card>
             ))}
@@ -143,7 +145,7 @@ export default function DashboardPage() {
   const displayOverviewData = [
     { metric: 'Active Clients', value: overviewData.activeClients, icon: Users, color: 'text-green-500' },
     { metric: 'Outreach Today', value: overviewData.outreachToday, icon: Rocket, color: 'text-blue-500' },
-    { metric: 'New Leads (Month)', value: overviewData.newLeadsThisMonth, icon: TrendingUp, color: 'text-yellow-500' },
+    { metric: 'New Prospects (Month)', value: overviewData.prospectsAddedThisMonth, icon: TrendingUp, color: 'text-yellow-500' },
     { metric: 'Awaiting Reply', value: overviewData.awaitingQualifierReply, icon: HelpCircle, color: 'text-purple-500' },
   ];
 
@@ -167,7 +169,7 @@ export default function DashboardPage() {
         }
       />
 
-       <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         {displayOverviewData.map((item) => (
           <Card key={item.metric}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

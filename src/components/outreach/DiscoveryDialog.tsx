@@ -385,7 +385,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
                                             </Button>
                                             <AccordionTrigger asChild>
                                                 <Button size="sm" variant="outline">
-                                                    <BrainCircuit className="mr-2 h-4 w-4" /> {evaluation ? "Re-evaluate" : "Evaluate"}
+                                                    <BrainCircuit className="mr-2 h-4 w-4" />
                                                 </Button>
                                             </AccordionTrigger>
                                         </div>

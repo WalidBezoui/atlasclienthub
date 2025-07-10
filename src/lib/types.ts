@@ -55,7 +55,7 @@ export type GeneratedComment = {
 };
 
 export type StatusHistoryItem = {
-  status: OutreachLeadStage;
+  status: OutreachLeadStage | 'Added';
   date: string; // ISO date string
 };
 
@@ -173,4 +173,5 @@ export type MonthlyActivity = {
   clients: number;
   outreach: number;
   audits: number;
+  prospects?: number;
 };
