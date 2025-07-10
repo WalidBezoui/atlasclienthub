@@ -508,11 +508,11 @@ export const getDashboardOverview = async (): Promise<{
   outreachThisWeek: number;
   outreachSentThisMonth: number;
   newLeadsThisMonth: number;
-  awaitingQualifierReply: number;
+  coldProspects: number;
   prospectsAddedThisMonth: number;
 }> => {
   const userId = getCurrentUserId();
-  if (!userId) return { activeClients: 0, auditsInProgress: 0, outreachToday: 0, outreachThisWeek: 0, outreachSentThisMonth: 0, newLeadsThisMonth: 0, awaitingQualifierReply: 0, prospectsAddedThisMonth: 0 };
+  if (!userId) return { activeClients: 0, auditsInProgress: 0, outreachToday: 0, outreachThisWeek: 0, outreachSentThisMonth: 0, newLeadsThisMonth: 0, coldProspects: 0, prospectsAddedThisMonth: 0 };
 
   const now = new Date();
 
@@ -542,7 +542,7 @@ export const getDashboardOverview = async (): Promise<{
     where('lastContacted', '<=', monthEndTimestamp)
   );
 
-  const awaitingQualifierQuery = query(prospectsCollection, where('userId', '==', userId), where('status', '==', 'Qualifier Sent'));
+  const coldProspectsQuery = query(prospectsCollection, where('userId', '==', userId), where('status', '==', 'Cold'));
 
   const [
     clientsSnapshot,
@@ -551,7 +551,7 @@ export const getDashboardOverview = async (): Promise<{
     outreachThisWeekSnapshot,
     outreachSentThisMonthSnapshot,
     newLeadsSnapshot,
-    awaitingQualifierSnapshot,
+    coldProspectsSnapshot,
     prospectsAddedSnapshot
   ] = await Promise.all([
     getCountFromServer(clientsQuery),
@@ -560,7 +560,7 @@ export const getDashboardOverview = async (): Promise<{
     getCountFromServer(outreachThisWeekQuery),
     getCountFromServer(outreachSentThisMonthQuery),
     getCountFromServer(newLeadsThisMonthQuery),
-    getCountFromServer(awaitingQualifierQuery),
+    getCountFromServer(coldProspectsQuery),
     getCountFromServer(prospectsAddedThisMonthQuery),
   ]);
 
@@ -571,7 +571,7 @@ export const getDashboardOverview = async (): Promise<{
     outreachThisWeek: outreachThisWeekSnapshot.data().count,
     outreachSentThisMonth: outreachSentThisMonthSnapshot.data().count,
     newLeadsThisMonth: newLeadsSnapshot.data().count,
-    awaitingQualifierReply: awaitingQualifierSnapshot.data().count,
+    coldProspects: coldProspectsSnapshot.data().count,
     prospectsAddedThisMonth: prospectsAddedSnapshot.data().count,
   };
 };

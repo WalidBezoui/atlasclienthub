@@ -26,7 +26,7 @@ const initialOverviewData = {
   outreachThisWeek: 0,
   outreachSentThisMonth: 0,
   newLeadsThisMonth: 0,
-  awaitingQualifierReply: 0,
+  coldProspects: 0,
   prospectsAddedThisMonth: 0,
 };
 
@@ -146,7 +146,7 @@ export default function DashboardPage() {
     { metric: 'Active Clients', value: overviewData.activeClients, icon: Users, color: 'text-green-500' },
     { metric: 'Outreach Today', value: overviewData.outreachToday, icon: Rocket, color: 'text-blue-500' },
     { metric: 'New Prospects (Month)', value: overviewData.prospectsAddedThisMonth, icon: TrendingUp, color: 'text-yellow-500' },
-    { metric: 'Awaiting Reply', value: overviewData.awaitingQualifierReply, icon: HelpCircle, color: 'text-purple-500' },
+    { metric: 'Awaiting Reply (Cold)', value: overviewData.coldProspects, icon: HelpCircle, color: 'text-purple-500' },
   ];
 
   if (!isClient || authLoading) {
