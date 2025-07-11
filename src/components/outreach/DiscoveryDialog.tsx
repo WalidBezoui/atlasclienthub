@@ -37,11 +37,12 @@ const visualsQuestions = [
   "Outdated or Unprofessional (Poor quality images, bad design)",
   "Too New to Judge"
 ];
-const contentPillarQuestions = [
-  "Very Clear (I know exactly what they post about from a quick glance)",
-  "Somewhat Clear (I can guess the topics, but it's not obvious)",
-  "Unclear / Random (Posts seem to have no consistent theme or topic)"
+const strategyQuestions = [
+  "Brand Awareness (They need to establish a clear brand identity and reach new people)",
+  "Increasing engagement with current followers (Middle of Funnel)",
+  "Converting followers into sales/leads (Bottom of Funnel)"
 ];
+
 
 interface DiscoveryDialogProps {
   isOpen: boolean;
@@ -90,8 +91,8 @@ const EvaluationForm = ({ onAnalyze, onCancel, isAnalyzing, setProfitability, se
                 <RadioGroup onValueChange={setVisuals} className="space-y-1">{visualsQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><RadioGroupItem value={o} id={`visual-${o}`} /><Label htmlFor={`visual-${o}`} className="font-normal text-xs">{o}</Label></div>)}</RadioGroup>
             </div>
             <div>
-                <Label className="font-medium text-xs mb-2 block">4. How clear are their main content topics (pillars)?</Label>
-                <RadioGroup onValueChange={setStrategy} className="space-y-1">{contentPillarQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><RadioGroupItem value={o} id={`strategy-${o}`} /><Label htmlFor={`strategy-${o}`} className="font-normal text-xs">{o}</Label></div>)}</RadioGroup>
+                <Label className="font-medium text-xs mb-2 block">4. What is their primary strategic focus right now?</Label>
+                <RadioGroup onValueChange={setStrategy} className="space-y-1">{strategyQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><RadioGroupItem value={o} id={`strategy-${o}`} /><Label htmlFor={`strategy-${o}`} className="font-normal text-xs">{o}</Label></div>)}</RadioGroup>
             </div>
             <div className="flex justify-end gap-2 pt-2">
                 <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
@@ -263,7 +264,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
         biography: metrics.biography || null,
         userProfitabilityAssessment: profitabilityAnswer,
         userVisualsAssessment: visualsAnswer,
-        userContentPillarAssessment: strategyAnswer,
+        userStrategyAssessment: strategyAnswer,
         industry: industryAnswer,
       };
       const result = await qualifyProspect(input);

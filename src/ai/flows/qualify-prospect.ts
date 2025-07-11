@@ -41,7 +41,7 @@ const QualifyProspectInputSchema = z.object({
   industry: z.string().describe("User's answer about the prospect's industry and niche."),
   userProfitabilityAssessment: z.string().describe("User's answer to the question about how the account makes money."),
   userVisualsAssessment: z.string().describe("User's answer to the question about the account's visual branding."),
-  userContentPillarAssessment: z.string().describe("User's answer to the question about the clarity of their content pillars."),
+  userStrategyAssessment: z.string().describe("User's answer to the question about the account's primary strategic focus (e.g., Awareness, Engagement, Sales)."),
 });
 export type QualifyProspectInput = z.infer<typeof QualifyProspectInputSchema>;
 
@@ -76,7 +76,7 @@ const prompt = ai.definePrompt({
 - **Industry & Niche:** "{{industry}}"
 - **Primary way this account makes money:** "{{userProfitabilityAssessment}}"
 - **Description of their visual branding:** "{{userVisualsAssessment}}"
-- **Clarity of their content pillars:** "{{userContentPillarAssessment}}"
+- **Primary strategic focus right now:** "{{userStrategyAssessment}}"
 
 ---
 **YOUR TASK:**
@@ -88,10 +88,10 @@ const prompt = ai.definePrompt({
     -   **Crucially, map the user's text assessments to the correct enum values**:
         -   For \`profitabilityPotential\`: Map "{{userProfitabilityAssessment}}" to 'high', 'medium', or 'low'. (e.g., "high-ticket" -> 'high'; "products" -> 'medium'; "hobby" -> 'low').
         -   For \`hasInconsistentGrid\`: Map "{{userVisualsAssessment}}" to 'yes' if it's "Inconsistent & Messy" or "Outdated", otherwise 'no'.
-        -   For \`contentPillarClarity\`: Map "{{userContentPillarAssessment}}" to 'very-clear', 'somewhat-clear', or 'unclear'.
+        -   For \`contentPillarClarity\`: Infer this based on the strategic focus. If focus is "Brand Awareness", clarity is likely 'unclear' or 'somewhat-clear'. If "Sales/Leads", it's likely 'very-clear'.
     -   Based on the synthesis, determine the primary \`valueProposition\` we can offer: 'visuals' (if grid/branding is weak), 'leads' (if they sell but have low engagement/weak funnel), or 'engagement' (if they have good content but low interaction).
 3.  **Calculate Lead Score**: Use the finalized \`qualificationData\` to calculate the \`leadScore\` based on the scoring model below.
-4.  **Identify Pain Points & Goals**: Based on the complete picture, select the most relevant \`painPoints\` and \`goals\`. For example, if \`hasInconsistentGrid\` is 'yes', a pain point is 'Inconsistent grid'. If \`valueProposition\` is 'leads', a goal is 'Attract ideal clients'.
+4.  **Identify Pain Points & Goals**: Based on the complete picture, select the most relevant \`painPoints\` and \`goals\`. For example, if \`hasInconsistentGrid\` is 'yes', a pain point is 'Inconsistent grid'. If \`valueProposition\` is 'leads', a goal is 'Attract ideal clients'. The 'userStrategyAssessment' is a huge hint for their goals.
 5.  **Write Summary**: Create a concise, 1-2 sentence summary of your analysis, mentioning the industry.
 
 ---
