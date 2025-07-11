@@ -31,18 +31,18 @@ const profitabilityQuestions = [
   "It's unclear, seems like a hobby or personal account"
 ];
 const visualsQuestions = [
-  "Inconsistent & Messy (No clear visual direction or style)",
-  "Clean but Generic (Looks like a template, lacks personality)",
-  "Great content, but the grid is messy and disorganized",
   "Highly Polished & Professional (Looks expensive, great branding)",
+  "Great content, but the grid is messy and disorganized",
+  "Clean but Generic (Looks like a template, lacks personality)",
+  "Inconsistent & Messy (No clear visual direction or style)",
   "Outdated or Unprofessional (Poor quality images, bad design)",
 ];
 const ctaQuestions = [
   "Strong, direct link to a sales page, booking site, or freebie",
-  "Generic linktree or similar with multiple, unfocused links",
   "Simple link to a homepage with no clear next step",
-  "No link in bio at all, or a broken link",
-  "Weak CTA like 'DM for info' with no link"
+  "Generic linktree or similar with multiple, unfocused links",
+  "Weak CTA like 'DM for info' with no link",
+  "No link in bio at all, or a broken link"
 ];
 
 
