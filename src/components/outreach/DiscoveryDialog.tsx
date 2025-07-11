@@ -33,14 +33,16 @@ const profitabilityQuestions = [
 const visualsQuestions = [
   "Inconsistent & Messy (No clear visual direction or style)",
   "Clean but Generic (Looks like a template, lacks personality)",
+  "Great content, but the grid is messy and disorganized",
   "Highly Polished & Professional (Looks expensive, great branding)",
   "Outdated or Unprofessional (Poor quality images, bad design)",
-  "Too New to Judge"
 ];
-const strategyQuestions = [
-  "Brand Awareness (They need to establish a clear brand identity and reach new people)",
-  "Increasing engagement with current followers (Middle of Funnel)",
-  "Converting followers into sales/leads (Bottom of Funnel)"
+const ctaQuestions = [
+  "Strong, direct link to a sales page, booking site, or freebie",
+  "Generic linktree or similar with multiple, unfocused links",
+  "Simple link to a homepage with no clear next step",
+  "No link in bio at all, or a broken link",
+  "Weak CTA like 'DM for info' with no link"
 ];
 
 
@@ -65,13 +67,13 @@ const getLeadScoreBadgeVariant = (score: number | null | undefined): "default" |
     return "destructive";
 };
 
-const EvaluationForm = ({ onAnalyze, onCancel, isAnalyzing, setProfitability, setVisuals, setStrategy, setIndustry, canSubmit }: {
+const EvaluationForm = ({ onAnalyze, onCancel, isAnalyzing, setProfitability, setVisuals, setCta, setIndustry, canSubmit }: {
     onAnalyze: () => void;
     onCancel: () => void;
     isAnalyzing: boolean;
     setProfitability: (value: string) => void;
     setVisuals: (value: string) => void;
-    setStrategy: (value: string) => void;
+    setCta: (value: string) => void;
     setIndustry: (value: string) => void;
     canSubmit: boolean;
 }) => (
@@ -91,8 +93,8 @@ const EvaluationForm = ({ onAnalyze, onCancel, isAnalyzing, setProfitability, se
                 <RadioGroup onValueChange={setVisuals} className="space-y-1">{visualsQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><RadioGroupItem value={o} id={`visual-${o}`} /><Label htmlFor={`visual-${o}`} className="font-normal text-xs">{o}</Label></div>)}</RadioGroup>
             </div>
             <div>
-                <Label className="font-medium text-xs mb-2 block">4. What is their primary strategic focus right now?</Label>
-                <RadioGroup onValueChange={setStrategy} className="space-y-1">{strategyQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><RadioGroupItem value={o} id={`strategy-${o}`} /><Label htmlFor={`strategy-${o}`} className="font-normal text-xs">{o}</Label></div>)}</RadioGroup>
+                <Label className="font-medium text-xs mb-2 block">4. What is the state of their bio & call-to-action (CTA)?</Label>
+                <RadioGroup onValueChange={setCta} className="space-y-1">{ctaQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><RadioGroupItem value={o} id={`cta-${o}`} /><Label htmlFor={`cta-${o}`} className="font-normal text-xs">{o}</Label></div>)}</RadioGroup>
             </div>
             <div className="flex justify-end gap-2 pt-2">
                 <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
@@ -124,7 +126,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
   const [industryAnswer, setIndustryAnswer] = useState<string | undefined>();
   const [profitabilityAnswer, setProfitabilityAnswer] = useState<string | undefined>();
   const [visualsAnswer, setVisualsAnswer] = useState<string | undefined>();
-  const [strategyAnswer, setStrategyAnswer] = useState<string | undefined>();
+  const [ctaAnswer, setCtaAnswer] = useState<string | undefined>();
 
 
   const { toast } = useToast();
@@ -144,7 +146,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
     setIndustryAnswer(undefined);
     setProfitabilityAnswer(undefined);
     setVisualsAnswer(undefined);
-    setStrategyAnswer(undefined);
+    setCtaAnswer(undefined);
   };
 
   const handleClose = () => {
@@ -157,7 +159,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
       setIndustryAnswer(undefined);
       setProfitabilityAnswer(undefined);
       setVisualsAnswer(undefined);
-      setStrategyAnswer(undefined);
+      setCtaAnswer(undefined);
       setEvaluatingHandle(value);
     } else { // Accordion is closing
       setEvaluatingHandle(null);
@@ -245,7 +247,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
   };
   
   const handleEvaluationSubmit = async () => {
-    if (!evaluatingHandle || !profitabilityAnswer || !visualsAnswer || !strategyAnswer || !industryAnswer) {
+    if (!evaluatingHandle || !profitabilityAnswer || !visualsAnswer || !ctaAnswer || !industryAnswer) {
       toast({ title: "Missing Input", description: "Please answer all questions to proceed.", variant: "destructive" });
       return;
     }
@@ -264,7 +266,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
         biography: metrics.biography || null,
         userProfitabilityAssessment: profitabilityAnswer,
         userVisualsAssessment: visualsAnswer,
-        userStrategyAssessment: strategyAnswer,
+        userCtaAssessment: ctaAnswer,
         industry: industryAnswer,
       };
       const result = await qualifyProspect(input);
@@ -409,8 +411,8 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
                                             setIndustry={setIndustryAnswer}
                                             setProfitability={setProfitabilityAnswer}
                                             setVisuals={setVisualsAnswer}
-                                            setStrategy={setStrategyAnswer}
-                                            canSubmit={!!(industryAnswer && profitabilityAnswer && visualsAnswer && strategyAnswer)}
+                                            setCta={setCtaAnswer}
+                                            canSubmit={!!(industryAnswer && profitabilityAnswer && visualsAnswer && ctaAnswer)}
                                         />
                                     </AccordionContent>
                                 </Card>

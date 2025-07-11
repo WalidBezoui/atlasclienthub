@@ -29,14 +29,16 @@ const profitabilityQuestions = [
 const visualsQuestions = [
   "Inconsistent & Messy (No clear visual direction or style)",
   "Clean but Generic (Looks like a template, lacks personality)",
+  "Great content, but the grid is messy and disorganized",
   "Highly Polished & Professional (Looks expensive, great branding)",
   "Outdated or Unprofessional (Poor quality images, bad design)",
-  "Too New to Judge"
 ];
-const strategyQuestions = [
-  "Brand Awareness (They need to establish a clear brand identity and reach new people)",
-  "Increasing engagement with current followers (Middle of Funnel)",
-  "Converting followers into sales/leads (Bottom of Funnel)"
+const ctaQuestions = [
+  "Strong, direct link to a sales page, booking site, or freebie",
+  "Generic linktree or similar with multiple, unfocused links",
+  "Simple link to a homepage with no clear next step",
+  "No link in bio at all, or a broken link",
+  "Weak CTA like 'DM for info' with no link"
 ];
 
 
@@ -58,7 +60,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
   const [industryAnswer, setIndustryAnswer] = useState<string | undefined>();
   const [profitabilityAnswer, setProfitabilityAnswer] = useState<string | undefined>(undefined);
   const [visualsAnswer, setVisualsAnswer] = useState<string | undefined>(undefined);
-  const [strategyAnswer, setStrategyAnswer] = useState<string | undefined>(undefined);
+  const [ctaAnswer, setCtaAnswer] = useState<string | undefined>(undefined);
 
   const [isLoading, setIsLoading] = useState(false);
 
@@ -72,7 +74,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
     setIndustryAnswer(undefined);
     setProfitabilityAnswer(undefined);
     setVisualsAnswer(undefined);
-    setStrategyAnswer(undefined);
+    setCtaAnswer(undefined);
     setIsLoading(false);
   };
 
@@ -108,7 +110,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
   };
   
   const handleFinalAnalysis = async () => {
-    if (!fetchedMetrics || !profitabilityAnswer || !visualsAnswer || !strategyAnswer || !industryAnswer) {
+    if (!fetchedMetrics || !profitabilityAnswer || !visualsAnswer || !ctaAnswer || !industryAnswer) {
         toast({ title: "Missing Input", description: "Please answer all questions to proceed.", variant: "destructive" });
         return;
     }
@@ -126,7 +128,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
             biography: fetchedMetrics.biography || null,
             userProfitabilityAssessment: profitabilityAnswer,
             userVisualsAssessment: visualsAnswer,
-            userStrategyAssessment: strategyAnswer,
+            userCtaAssessment: ctaAnswer,
             industry: industryAnswer,
         };
 
@@ -286,13 +288,12 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
                     </RadioGroup>
                  </div>
                  <Separator/>
-
-                 <div>
-                    <Label className="font-semibold flex items-center mb-2"><HelpCircle className="mr-2 h-4 w-4 text-amber-600" />What is their primary strategic focus right now?</Label>
-                     <RadioGroup value={strategyAnswer} onValueChange={setStrategyAnswer} className="space-y-2">
-                      {strategyQuestions.map((option) => (
+                  <div>
+                    <Label className="font-semibold flex items-center mb-2"><HelpCircle className="mr-2 h-4 w-4 text-amber-600" />What is the state of their bio & call-to-action (CTA)?</Label>
+                     <RadioGroup value={ctaAnswer} onValueChange={setCtaAnswer} className="space-y-2">
+                      {ctaQuestions.map((option) => (
                         <div key={option} className="flex items-center space-x-2">
-                          <RadioGroupItem value={option} id={`rapid-strategy-${option.replace(/\s/g, '-')}`} /><Label htmlFor={`rapid-strategy-${option.replace(/\s/g, '-')}`} className="font-normal cursor-pointer">{option}</Label>
+                          <RadioGroupItem value={option} id={`rapid-cta-${option.replace(/\s/g, '-')}`} /><Label htmlFor={`rapid-cta-${option.replace(/\s/g, '-')}`} className="font-normal cursor-pointer">{option}</Label>
                         </div>
                       ))}
                     </RadioGroup>
@@ -331,7 +332,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
       return (
         <DialogFooter className="mt-auto shrink-0 border-t pt-4">
           <Button variant="outline" onClick={() => setStep('initial')}><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
-          <Button onClick={handleFinalAnalysis} disabled={!profitabilityAnswer || !visualsAnswer || !strategyAnswer || !industryAnswer}>
+          <Button onClick={handleFinalAnalysis} disabled={!profitabilityAnswer || !visualsAnswer || !ctaAnswer || !industryAnswer}>
             Analyze <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </DialogFooter>
