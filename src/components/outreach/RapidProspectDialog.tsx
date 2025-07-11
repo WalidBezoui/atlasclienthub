@@ -20,23 +20,23 @@ import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 type Step = 'initial' | 'fetching' | 'questions' | 'analyzing' | 'results';
 
 const profitabilityQuestions = [
-  "High-ticket services (coaching, consulting, agency work)",
-  "Directly selling products (e-commerce, physical goods)",
-  "Local services (salon, restaurant, in-person business)",
-  "Affiliate marketing or brand sponsorships",
-  "Unclear or likely a hobby/personal account"
+  "Sells high-ticket services (coaching, consulting, agency work)",
+  "Sells physical or digital products (e-commerce, courses)",
+  "Is a local business (brick-and-mortar, in-person services)",
+  "Monetizes through brand deals or affiliate marketing",
+  "It's unclear, seems like a hobby or personal account"
 ];
 const visualsQuestions = [
-  "Highly Polished & Professional (Looks expensive, great branding)",
-  "Clean but Templated (Looks good, but lacks unique personality)",
   "Inconsistent & Messy (No clear visual direction or style)",
-  "Outdated or Unprofessional (Poor quality images, bad design choices)",
-  "Too New to Judge (Not enough content to form an opinion)"
+  "Clean but Generic (Looks like a template, lacks personality)",
+  "Highly Polished & Professional (Looks expensive, great branding)",
+  "Outdated or Unprofessional (Poor quality images, bad design)",
+  "Too New to Judge"
 ];
-const strategyQuestions = [
-  "Brand Awareness (They need to establish a clear brand identity and reach new people)",
-  "Community Engagement (They have followers but need more interaction and trust)",
-  "Lead Conversion (They need to turn their existing audience into paying customers)"
+const contentPillarQuestions = [
+  "Very Clear (I know exactly what they post about from a quick glance)",
+  "Somewhat Clear (I can guess the topics, but it's not obvious)",
+  "Unclear / Random (Posts seem to have no consistent theme or topic)"
 ];
 
 
@@ -54,6 +54,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
   const [analysisResult, setAnalysisResult] = useState<QualifyProspectOutput | null>(null);
   
   // State for user answers
+  const [industryAnswer, setIndustryAnswer] = useState<string | undefined>();
   const [profitabilityAnswer, setProfitabilityAnswer] = useState<string | undefined>(undefined);
   const [visualsAnswer, setVisualsAnswer] = useState<string | undefined>(undefined);
   const [strategyAnswer, setStrategyAnswer] = useState<string | undefined>(undefined);
@@ -67,6 +68,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
     setInstagramHandle('');
     setFetchedMetrics(null);
     setAnalysisResult(null);
+    setIndustryAnswer(undefined);
     setProfitabilityAnswer(undefined);
     setVisualsAnswer(undefined);
     setStrategyAnswer(undefined);
@@ -105,7 +107,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
   };
   
   const handleFinalAnalysis = async () => {
-    if (!fetchedMetrics || !profitabilityAnswer || !visualsAnswer || !strategyAnswer) {
+    if (!fetchedMetrics || !profitabilityAnswer || !visualsAnswer || !strategyAnswer || !industryAnswer) {
         toast({ title: "Missing Input", description: "Please answer all questions to proceed.", variant: "destructive" });
         return;
     }
@@ -123,7 +125,8 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
             biography: fetchedMetrics.biography || null,
             userProfitabilityAssessment: profitabilityAnswer,
             userVisualsAssessment: visualsAnswer,
-            userStrategyAssessment: strategyAnswer,
+            userContentPillarAssessment: strategyAnswer,
+            industry: industryAnswer,
         };
 
         const result = await qualifyProspect(input);
@@ -158,12 +161,12 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
       painPoints: analysisResult.painPoints,
       goals: analysisResult.goals,
       helpStatement: analysisResult.summary,
+      industry: analysisResult.qualificationData?.industry || null,
       lastContacted: null,
       email: null,
       businessName: null,
       website: null,
       prospectLocation: null,
-      industry: null,
       visualStyle: null,
       businessType: null,
       businessTypeOther: null,
@@ -254,6 +257,12 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
                  <Separator/>
                  
                  <div>
+                    <Label className="font-semibold flex items-center mb-2"><HelpCircle className="mr-2 h-4 w-4 text-amber-600" />What's their industry and specific niche?</Label>
+                    <Input placeholder="e.g., Skincare - Organic, handmade products" onChange={(e) => setIndustryAnswer(e.target.value)} />
+                 </div>
+                 <Separator/>
+
+                 <div>
                     <Label className="font-semibold flex items-center mb-2"><HelpCircle className="mr-2 h-4 w-4 text-amber-600" />How does this account make money?</Label>
                      <RadioGroup value={profitabilityAnswer} onValueChange={setProfitabilityAnswer} className="space-y-2">
                       {profitabilityQuestions.map((option) => (
@@ -278,9 +287,9 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
                  <Separator/>
 
                  <div>
-                    <Label className="font-semibold flex items-center mb-2"><HelpCircle className="mr-2 h-4 w-4 text-amber-600" />What is their single biggest strategic opportunity?</Label>
+                    <Label className="font-semibold flex items-center mb-2"><HelpCircle className="mr-2 h-4 w-4 text-amber-600" />How clear are their main content topics (pillars)?</Label>
                      <RadioGroup value={strategyAnswer} onValueChange={setStrategyAnswer} className="space-y-2">
-                      {strategyQuestions.map((option) => (
+                      {contentPillarQuestions.map((option) => (
                         <div key={option} className="flex items-center space-x-2">
                           <RadioGroupItem value={option} id={`strategy-${option.replace(/\s/g, '-')}`} /><Label htmlFor={`strategy-${option.replace(/\s/g, '-')}`} className="font-normal cursor-pointer">{option}</Label>
                         </div>
@@ -321,7 +330,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
       return (
         <DialogFooter className="mt-auto shrink-0 border-t pt-4">
           <Button variant="outline" onClick={() => setStep('initial')}><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
-          <Button onClick={handleFinalAnalysis} disabled={!profitabilityAnswer || !visualsAnswer || !strategyAnswer}>
+          <Button onClick={handleFinalAnalysis} disabled={!profitabilityAnswer || !visualsAnswer || !strategyAnswer || !industryAnswer}>
             Analyze <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </DialogFooter>

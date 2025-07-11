@@ -24,23 +24,23 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const profitabilityQuestions = [
-  "High-ticket services (coaching, consulting, agency work)",
-  "Directly selling products (e-commerce, physical goods)",
-  "Local services (salon, restaurant, in-person business)",
-  "Affiliate marketing or brand sponsorships",
-  "Unclear or likely a hobby/personal account"
+  "Sells high-ticket services (coaching, consulting, agency work)",
+  "Sells physical or digital products (e-commerce, courses)",
+  "Is a local business (brick-and-mortar, in-person services)",
+  "Monetizes through brand deals or affiliate marketing",
+  "It's unclear, seems like a hobby or personal account"
 ];
 const visualsQuestions = [
-  "Highly Polished & Professional (Looks expensive, great branding)",
-  "Clean but Templated (Looks good, but lacks unique personality)",
   "Inconsistent & Messy (No clear visual direction or style)",
-  "Outdated or Unprofessional (Poor quality images, bad design choices)",
-  "Too New to Judge (Not enough content to form an opinion)"
+  "Clean but Generic (Looks like a template, lacks personality)",
+  "Highly Polished & Professional (Looks expensive, great branding)",
+  "Outdated or Unprofessional (Poor quality images, bad design)",
+  "Too New to Judge"
 ];
-const strategyQuestions = [
-  "Brand Awareness (They need to establish a clear brand identity and reach new people)",
-  "Community Engagement (They have followers but need more interaction and trust)",
-  "Lead Conversion (They need to turn their existing audience into paying customers)"
+const contentPillarQuestions = [
+  "Very Clear (I know exactly what they post about from a quick glance)",
+  "Somewhat Clear (I can guess the topics, but it's not obvious)",
+  "Unclear / Random (Posts seem to have no consistent theme or topic)"
 ];
 
 interface DiscoveryDialogProps {
@@ -64,29 +64,34 @@ const getLeadScoreBadgeVariant = (score: number | null | undefined): "default" |
     return "destructive";
 };
 
-const EvaluationForm = ({ onAnalyze, onCancel, isAnalyzing, setProfitability, setVisuals, setStrategy, canSubmit }: {
+const EvaluationForm = ({ onAnalyze, onCancel, isAnalyzing, setProfitability, setVisuals, setStrategy, setIndustry, canSubmit }: {
     onAnalyze: () => void;
     onCancel: () => void;
     isAnalyzing: boolean;
     setProfitability: (value: string) => void;
     setVisuals: (value: string) => void;
     setStrategy: (value: string) => void;
+    setIndustry: (value: string) => void;
     canSubmit: boolean;
 }) => (
     <div className="bg-muted/30 p-4 -mx-4 -mb-4 border-t">
         <p className="text-sm font-semibold mb-3">Your expertise is needed to qualify this prospect.</p>
         <div className="space-y-4">
             <div>
-                <Label className="font-medium text-xs mb-2 block">1. How does this account likely make money?</Label>
+                <Label className="font-medium text-xs mb-2 block">1. What's their industry and specific niche?</Label>
+                <Input placeholder="e.g., Skincare - Organic, handmade products" onChange={(e) => setIndustry(e.target.value)} className="text-xs h-8"/>
+            </div>
+            <div>
+                <Label className="font-medium text-xs mb-2 block">2. How does this account likely make money?</Label>
                 <RadioGroup onValueChange={setProfitability} className="space-y-1">{profitabilityQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><RadioGroupItem value={o} id={`profit-${o}`} /><Label htmlFor={`profit-${o}`} className="font-normal text-xs">{o}</Label></div>)}</RadioGroup>
             </div>
             <div>
-                <Label className="font-medium text-xs mb-2 block">2. Describe their visual branding.</Label>
+                <Label className="font-medium text-xs mb-2 block">3. What is the state of their visual branding?</Label>
                 <RadioGroup onValueChange={setVisuals} className="space-y-1">{visualsQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><RadioGroupItem value={o} id={`visual-${o}`} /><Label htmlFor={`visual-${o}`} className="font-normal text-xs">{o}</Label></div>)}</RadioGroup>
             </div>
             <div>
-                <Label className="font-medium text-xs mb-2 block">3. What's their biggest strategic opportunity?</Label>
-                <RadioGroup onValueChange={setStrategy} className="space-y-1">{strategyQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><RadioGroupItem value={o} id={`strategy-${o}`} /><Label htmlFor={`strategy-${o}`} className="font-normal text-xs">{o}</Label></div>)}</RadioGroup>
+                <Label className="font-medium text-xs mb-2 block">4. How clear are their main content topics (pillars)?</Label>
+                <RadioGroup onValueChange={setStrategy} className="space-y-1">{contentPillarQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><RadioGroupItem value={o} id={`strategy-${o}`} /><Label htmlFor={`strategy-${o}`} className="font-normal text-xs">{o}</Label></div>)}</RadioGroup>
             </div>
             <div className="flex justify-end gap-2 pt-2">
                 <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
@@ -115,6 +120,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
 
   // State for the inline evaluation form
   const [evaluatingHandle, setEvaluatingHandle] = useState<string | null>(null);
+  const [industryAnswer, setIndustryAnswer] = useState<string | undefined>();
   const [profitabilityAnswer, setProfitabilityAnswer] = useState<string | undefined>();
   const [visualsAnswer, setVisualsAnswer] = useState<string | undefined>();
   const [strategyAnswer, setStrategyAnswer] = useState<string | undefined>();
@@ -134,6 +140,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
     setEvaluationResults(new Map());
     setEvaluatingHandle(null);
     setIsAnalyzing(false);
+    setIndustryAnswer(undefined);
     setProfitabilityAnswer(undefined);
     setVisualsAnswer(undefined);
     setStrategyAnswer(undefined);
@@ -146,6 +153,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
   
   const handleAccordionChange = (value: string) => {
     if (value) { // Accordion is opening
+      setIndustryAnswer(undefined);
       setProfitabilityAnswer(undefined);
       setVisualsAnswer(undefined);
       setStrategyAnswer(undefined);
@@ -236,8 +244,8 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
   };
   
   const handleEvaluationSubmit = async () => {
-    if (!evaluatingHandle || !profitabilityAnswer || !visualsAnswer || !strategyAnswer) {
-      toast({ title: "Missing Input", description: "Please answer all three questions to proceed.", variant: "destructive" });
+    if (!evaluatingHandle || !profitabilityAnswer || !visualsAnswer || !strategyAnswer || !industryAnswer) {
+      toast({ title: "Missing Input", description: "Please answer all questions to proceed.", variant: "destructive" });
       return;
     }
     const handle = evaluatingHandle;
@@ -255,7 +263,8 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
         biography: metrics.biography || null,
         userProfitabilityAssessment: profitabilityAnswer,
         userVisualsAssessment: visualsAnswer,
-        userStrategyAssessment: strategyAnswer,
+        userContentPillarAssessment: strategyAnswer,
+        industry: industryAnswer,
       };
       const result = await qualifyProspect(input);
       setEvaluationResults(prev => new Map(prev).set(handle, result));
@@ -282,7 +291,8 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
         avgLikes: metrics?.avgLikes ?? null, avgComments: metrics?.avgComments ?? null, bioSummary: metrics?.biography ?? null,
         leadScore: evaluation?.leadScore ?? null, qualificationData: (evaluation?.qualificationData as QualificationData) ?? null,
         painPoints: evaluation?.painPoints ?? [], goals: evaluation?.goals ?? [], helpStatement: evaluation?.summary ?? null,
-        email: null, businessName: prospect.name || handle, website: null, prospectLocation: null, industry: null, visualStyle: null,
+        industry: evaluation?.qualificationData?.industry || null,
+        email: null, businessName: prospect.name || handle, website: null, prospectLocation: null, visualStyle: null,
         businessType: null, businessTypeOther: null, accountStage: null, lastContacted: null, followUpDate: null, followUpNeeded: false,
         offerInterest: [], uniqueNote: null, tonePreference: null, lastMessageSnippet: null, lastScriptSent: null, linkSent: false,
         carouselOffered: false, nextStep: null, conversationHistory: null, qualifierQuestion: null, qualifierSentAt: null, qualifierReply: null,
@@ -395,10 +405,11 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
                                             isAnalyzing={isAnalyzing && evaluatingHandle === handle}
                                             onCancel={() => setEvaluatingHandle(null)}
                                             onAnalyze={handleEvaluationSubmit}
+                                            setIndustry={setIndustryAnswer}
                                             setProfitability={setProfitabilityAnswer}
                                             setVisuals={setVisualsAnswer}
                                             setStrategy={setStrategyAnswer}
-                                            canSubmit={!!(profitabilityAnswer && visualsAnswer && strategyAnswer)}
+                                            canSubmit={!!(industryAnswer && profitabilityAnswer && visualsAnswer && strategyAnswer)}
                                         />
                                     </AccordionContent>
                                 </Card>

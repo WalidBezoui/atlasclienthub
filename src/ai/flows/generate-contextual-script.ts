@@ -82,19 +82,16 @@ export async function generateContextualScript(input: GenerateContextualScriptIn
   return generateContextualScriptFlow(input);
 }
 
-// Sender Studio Name is fixed as "Atlas Social Studio"
 const SENDER_STUDIO_NAME = "Atlas Social Studio";
-// Sender Follower Count is fixed as 0 for this guide's context
-const SENDER_FOLLOWER_COUNT = 0;
 
 const prompt = ai.definePrompt({
   name: 'generateContextualScriptPrompt',
   input: {schema: GenerateContextualScriptInputSchema},
   output: {schema: GenerateContextualScriptOutputSchema},
   prompt: `You are an expert Instagram outreach copywriter for a new, mission-driven studio called "${SENDER_STUDIO_NAME}". Your goal is to craft a personalized, persuasive Instagram DM.
-The message MUST build trust, show relevance, remove skepticism about the studio being new (0 followers), offer tangible value, and include a soft, non-pushy call-to-action.
+The message MUST build trust, show relevance, offer tangible yet slightly vague value, and include a soft, non-pushy call-to-action.
 
-**IMPORTANT CONTEXT: Your studio, "${SENDER_STUDIO_NAME}", currently has ${SENDER_FOLLOWER_COUNT} followers. You MUST frame this positively.** Position the studio as being highly selective, new, and on a mission to work with a few hand-picked brands. This creates exclusivity and purpose. DO NOT mention being new or trying to grow.
+**IMPORTANT CONTEXT: Your studio, "${SENDER_STUDIO_NAME}", is a new, boutique agency.** You MUST frame this positively. Position the studio as being highly selective and on a mission to work with a few hand-picked brands. This creates exclusivity and scarcity. DO NOT apologize for being new or having few followers.
 
 **PROSPECT DETAILS:**
 - **Name**: {{clientName}}
@@ -146,21 +143,21 @@ Based on these instructions AND the full context below, generate the next reply.
 **A. Personalized Opening:**
    - Start with a warm greeting (e.g., "Hey {{#if clientName}}{{clientName}}{{else if businessName}}{{businessName}}{{else}}{{clientHandle}}{{/if}}! 👋").
    - Give a SINCERE compliment that shows you’ve reviewed their feed. Reference their specific content, products, {{#if visualStyle}}their {{visualStyle}} visual style, {{/if}}or overall vibe related to their {{#if clientIndustry}}{{clientIndustry}} niche.{{/if}} Be specific. Avoid "cool feed".
-   - Example: "I came across {{businessName}} and was impressed by the {{visualStyle}} aesthetic in your recent posts. The way you showcase your products feels very authentic."
+   - Example: "Came across your page and the way you showcase your products is beautiful. Really love the authentic feel."
 
-**B. Who You Are (The "Mission-Driven" Angle):**
+**B. The "Mission-Driven & Exclusive" Angle:**
    - Introduce "${SENDER_STUDIO_NAME}".
-   - Frame the outreach as a special initiative: "${SENDER_STUDIO_NAME}" is working with a few **hand-picked brands** admired for their potential, offering personalized insights as part of a growth mission.
-   - Example phrasing: "I run ${SENDER_STUDIO_NAME} – we help brands like yours sharpen their visual presence to turn scrolls into clicks. We're currently working with a few hand-picked brands we admire to offer personalized insights, as part of our mission to elevate standout {{#if clientIndustry_lc_pluralized}}{{clientIndustry_lc_pluralized}}{{else}}businesses{{/if}}."
+   - Frame the outreach as a special initiative: "${SENDER_STUDIO_NAME}" is a new studio on a mission to elevate a few **hand-picked brands** we genuinely admire. This creates exclusivity.
+   - Example phrasing: "My name's [Your Name] and I run ${SENDER_STUDIO_NAME}. We're a new boutique studio on a mission to help a select few brands we admire sharpen their visual presence to turn more followers into clients."
 
-**C. The Offer:**
-   - Clearly state the value of the "{{offerType}}". Make it tangible and no-pressure.
-   - Briefly list 2-3 key deliverables or benefits.
-   - Example for a "Free 3-point audit + visual tips": "It includes a quick look at what’s working in your feed, a key area where you might be losing engagement, and a couple of fresh design ideas to upgrade your visual identity."
+**C. The Intrigue & Vague Value Offer:**
+   - Instead of a generic audit, offer specific but un-detailed insights. This builds curiosity.
+   - Example: "While looking at your page, I noticed a couple of quick opportunities to potentially boost engagement and make your branding even more impactful. I put together a few thoughts I think you'll find valuable."
+   - This is better than a generic "3-point audit" because it's tailored and mysterious.
 
 **D. Soft Close (Low-Pressure CTA):**
    - End with a short, frictionless question to get permission.
-   - Example: "Would you like me to send it over? 💬"
+   - Example: "Would you be open to me sending them over? No strings attached, of course."
 
 ---
 
@@ -169,9 +166,9 @@ Based on these instructions AND the full context below, generate the next reply.
 **A. Re-engage Gently:**
    - Refer back to the last interaction based on the conversation history.
    - If they replied, acknowledge their message directly.
-   - Example if they said "for free!!?": "Hey {{clientName}}! Just following up on the free audit. And yes, absolutely no strings attached! We do this for a select few brands we're excited about."
-   - Example if they said "I'll check later": "Hey {{clientName}}, hope you had a great week! Just wanted to gently follow up on the free audit I mentioned. No pressure at all, just wanted to see if you had any thoughts."
-   - If they haven't replied at all (status is 'Warm' but no reply and no convo history): "Hey {{clientName}}, just wanted to quickly resurface my message from last week about a free 3-point audit for {{businessName}}. Let me know if it's something you'd be open to! 🙂"
+   - Example if they said "for free!!?": "Hey {{clientName}}! Just following up. And yes, absolutely no strings attached! We do this for a select few brands we're excited about."
+   - Example if they said "I'll check later": "Hey {{clientName}}, hope you had a great week! Just wanted to gently follow up on the ideas I had for {{businessName}}. No pressure at all, just wanted to see if you had any thoughts."
+   - If they haven't replied at all (status is 'Warm' but no reply and no convo history): "Hey {{clientName}}, just wanted to quickly resurface my message from last week about a couple of quick ideas for {{businessName}}. Let me know if you'd be open to it! 🙂"
 
 **B. Reiterate Value (Briefly):**
    - Remind them of the core benefit of the "{{offerType}}".
@@ -192,7 +189,7 @@ Based on these instructions AND the full context below, generate the next reply.
 
 **B. Reiterate the Offer Briefly:**
    - Remind them of the value without being pushy.
-   - Example: "...about the free 3-point audit for {{businessName}}. No pressure at all, just thought it might be helpful!"
+   - Example: "...about the free ideas for {{businessName}}. No pressure at all, just thought it might be helpful!"
 
 **C. Soft CTA:**
    - End with a simple, easy-to-answer question.
@@ -204,7 +201,7 @@ Based on these instructions AND the full context below, generate the next reply.
 
 **A. Acknowledge and Respect Their Position:**
    - Start by acknowledging that it might not be the right time. Be graceful.
-   - Example: "Hey {{clientName}}, no worries at all if now isn't the right time for the audit."
+   - Example: "Hey {{clientName}}, no worries at all if now isn't the right time for this."
 
 **B. Leave the Door Open (Future Value):**
    - Offer future help without any immediate expectation. This maintains a positive relationship.

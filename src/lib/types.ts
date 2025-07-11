@@ -61,6 +61,7 @@ export type StatusHistoryItem = {
 
 export type QualificationData = {
   isBusiness: 'yes' | 'no' | 'unknown';
+  industry: string | null;
   hasInconsistentGrid: 'yes' | 'no' | 'unknown';
   hasLowEngagement: 'yes' | 'no' | 'unknown';
   hasNoClearCTA: 'yes' | 'no' | 'unknown';
@@ -68,6 +69,7 @@ export type QualificationData = {
   profitabilityPotential: 'low' | 'medium' | 'high' | 'unknown';
   contentPillarClarity: 'unclear' | 'somewhat-clear' | 'very-clear' | 'unknown';
   salesFunnelStrength: 'none' | 'weak' | 'strong' | 'unknown';
+  postingConsistency: 'consistent' | 'inconsistent' | 'unknown';
 };
 
 export type OutreachProspect = {
