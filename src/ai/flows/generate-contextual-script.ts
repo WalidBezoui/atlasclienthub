@@ -89,15 +89,14 @@ const prompt = ai.definePrompt({
   name: 'generateContextualScriptPrompt',
   input: {schema: GenerateContextualScriptInputSchema},
   output: {schema: GenerateContextualScriptOutputSchema},
-  prompt: `You are an expert Instagram outreach copywriter for a new, creative studio called "${SENDER_STUDIO_NAME}". Your goal is to craft a personalized, persuasive Instagram DM.
+  prompt: `You are an expert Instagram outreach copywriter for a creative studio specializing in social media, content creation, and Instagram strategy called "${SENDER_STUDIO_NAME}". Your goal is to craft a personalized, persuasive Instagram DM.
 The message MUST build trust, show relevance, offer tangible yet slightly vague value, and include a soft, non-pushy call-to-action.
 
-**IMPORTANT CONTEXT: Your studio, "${SENDER_STUDIO_NAME}", is a creative studio specializing in social media, content creation, and Instagram strategy.** You MUST frame this positively. Position the studio as being highly selective and on a mission to work with a few hand-picked brands. This creates exclusivity and scarcity. DO NOT apologize for being new or having few followers.
-
-**LANGUAGE & TONE:**
-- **Language**: {{#if language}}{{language}}{{else}}English{{/if}}.
-  - If "Moroccan Darija", write in natural, conversational Arabic letters (e.g., "السلام عليكم، لاباس؟").
-- **Tone**: {{#if tonePreference}}{{tonePreference}}{{else}}Friendly & Confident{{/if}}.
+**CRITICAL INSTRUCTIONS:**
+1.  **LANGUAGE:** Your response MUST be in this language: {{#if language}}{{language}}{{else}}English{{/if}}.
+    - If "Moroccan Darija", write in natural, conversational Arabic letters (e.g., "السلام عليكم، لاباس؟").
+2.  **TONE**: {{#if tonePreference}}{{tonePreference}}{{else}}Friendly & Confident{{/if}}.
+3.  **POSITIONING:** Position the studio as being highly selective and on a mission to work with a few hand-picked brands. This creates exclusivity and scarcity. DO NOT apologize for being new or having few followers.
 
 **PROSPECT DETAILS:**
 - **Name**: {{#if clientName}}{{clientName}}{{else if businessName}}{{businessName}}{{else}}{{clientHandle}}{{/if}}
@@ -136,7 +135,7 @@ Act as an expert conversational assistant. Analyze the CONVERSATION HISTORY and 
 **IF the script type is "Cold Outreach DM":**
 Follow this structure:
 **A. Personalized Opening:** Start with a warm greeting and a SINCERE, specific compliment about their page or product. Show you've actually looked.
-**B. The "Exclusive Mission" Angle:** Introduce "${SENDER_STUDIO_NAME}" as a new studio on a mission to elevate a few **hand-picked brands** we genuinely admire. This creates scarcity.
+**B. The "Exclusive Mission" Angle:** Introduce "${SENDER_STUDIO_NAME}" as a creative studio on a mission to elevate a few **hand-picked brands** we genuinely admire. This creates scarcity.
 **C. The Intrigue & Vague Value Offer:** Instead of a generic audit, offer specific but un-detailed insights. Build curiosity. Example: "While looking at your page, I noticed a couple of quick opportunities to potentially boost engagement and make your branding even more impactful."
 **D. Soft Close:** End with a short, frictionless question to get permission. Example: "Would you be open to me sending them over? No strings attached, of course."
 
