@@ -89,12 +89,14 @@ const prompt = ai.definePrompt({
   name: 'generateContextualScriptPrompt',
   input: {schema: GenerateContextualScriptInputSchema},
   output: {schema: GenerateContextualScriptOutputSchema},
-  prompt: `You are an expert Instagram outreach copywriter for a creative studio specializing in social media, content creation, and Instagram strategy called "${SENDER_STUDIO_NAME}". Your goal is to craft a personalized, persuasive Instagram DM.
-The message MUST build trust, show relevance, offer tangible yet slightly vague value, and include a soft, non-pushy call-to-action.
+  prompt: `You are an expert Instagram outreach copywriter for a creative studio specializing in social media, content creation, and Instagram strategy called "${SENDER_STUDIO_NAME}".
+Your goal is to craft a personalized, persuasive Instagram DM.
 
-**CRITICAL INSTRUCTIONS:**
-1.  **LANGUAGE:** Your response MUST be in this language: {{#if language}}{{language}}{{else}}English{{/if}}.
-    - If "Moroccan Darija", write in natural, conversational Arabic letters (e.g., "السلام عليكم، لاباس؟").
+**CRITICAL INSTRUCTIONS (APPLY TO ALL SCRIPTS):**
+
+1.  **PRIMARY DIRECTIVE: LANGUAGE.** Your entire response MUST be written in the following language: **{{#if language}}{{language}}{{else}}English{{/if}}**. Do not write any part of your response in English unless the requested language is English.
+    -   If the language is "Moroccan Darija", you MUST write using Arabic letters and a natural, conversational dialect (e.g., "السلام عليكم، كيف الحال؟").
+    -   If the language is "French" or "Arabic", use a professional but friendly tone.
 2.  **TONE**: {{#if tonePreference}}{{tonePreference}}{{else}}Friendly & Confident{{/if}}.
 3.  **POSITIONING:** Position the studio as being highly selective and on a mission to work with a few hand-picked brands. This creates exclusivity and scarcity. DO NOT apologize for being new or having few followers.
 
