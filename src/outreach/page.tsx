@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, Suspense, useRef, useMemo } from 'react';
-import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, Bot, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileText, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare, Save, FileQuestion, GraduationCap, MoreHorizontal, Wrench, Telescope, Users, CheckSquare, ArrowUpDown, Check, Languages } from 'lucide-react';
+import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, Bot, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileText, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare, Save, FileQuestion, GraduationCap, MoreHorizontal, Wrench, Telescope, Users, CheckSquare, ArrowUpDown, Check } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import * as papa from 'papaparse';
 import { Button } from '@/components/ui/button';
@@ -198,9 +198,9 @@ function OutreachPage() {
         avgLikes: metricsResult.data.avgLikes,
         avgComments: metricsResult.data.avgComments,
         biography: metricsResult.data.biography,
-        userProfitabilityAssessment: "Selling physical or digital products (e-commerce, courses)",
+        userProfitabilityAssessment: "Sells high-ticket services (coaching, consulting, agency work)",
         userVisualsAssessment: "Great content, but the grid is messy and disorganized",
-        userCtaAssessment: "Generic linktree or similar with multiple, unfocused links",
+        userCtaAssessment: "Strong, direct link to a sales page, booking site, or freebie",
         industry: prospect.industry || "Unknown",
       };
       
@@ -459,7 +459,7 @@ function OutreachPage() {
     setGeneratedScript("Failed to generate script. Please try again.");
   };
 
-  const handleGenerateScript = useCallback(async (prospect: OutreachProspect, scriptType: GenerateContextualScriptInput['scriptType'], language?: ScriptLanguage) => {
+  const handleGenerateScript = useCallback(async (prospect: OutreachProspect, scriptType: GenerateContextualScriptInput['scriptType'], language: ScriptLanguage) => {
     setCurrentProspectForScript(prospect);
     setIsGeneratingScript(true);
     setIsScriptModalOpen(true);
@@ -468,7 +468,7 @@ function OutreachPage() {
     
     const input: GenerateContextualScriptInput = {
         scriptType,
-        language: language || 'English',
+        language,
         clientName: prospect.name?.trim() || null,
         clientHandle: prospect.instagramHandle?.trim() || null,
         businessName: prospect.businessName?.trim() || null,

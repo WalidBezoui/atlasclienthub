@@ -8,12 +8,12 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuGroup, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Edit, Trash2, MoreHorizontal, Link as LinkIcon, Bot, MessageCircle, MessagesSquare, GraduationCap, FileQuestion, Loader2, Star } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuGroup, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
+import { Edit, Trash2, MoreHorizontal, Link as LinkIcon, Bot, MessageCircle, MessagesSquare, GraduationCap, FileQuestion, Loader2, Star, Languages } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
-import type { OutreachProspect, OutreachLeadStage } from '@/lib/types';
-import { OUTREACH_LEAD_STAGE_OPTIONS } from '@/lib/types';
+import type { OutreachProspect, OutreachLeadStage, ScriptLanguage } from '@/lib/types';
+import { OUTREACH_LEAD_STAGE_OPTIONS, SCRIPT_LANGUAGES } from '@/lib/types';
 import { Separator } from '../ui/separator';
 
 const ProspectTimelineTooltip = ({ prospect }: { prospect: OutreachProspect }) => {
@@ -70,7 +70,7 @@ interface ProspectTableRowProps {
   onStartAudit: (prospect: OutreachProspect) => void;
   onGenerateComment: (prospect: OutreachProspect) => void;
   onGenerateQualifier: (prospect: OutreachProspect) => void;
-  onGenerateScript: (prospect: OutreachProspect, scriptType: any) => void;
+  onGenerateScript: (prospect: OutreachProspect, scriptType: any, language: ScriptLanguage) => void;
   onEvaluate: (prospect: OutreachProspect) => void;
   onDelete: (prospect: OutreachProspect) => void;
 }
@@ -233,12 +233,23 @@ const ProspectTableRow = React.memo(({
                                     </TooltipTrigger>
                                     {!['Interested', 'Replied'].includes(prospect.status) && <TooltipContent><p>Status must be 'Interested' or 'Replied'</p></TooltipContent>}
                                 </Tooltip>
-                                {scriptMenuItems.map(item => (
-                                    <DropdownMenuItem key={item.type} onClick={() => onGenerateScript(prospect, item.type)}>
-                                        <Bot className="mr-2 h-4 w-4" />
-                                        <span>{item.label}</span>
-                                    </DropdownMenuItem>
-                                ))}
+                                <DropdownMenuSub>
+                                    <DropdownMenuSubTrigger><Bot className="mr-2 h-4 w-4" /> Generate Script</DropdownMenuSubTrigger>
+                                    <DropdownMenuSubContent>
+                                        {scriptMenuItems.map(item => (
+                                            <DropdownMenuSub key={item.type}>
+                                                <DropdownMenuSubTrigger>{item.label}</DropdownMenuSubTrigger>
+                                                <DropdownMenuSubContent>
+                                                    {SCRIPT_LANGUAGES.map(lang => (
+                                                        <DropdownMenuItem key={lang} onClick={() => onGenerateScript(prospect, item.type, lang)}>
+                                                            {lang}
+                                                        </DropdownMenuItem>
+                                                    ))}
+                                                </DropdownMenuSubContent>
+                                            </DropdownMenuSub>
+                                        ))}
+                                    </DropdownMenuSubContent>
+                                </DropdownMenuSub>
                             </DropdownMenuGroup>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => onDelete(prospect)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Delete Prospect</DropdownMenuItem>

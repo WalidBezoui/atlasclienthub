@@ -22,6 +22,9 @@ import {
   MenubarSeparator,
   MenubarShortcut,
   MenubarTrigger,
+  MenubarSub,
+  MenubarSubTrigger,
+  MenubarSubContent,
 } from "@/components/ui/menubar";
 import { APP_NAME } from '@/lib/constants';
 import { useSidebar } from '@/components/ui/sidebar';
@@ -32,6 +35,8 @@ import { generateContextualScript, GenerateContextualScriptInput, GenerateContex
 import { ScriptModal } from '@/components/scripts/script-modal';
 import { useToast } from '@/hooks/use-toast';
 import { GenericCommentGeneratorDialog } from '@/components/tools/GenericCommentGeneratorDialog';
+import type { ScriptLanguage } from '@/lib/types';
+import { SCRIPT_LANGUAGES } from '@/lib/types';
 
 type ScriptType = GenerateContextualScriptInput['scriptType'];
 
@@ -54,13 +59,13 @@ export function AppHeader() {
     return email.substring(0, 2).toUpperCase();
   };
 
-  const handleGenerateScript = async (scriptType: ScriptType) => {
+  const handleGenerateScript = async (scriptType: ScriptType, language: ScriptLanguage) => {
     setIsGeneratingScript(true);
     setIsScriptModalOpen(true);
     setGeneratedScript(''); 
     setScriptModalTitle(`Generating ${scriptType}...`);
     
-    let input: Partial<GenerateContextualScriptInput> = { scriptType };
+    let input: Partial<GenerateContextualScriptInput> = { scriptType, language };
 
     if (clientContext) {
       input = {
@@ -72,7 +77,6 @@ export function AppHeader() {
       };
     }
     
-    // Fallback logic for when context isn't available
     const requiresClientContext = ["Cold Outreach DM", "Warm Follow-Up DM", "Audit Delivery Message", "Send Reminder", "Soft Close"].includes(scriptType);
     if(requiresClientContext && !clientContext) {
         toast({ title: "Generating Generic Script", description: `No client context set. A generic "${scriptType}" will be generated.`, variant: "default" });
@@ -94,15 +98,19 @@ export function AppHeader() {
     }
   };
   
-  const handleRegenerateScript = async (): Promise<string | null> => {
+  const handleRegenerateScript = async (language: ScriptLanguage, customInstructions: string): Promise<string | null> => {
     if (!currentScriptGenerationInput) {
       toast({ title: "Error", description: "No previous script context to regenerate.", variant: "destructive" });
       return null;
     }
+    
+    const updatedInput = { ...currentScriptGenerationInput, language, customInstructions };
+    setCurrentScriptGenerationInput(updatedInput);
+
     setIsGeneratingScript(true); 
     setGeneratedScript(''); 
     try {
-      const result = await generateContextualScript(currentScriptGenerationInput);
+      const result = await generateContextualScript(updatedInput);
       setGeneratedScript(result.script); 
       setIsGeneratingScript(false);
       return result.script;
@@ -125,7 +133,7 @@ export function AppHeader() {
   ];
 
   const isScriptMenuButtonDisabled = () => {
-    return !user; // Only disable the main "Scripts" button if user is not logged in
+    return !user;
   };
 
 
@@ -151,25 +159,23 @@ export function AppHeader() {
                    </Button>
                 </MenubarTrigger>
                 <MenubarContent align="end">
-                  {scriptMenuItems.map(item => {
-                     const contextMissingMessage =
-                        item.contextRequired === 'client' && !clientContext
-                          ? 'No client context. Will generate a generic script.'
-                          : item.contextRequired === 'content' && !contentContext
-                          ? 'No content context. Will generate a generic script.'
-                          : undefined;
-                    return (
-                        <MenubarItem 
-                            key={item.type} 
-                            onClick={() => handleGenerateScript(item.type)}
-                            disabled={isGeneratingScript} // Only disable if a script is actively being generated
-                            title={contextMissingMessage || (isGeneratingScript && currentScriptGenerationInput?.scriptType === item.type ? "Generating..." : undefined)}
-                        >
-                          {item.label}
-                          {isGeneratingScript && currentScriptGenerationInput?.scriptType === item.type && <Loader2 className="ml-auto h-4 w-4 animate-spin" />}
-                        </MenubarItem>
-                    );
-                  })}
+                  {scriptMenuItems.map(item => (
+                    <MenubarSub key={item.type}>
+                      <MenubarSubTrigger
+                        disabled={isGeneratingScript}
+                        title={item.contextRequired === 'client' && !clientContext ? 'No client context. Will generate a generic script.' : undefined}
+                      >
+                        {item.label}
+                      </MenubarSubTrigger>
+                      <MenubarSubContent>
+                        {SCRIPT_LANGUAGES.map(lang => (
+                          <MenubarItem key={lang} onClick={() => handleGenerateScript(item.type, lang)}>
+                            {lang}
+                          </MenubarItem>
+                        ))}
+                      </MenubarSubContent>
+                    </MenubarSub>
+                  ))}
                   <MenubarSeparator />
                   <MenubarItem onClick={() => setIsGenericCommentOpen(true)}>
                     <Wand2 className="mr-2 h-4 w-4" />
