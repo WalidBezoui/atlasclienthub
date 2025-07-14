@@ -85,17 +85,16 @@ export async function generateContextualScript(input: GenerateContextualScriptIn
 
 const SENDER_STUDIO_NAME = "Atlas Social Studio";
 
-const prompt = ai.definePrompt({
-  name: 'generateContextualScriptPrompt',
-  input: {schema: GenerateContextualScriptInputSchema},
-  output: {schema: GenerateContextualScriptOutputSchema},
-  prompt: `You are an expert Instagram outreach copywriter for a creative studio called "${SENDER_STUDIO_NAME}", which specializes in social media, content creation, and Instagram strategy.
-Your goal is to craft a personalized, persuasive Instagram DM based on the provided prospect details and instructions.
+const EnglishScriptGenerationSchema = z.object({
+  script: z.string().describe('The generated script in English.'),
+});
 
-**PRIMARY DIRECTIVE: LANGUAGE**
-Your entire response MUST be written in the following language: **{{#if language}}{{language}}{{else}}English{{/if}}**.
-- If the language is "Moroccan Darija", you MUST write using Arabic letters and a natural, conversational dialect (e.g., "السلام عليكم، كيف الحال؟").
-- Do not write any part of your response in English unless the requested language is English.
+const englishScriptPrompt = ai.definePrompt({
+  name: 'generateEnglishScriptPrompt',
+  input: {schema: GenerateContextualScriptInputSchema},
+  output: {schema: EnglishScriptGenerationSchema},
+  prompt: `You are an expert Instagram outreach copywriter for a creative studio called "${SENDER_STUDIO_NAME}", which specializes in social media, content creation, and Instagram strategy.
+Your goal is to craft a personalized, persuasive Instagram DM in ENGLISH based on the provided prospect details and instructions.
 
 **PROSPECT DETAILS & CONTEXT:**
 - **Name**: {{#if clientName}}{{clientName}}{{else if businessName}}{{businessName}}{{else}}{{clientHandle}}{{/if}}
@@ -142,9 +141,31 @@ Your entire response MUST be written in the following language: **{{#if language
 {{/if}}
 
 ---
-Now, generate the "{{scriptType}}" for this prospect in the requested language.
+Now, generate the "{{scriptType}}" in ENGLISH.
 `,
 });
+
+
+const TranslationInputSchema = z.object({
+  textToTranslate: z.string(),
+  targetLanguage: z.string(),
+});
+
+const translationPrompt = ai.definePrompt({
+    name: 'translationPrompt',
+    input: { schema: TranslationInputSchema },
+    output: { schema: GenerateContextualScriptOutputSchema },
+    prompt: `Translate the following text into {{targetLanguage}}.
+
+If the target language is "Moroccan Darija", you MUST write the translation using Arabic letters and a natural, conversational dialect (e.g., "السلام عليكم، كيف الحال؟"). Do not use Latin characters (franco) for Darija.
+
+Ensure the translation is accurate, maintains the original tone, and is culturally appropriate.
+
+Text to Translate:
+"{{{textToTranslate}}}"
+`,
+});
+
 
 const generateContextualScriptFlow = ai.defineFlow(
   {
@@ -153,7 +174,33 @@ const generateContextualScriptFlow = ai.defineFlow(
     outputSchema: GenerateContextualScriptOutputSchema,
   },
   async (input) => {
-    const {output} = await prompt(input, { config: { temperature: 0.8, maxOutputTokens: 500 }});
-    return output!;
+    // Step 1: Generate the script in English to ensure all complex logic is handled correctly.
+    const englishGenerationResult = await englishScriptPrompt(input, { config: { temperature: 0.8, maxOutputTokens: 500 }});
+    const englishScript = englishGenerationResult.output?.script;
+
+    if (!englishScript) {
+        throw new Error("Failed to generate the initial script in English.");
+    }
+    
+    const targetLanguage = input.language || 'English';
+
+    // Step 2: If the target language is not English, translate the generated English script.
+    if (targetLanguage !== 'English') {
+        const translationResult = await translationPrompt({
+            textToTranslate: englishScript,
+            targetLanguage: targetLanguage,
+        });
+
+        const translatedScript = translationResult.output?.script;
+        if (!translatedScript) {
+            throw new Error(`Failed to translate the script to ${targetLanguage}.`);
+        }
+        return { script: translatedScript };
+    }
+
+    // If the target language was English, return the initially generated script.
+    return { script: englishScript };
   }
 );
+
+    
