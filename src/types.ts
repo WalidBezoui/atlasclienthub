@@ -1,5 +1,6 @@
 
 
+
 export type ClientStatus = "Active" | "On Hold" | "Past";
 export type Client = {
   id: string;
@@ -180,3 +181,5 @@ export type MonthlyActivity = {
   audits: number;
   prospects?: number;
 };
+
+    

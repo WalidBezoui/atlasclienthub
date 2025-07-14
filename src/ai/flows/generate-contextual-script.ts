@@ -11,7 +11,7 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import type { BusinessType, PainPoint, Goal, LeadSource, OfferInterest, TonePreference, ProspectLocation, AccountStage, OutreachLeadStage } from '@/lib/types';
-import { BUSINESS_TYPES, PAIN_POINTS, GOALS, LEAD_SOURCES, OFFER_INTERESTS, TONE_PREFERENCES, PROSPECT_LOCATIONS, ACCOUNT_STAGES, OUTREACH_LEAD_STAGE_OPTIONS } from '@/lib/types';
+import { BUSINESS_TYPES, PAIN_POINTS, GOALS, LEAD_SOURCES, OFFER_INTERESTS, TONE_PREFERENCES, PROSPECT_LOCATIONS, ACCOUNT_STAGES, OUTREACH_LEAD_STAGE_OPTIONS, SCRIPT_LANGUAGES } from '@/lib/types';
 
 
 const GenerateContextualScriptInputSchema = z.object({
@@ -68,6 +68,7 @@ const GenerateContextualScriptInputSchema = z.object({
   businessTypeOther: z.string().nullable().optional().describe("Specific business type if 'Other' was selected."),
   
   // Additional Notes (from existing)
+  language: z.enum(SCRIPT_LANGUAGES).nullable().optional().describe("The language for the generated script. Default is English."),
   additionalNotes: z.string().nullable().optional().describe("Any other relevant notes or context for the LLM."),
   customInstructions: z.string().nullable().optional().describe("User-provided custom instructions to guide the reply generation."),
 });
@@ -93,18 +94,19 @@ The message MUST build trust, show relevance, offer tangible yet slightly vague 
 
 **IMPORTANT CONTEXT: Your studio, "${SENDER_STUDIO_NAME}", is a new, boutique agency.** You MUST frame this positively. Position the studio as being highly selective and on a mission to work with a few hand-picked brands. This creates exclusivity and scarcity. DO NOT apologize for being new or having few followers.
 
+**LANGUAGE & TONE:**
+- **Language**: {{#if language}}{{language}}{{else}}English{{/if}}.
+  - If "Moroccan Darija", write in natural, conversational Latin characters (e.g., "Salam, labas?").
+- **Tone**: {{#if tonePreference}}{{tonePreference}}{{else}}Friendly & Confident{{/if}}.
+
 **PROSPECT DETAILS:**
-- **Name**: {{clientName}}
+- **Name**: {{#if clientName}}{{clientName}}{{else if businessName}}{{businessName}}{{else}}{{clientHandle}}{{/if}}
 - **IG Handle**: {{clientHandle}}
 - **Brand Name**: {{businessName}}
 - **Industry**: {{clientIndustry}}
-- **Visual Style Notes**: {{visualStyle}}
-- **Bio Summary**: "{{bioSummary}}"
-- **Business Stage**: {{accountStage}}
+- **Business Type**: {{#if businessType}}{{businessType}}{{#if businessTypeOther}} ({{businessTypeOther}}){{/if}}{{else}}Not specified{{/if}}
 - **Identified Pain Point(s)**: {{#each painPoints}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}
 - **Their Goals**: {{#each goals}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}
-- **Preferred Tone**: {{#if tonePreference}}{{tonePreference}}{{else}}Friendly & Confident{{/if}}
-- **Offer**: {{offerType}}
 - **Lead Status**: {{leadStatus}}
 {{#if lastMessageSnippet}}- **Last Message from Them**: "{{lastMessageSnippet}}"{{/if}}
 
@@ -114,109 +116,48 @@ The message MUST build trust, show relevance, offer tangible yet slightly vague 
 {{else}}
 No conversation history provided.
 {{/if}}
+
+---
+**CUSTOM INSTRUCTIONS:**
+{{#if customInstructions}}
+**CRITICAL: The user has provided specific guidance for this reply. You MUST prioritize and follow these instructions.**
+**User Instructions:** "{{{customInstructions}}}"
+{{else}}
+(No custom instructions provided.)
+{{/if}}
 ---
 **SCRIPT GENERATION LOGIC**
 
-**IF the script type is "Generate Next Reply", your task is to act as an expert conversational assistant. Analyze the entire CONVERSATION HISTORY and the prospect's current Lead Status. Your goal is to suggest the most logical and effective next message from "Me" to move the conversation forward towards a successful outcome (e.g., getting them to agree to an audit, closing a deal).**
+**1. SCRIPT TYPE: "{{scriptType}}"**
 
-{{#if customInstructions}}
-**CRITICAL INSTRUCTION: The user has provided specific guidance for this reply. You MUST prioritize and follow these instructions.**
-**Custom Instructions:** "{{{customInstructions}}}"
-Based on these instructions AND the full context below, generate the next reply.
-{{/if}}
+**IF the script type is "Generate Next Reply":**
+Act as an expert conversational assistant. Analyze the CONVERSATION HISTORY and the prospect's current Lead Status. Your goal is to suggest the most logical and effective next message from "Me" to move the conversation forward towards a successful outcome (e.g., getting them to agree to an audit, closing a deal). Prioritize user's Custom Instructions if provided.
 
-**A. Analyze the last message in the CONVERSATION HISTORY.** Is it from them or from me? What was the topic? Is there an unanswered question?
-**B. Consider their current Lead Status: "{{leadStatus}}".**
-   - If 'Replied' or 'Interested', they are engaged. Suggest a message that transitions to the next logical step. If a qualifier question hasn't been asked, suggest that. If it has, guide them towards the audit.
-   - If 'Qualifier Sent' and their last message is a reply, analyze their reply and suggest how to confirm you're ready to start the audit.
-   - If 'Audit Delivered', suggest a follow-up asking for their thoughts or feedback.
-   - If 'Cold' or 'Warm' and they haven't replied for a while, suggest a gentle, non-pushy follow-up. Avoid being repetitive.
-   - If 'Not Interested', suggest a graceful closing message that leaves the door open for the future.
-**C. Review all other prospect details** (Pain Points, Goals, Industry) to add personalization and relevance.
-**D. Keep the tone consistent with the preferred tone: {{#if tonePreference}}{{tonePreference}}{{else}}Friendly & Confident{{/if}}.**
-**E. Formulate a concise, natural-sounding DM. The message should be ready to copy and paste.**
+**IF the script type is "Cold Outreach DM":**
+Follow this structure:
+**A. Personalized Opening:** Start with a warm greeting and a SINCERE, specific compliment about their page or product. Show you've actually looked.
+**B. The "Exclusive Mission" Angle:** Introduce "${SENDER_STUDIO_NAME}" as a new studio on a mission to elevate a few **hand-picked brands** we genuinely admire. This creates scarcity.
+**C. The Intrigue & Vague Value Offer:** Instead of a generic audit, offer specific but un-detailed insights. Build curiosity. Example: "While looking at your page, I noticed a couple of quick opportunities to potentially boost engagement and make your branding even more impactful."
+**D. Soft Close:** End with a short, frictionless question to get permission. Example: "Would you be open to me sending them over? No strings attached, of course."
 
----
+**IF the script type is "Warm Follow-Up DM" or "Send Reminder":**
+Adapt based on conversation history. Be gentle and non-pushy.
+**A. Re-engage Gently:** Refer back to the last interaction.
+**B. Reiterate Value (Briefly):** Remind them of the core benefit of the "{{offerType}}".
+**C. Adjust CTA based on context.**
 
-**IF the script type is "Cold Outreach DM" OR the lead status is 'To Contact' or 'Cold' (this is a NEW lead), follow this structure:**
+**IF the script type is "Soft Close":**
+Be graceful. Acknowledge it might not be the right time, leave the door open for the future, and wish them well.
 
-**A. Personalized Opening:**
-   - Start with a warm greeting (e.g., "Hey {{#if clientName}}{{clientName}}{{else if businessName}}{{businessName}}{{else}}{{clientHandle}}{{/if}}! 👋").
-   - Give a SINCERE compliment that shows you’ve reviewed their feed. Reference their specific content, products, {{#if visualStyle}}their {{visualStyle}} visual style, {{/if}}or overall vibe related to their {{#if clientIndustry}}{{clientIndustry}} niche.{{/if}} Be specific. Avoid "cool feed".
-   - Example: "Came across your page and the way you showcase your products is beautiful. Really love the authentic feel."
+**2. CONTEXTUALIZE BASED ON BUSINESS TYPE:**
+- If they are a **"Product Brand"** or **"Local Business"**: Focus the compliment on their products, aesthetic, or customer photos. Frame the value in terms of brand perception and sales.
+- If they are a **"Personal Brand (coach, consultant)"** or **"Creator / Influencer"**: Focus the compliment on their message, content, or the value they provide. Frame the value in terms of audience trust and converting followers into clients.
+- If **"Other"** or unknown, use general business language.
 
-**B. The "Mission-Driven & Exclusive" Angle:**
-   - Introduce "${SENDER_STUDIO_NAME}".
-   - Frame the outreach as a special initiative: "${SENDER_STUDIO_NAME}" is a new studio on a mission to elevate a few **hand-picked brands** we genuinely admire. This creates exclusivity.
-   - Example phrasing: "My name's [Your Name] and I run ${SENDER_STUDIO_NAME}. We're a new boutique studio on a mission to help a select few brands we admire sharpen their visual presence to turn more followers into clients."
+**3. FINAL CRITIQUE:**
+After drafting the script, review it for emotional impact, clarity, and alignment with the exclusive, mission-driven positioning. Ensure it is concise and sounds human.
 
-**C. The Intrigue & Vague Value Offer:**
-   - Instead of a generic audit, offer specific but un-detailed insights. This builds curiosity.
-   - Example: "While looking at your page, I noticed a couple of quick opportunities to potentially boost engagement and make your branding even more impactful. I put together a few thoughts I think you'll find valuable."
-   - This is better than a generic "3-point audit" because it's tailored and mysterious.
-
-**D. Soft Close (Low-Pressure CTA):**
-   - End with a short, frictionless question to get permission.
-   - Example: "Would you be open to me sending them over? No strings attached, of course."
-
----
-
-**IF the script type is "Warm Follow-Up DM" OR the lead status is 'Warm', 'Replied', or 'Interested' (this is a FOLLOW-UP), adapt the structure. Base your response on the provided Conversation History and the Last Message Snippet.**
-
-**A. Re-engage Gently:**
-   - Refer back to the last interaction based on the conversation history.
-   - If they replied, acknowledge their message directly.
-   - Example if they said "for free!!?": "Hey {{clientName}}! Just following up. And yes, absolutely no strings attached! We do this for a select few brands we're excited about."
-   - Example if they said "I'll check later": "Hey {{clientName}}, hope you had a great week! Just wanted to gently follow up on the ideas I had for {{businessName}}. No pressure at all, just wanted to see if you had any thoughts."
-   - If they haven't replied at all (status is 'Warm' but no reply and no convo history): "Hey {{clientName}}, just wanted to quickly resurface my message from last week about a couple of quick ideas for {{businessName}}. Let me know if you'd be open to it! 🙂"
-
-**B. Reiterate Value (Briefly):**
-   - Remind them of the core benefit of the "{{offerType}}".
-   - Example: "It's a quick way to get some fresh eyes on your content strategy."
-
-**C. The CTA (Adjust based on context):**
-   - If they showed interest, make the next step easy.
-   - Example: "If you're still interested, just give me the word and I'll get it to you this week!"
-   - If it's a cold follow-up, repeat the soft CTA: "Would you be open to me sending it over?"
-
----
-
-**IF the script type is "Send Reminder", follow this structure (for prospects who haven't replied after a few days):**
-
-**A. Gentle Re-engagement:**
-   - Start with a friendly, low-pressure opener.
-   - Example: "Hey {{clientName}}, just wanted to quickly resurface my message from last week..."
-
-**B. Reiterate the Offer Briefly:**
-   - Remind them of the value without being pushy.
-   - Example: "...about the free ideas for {{businessName}}. No pressure at all, just thought it might be helpful!"
-
-**C. Soft CTA:**
-   - End with a simple, easy-to-answer question.
-   - Example: "Let me know if you'd be open to it! 🙂"
-
----
-
-**IF the script type is "Soft Close", follow this structure (for prospects who are not interested or have ghosted):**
-
-**A. Acknowledge and Respect Their Position:**
-   - Start by acknowledging that it might not be the right time. Be graceful.
-   - Example: "Hey {{clientName}}, no worries at all if now isn't the right time for this."
-
-**B. Leave the Door Open (Future Value):**
-   - Offer future help without any immediate expectation. This maintains a positive relationship.
-   - Example: "I'll leave it with you! If you ever want a fresh pair of eyes on your IG strategy in the future, just give me a shout."
-
-**C. Wish Them Well:**
-   - End on a positive and genuine note.
-   - Example: "Wishing you all the best with {{businessName}}!"
-
----
-
-**FINAL CRITIQUE DIRECTIVE:**
-After drafting the script based on ALL the above, review it for emotional impact, clarity, and alignment with "${SENDER_STUDIO_NAME}"'s exclusive, mission-driven positioning. Ensure it sounds human and is concise for Instagram DMs.
-
-**Now, generate the "{{scriptType}}" for this prospect:**
+**Now, generate the "{{scriptType}}" for this prospect in the requested language.**
 `,
 });
 
@@ -227,27 +168,7 @@ const generateContextualScriptFlow = ai.defineFlow(
     outputSchema: GenerateContextualScriptOutputSchema,
   },
   async (input) => {
-    // Helper for prompt: lowercase and attempt to pluralize industry
-    let clientIndustry_lc: string | undefined = undefined;
-    let clientIndustry_lc_pluralized: string | undefined = undefined;
-    if (input.clientIndustry) {
-        clientIndustry_lc = input.clientIndustry.toLowerCase();
-        if (clientIndustry_lc.endsWith('y') && !['day', 'key', 'guy', 'way', 'toy', 'boy', 'play'].some(s => clientIndustry_lc.endsWith(s))) { // simple y -> ies
-            clientIndustry_lc_pluralized = clientIndustry_lc.slice(0, -1) + 'ies';
-        } else if (['s', 'sh', 'ch', 'x', 'z'].some(suffix => clientIndustry_lc.endsWith(suffix))) { // s, sh, ch, x, z -> es
-            clientIndustry_lc_pluralized = clientIndustry_lc + 'es';
-        } else { // default -> s
-            clientIndustry_lc_pluralized = clientIndustry_lc + 's';
-        }
-    }
-
-    const augmentedInput = {
-        ...input,
-        clientIndustry_lc,
-        clientIndustry_lc_pluralized
-    };
-
-    const {output} = await prompt(augmentedInput, { config: { temperature: 0.8, maxOutputTokens: 500 }});
+    const {output} = await prompt(input, { config: { temperature: 0.8, maxOutputTokens: 500 }});
     return output!;
   }
 );
