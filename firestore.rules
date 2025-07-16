@@ -1,0 +1,17 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // This rule allows a user to read and write documents in the 'clients', 
+    // 'prospects', and 'audits' collections only if the document's 'userId'
+    // field matches the authenticated user's ID.
+    match /{collection}/{docId} where collection in ['clients', 'prospects', 'audits'] {
+      // Allow read, update, delete if the user is authenticated and is the owner of the document.
+      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      
+      // Allow create if the user is authenticated and is setting themselves as the owner.
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
+  }
+}
