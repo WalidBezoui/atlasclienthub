@@ -3,15 +3,31 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // This rule allows a user to read and write documents in the 'clients', 
-    // 'prospects', and 'audits' collections only if the document's 'userId'
-    // field matches the authenticated user's ID.
-    match /{collection}/{docId} where collection in ['clients', 'prospects', 'audits'] {
-      // Allow read, update, delete if the user is authenticated and is the owner of the document.
-      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
-      
-      // Allow create if the user is authenticated and is setting themselves as the owner.
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    
+    // Helper function to check if the user is the owner of a document
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // Rules for the 'clients' collection
+    // Users can create clients and can only read, update, or delete their own.
+    match /clients/{clientId} {
+      allow read, update, delete: if isOwner(resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId);
+    }
+
+    // Rules for the 'prospects' collection
+    // Users can create prospects and can only read, update, or delete their own.
+    match /prospects/{prospectId} {
+      allow read, update, delete: if isOwner(resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId);
+    }
+
+    // Rules for the 'audits' collection
+    // Users can create audits and can only read, update, or delete their own.
+    match /audits/{auditId} {
+      allow read, update, delete: if isOwner(resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId);
     }
   }
 }
