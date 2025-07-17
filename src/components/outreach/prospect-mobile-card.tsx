@@ -6,8 +6,8 @@ import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import type { OutreachProspect, OutreachLeadStage, ScriptLanguage } from '@/lib/types';
-import { OUTREACH_LEAD_STAGE_OPTIONS, SCRIPT_LANGUAGES } from '@/lib/types';
+import type { OutreachProspect, OutreachLeadStage } from '@/lib/types';
+import { OUTREACH_LEAD_STAGE_OPTIONS } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuGroup, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from '../ui/dropdown-menu';
 import { Button } from '../ui/button';
@@ -26,7 +26,7 @@ interface ProspectMobileCardProps {
   onGenerateQualifier: (prospect: OutreachProspect) => void;
   onEvaluate: (prospect: OutreachProspect) => void;
   onDelete: (prospect: OutreachProspect) => void;
-  onGenerateScript: (prospect: OutreachProspect, scriptType: any, language: ScriptLanguage) => void;
+  onGenerateScript: (prospect: OutreachProspect, scriptType: any) => void;
 }
 
 const ProspectMobileCard = React.memo(({
@@ -101,30 +101,9 @@ const ProspectMobileCard = React.memo(({
                         <DropdownMenuSub>
                            <DropdownMenuSubTrigger><Bot className="mr-2 h-4 w-4"/>Generate Script</DropdownMenuSubTrigger>
                            <DropdownMenuSubContent>
-                               <DropdownMenuSub>
-                                    <DropdownMenuSubTrigger>Cold Outreach DM</DropdownMenuSubTrigger>
-                                    <DropdownMenuSubContent>
-                                        {SCRIPT_LANGUAGES.map(lang => (
-                                            <DropdownMenuItem key={lang} onClick={() => onGenerateScript(prospect, 'Cold Outreach DM', lang)}>{lang}</DropdownMenuItem>
-                                        ))}
-                                    </DropdownMenuSubContent>
-                               </DropdownMenuSub>
-                               <DropdownMenuSub>
-                                    <DropdownMenuSubTrigger>Warm Follow-Up</DropdownMenuSubTrigger>
-                                    <DropdownMenuSubContent>
-                                        {SCRIPT_LANGUAGES.map(lang => (
-                                            <DropdownMenuItem key={lang} onClick={() => onGenerateScript(prospect, 'Warm Follow-Up DM', lang)}>{lang}</DropdownMenuItem>
-                                        ))}
-                                    </DropdownMenuSubContent>
-                               </DropdownMenuSub>
-                                <DropdownMenuSub>
-                                    <DropdownMenuSubTrigger>Deliver Audit</DropdownMenuSubTrigger>
-                                    <DropdownMenuSubContent>
-                                        {SCRIPT_LANGUAGES.map(lang => (
-                                            <DropdownMenuItem key={lang} onClick={() => onGenerateScript(prospect, 'Audit Delivery Message', lang)}>{lang}</DropdownMenuItem>
-                                        ))}
-                                    </DropdownMenuSubContent>
-                               </DropdownMenuSub>
+                                <DropdownMenuItem onClick={() => onGenerateScript(prospect, 'Cold Outreach DM')}>Cold Outreach DM</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => onGenerateScript(prospect, 'Warm Follow-Up DM')}>Warm Follow-Up</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => onGenerateScript(prospect, 'Audit Delivery Message')}>Deliver Audit</DropdownMenuItem>
                            </DropdownMenuSubContent>
                         </DropdownMenuSub>
                         <DropdownMenuSeparator/>
