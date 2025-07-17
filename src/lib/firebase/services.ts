@@ -561,7 +561,7 @@ export const getDashboardOverview = async (): Promise<{
     getCountFromServer(outreachSentThisMonthQuery),
     getCountFromServer(newLeadsThisMonthQuery),
     getCountFromServer(coldProspectsQuery),
-    getCountFromServer(prospectsAddedThisMonthQuery),
+    getCountFromServer(prospectsAddedSnapshot),
   ]);
 
   return {
@@ -581,9 +581,9 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
     if (!userId) return [];
 
     const now = new Date();
-    const todayEndTimestamp = Timestamp.fromDate(endOfDay(now));
     let agendaItems: AgendaItem[] = [];
     const processedIds = new Set<string>();
+    const AGENDA_LIMIT = 10;
 
     // Query 1: Overdue or due today follow-ups
     const followUpQuery = query(
@@ -591,7 +591,7 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
         where('userId', '==', userId),
         where('followUpNeeded', '==', true),
         orderBy('followUpDate', 'asc'),
-        limit(5)
+        limit(AGENDA_LIMIT)
     );
     
     // Query 2: Needs qualifier (important)
@@ -599,8 +599,7 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
         prospectsCollection,
         where('userId', '==', userId),
         where('status', 'in', ['Interested', 'Replied']),
-        where('qualifierQuestion', '==', null),
-        limit(5)
+        limit(AGENDA_LIMIT)
     );
 
     // Query 3: New prospects to contact
@@ -609,7 +608,7 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
         where('userId', '==', userId),
         where('status', '==', 'To Contact'),
         orderBy('createdAt', 'desc'),
-        limit(5)
+        limit(AGENDA_LIMIT)
     );
 
     const [followUpSnapshot, needsQualifierSnapshot, toContactSnapshot] = await Promise.all([
@@ -620,8 +619,8 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
 
     followUpSnapshot.forEach(doc => {
         const prospect = doc.data() as OutreachProspect;
-        const dueDate = prospect.followUpDate ? new Date(prospect.followUpDate) : new Date(0);
-        if (processedIds.has(doc.id) || dueDate > new Date()) return;
+        const dueDate = prospect.followUpDate ? new Date(prospect.followUpDate) : new Date();
+        if (processedIds.has(doc.id) || dueDate > endOfDay(now)) return;
         agendaItems.push({
             type: 'FOLLOW_UP',
             prospect: { id: doc.id, name: prospect.name, instagramHandle: prospect.instagramHandle, status: prospect.status },
@@ -631,8 +630,8 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
     });
 
     needsQualifierSnapshot.forEach(doc => {
-        if (processedIds.has(doc.id)) return;
         const prospect = doc.data() as OutreachProspect;
+        if (processedIds.has(doc.id) || prospect.qualifierQuestion) return;
         agendaItems.push({
             type: 'SEND_QUALIFIER',
             prospect: { id: doc.id, name: prospect.name, instagramHandle: prospect.instagramHandle, status: prospect.status },
@@ -650,8 +649,9 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
         processedIds.add(doc.id);
     });
 
-    return agendaItems;
+    return agendaItems.slice(0, AGENDA_LIMIT);
 };
+
 
 export const getMonthlyActivityData = async (): Promise<MonthlyActivity[]> => {
   const userId = getCurrentUserId();

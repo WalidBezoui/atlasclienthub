@@ -149,12 +149,10 @@ export default function DashboardPage() {
     { metric: 'Awaiting Reply (Cold)', value: overviewData.coldProspects, icon: HelpCircle, color: 'text-purple-500' },
   ];
 
-  if (!isClient || authLoading) {
+  if (!isClient || authLoading || isLoadingData) {
     return <DashboardSkeleton />;
   }
-  if (isLoadingData) {
-     return <DashboardSkeleton />;
-  }
+
 
   return (
     <div className="space-y-6">
@@ -169,7 +167,7 @@ export default function DashboardPage() {
         }
       />
 
-       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+       <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
         {displayOverviewData.map((item) => (
           <Card key={item.metric}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -181,8 +179,8 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      <div className="grid gap-6 grid-cols-1 xl:grid-cols-3">
-        <Card className="xl:col-span-2 shadow-lg">
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
+        <Card className="lg:col-span-2 shadow-lg">
           <CardHeader>
             <CardTitle className="font-headline">Activity Overview</CardTitle>
             <CardDescription>Monthly client, outreach, and audit trends for the current year.</CardDescription>

@@ -298,7 +298,7 @@ function OutreachPage() {
             toast({ title: "Success", description: `Prospect ${prospectData.name} updated.` });
         } else {
             const docId = await addProspect(prospectData as Omit<OutreachProspect, 'id'|'userId' | 'createdAt'>);
-            savedProspect = { id: docId, userId: user.uid, ...prospectData };
+            savedProspect = { id: docId, userId: user.uid, ...prospectData, createdAt: new Date().toISOString() };
             toast({ title: "Success", description: `Prospect ${prospectData.name} added.` });
         }
         
@@ -559,11 +559,7 @@ function OutreachPage() {
         const result = await generateContextualScript(input);
         setGeneratedScript(result.script);
         setScriptModalTitle(`${scriptType} for ${prospect.name || 'Prospect'}`);
-        navigator.clipboard.writeText(result.script).then(() => {
-            toast({ title: "Copied to clipboard!", description: "The generated script has been copied automatically." });
-        }).catch(err => {
-            console.error("Auto-copy failed: ", err);
-        });
+        // The modal itself now handles the copy + open action.
     } catch (error: any) {
         handleScriptGenerationError(error, "Error Generating Script");
     } finally {
@@ -626,11 +622,6 @@ function OutreachPage() {
         const result = await generateQualifierQuestion(input);
         setGeneratedScript(result.question);
         setScriptModalTitle(`Qualifier Question for ${prospect.name}`);
-        navigator.clipboard.writeText(result.question).then(() => {
-            toast({ title: "Copied to clipboard!", description: "The qualifier question has been copied automatically." });
-        }).catch(err => {
-            console.error("Auto-copy failed: ", err);
-        });
     } catch (error: any) {
         handleScriptGenerationError(error, "Error Generating Qualifier");
     } finally {
