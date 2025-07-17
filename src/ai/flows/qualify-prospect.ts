@@ -86,12 +86,12 @@ const prompt = ai.definePrompt({
 
 2.  **Fill QualificationData Object**: Populate every field in the \`qualificationData\` object.
     -   Set \`industry\` directly from the user's input.
-    -   Infer \`isBusiness\` from all available data. A business account sells something or has a professional purpose.
+    -   Infer \`isBusiness\` from all available data. A business account sells something or has a professional purpose. If it's a "hobby", it's 'no'. Otherwise, 'yes'.
     -   **Crucially, map the user's text assessments to the correct enum values**:
-        -   For \`profitabilityPotential\`: Map "{{userProfitabilityAssessment}}" to 'high', 'medium', or 'low'. (e.g., "high-ticket" -> 'high'; "products" -> 'medium'; "hobby" -> 'low').
-        -   For \`hasInconsistentGrid\`: Map "{{userVisualsAssessment}}" to 'yes' if it's "Inconsistent & Messy", "Great content, messy grid", or "Outdated", otherwise 'no'.
-        -   For \`hasNoClearCTA\` and \`salesFunnelStrength\`: Map "{{userCtaAssessment}}". If "No link", set CTA to 'yes' and funnel to 'none'. If "Generic linktree", set CTA to 'yes' and funnel to 'weak'. If "Strong, direct link", set CTA to 'no' and funnel to 'strong'.
-        -   For \`contentPillarClarity\`: Infer this based on all other info. If visuals are messy and CTA is weak, pillars are likely 'unclear'.
+        -   For \`profitabilityPotential\`: Map "{{userProfitabilityAssessment}}". "high-ticket" -> 'high'; "products" or "local business" -> 'medium'; "brand deals" -> 'medium'; "hobby" -> 'low'.
+        -   For \`hasInconsistentGrid\`: Map "{{userVisualsAssessment}}". 'yes' if it's "Inconsistent & Messy", "Great content, messy grid", or "Outdated", otherwise 'no'.
+        -   For \`hasNoClearCTA\` and \`salesFunnelStrength\`: Map "{{userCtaAssessment}}". If "No link", set CTA to 'yes' and funnel to 'none'. If "Generic linktree" or "Weak CTA", set CTA to 'yes' and funnel to 'weak'. If "Strong, direct link", set CTA to 'no' and funnel to 'strong'.
+        -   For \`contentPillarClarity\`: Infer this based on all other info. If visuals are messy and CTA is weak, pillars are likely 'unclear'. If visuals are "Clean but Generic", pillars might be 'somewhat-clear'. If "Highly Polished", pillars are 'very-clear'.
     -   Based on the synthesis, determine the primary \`valueProposition\` we can offer: 'visuals' (if grid/branding is weak), 'leads' (if they sell but have low engagement/weak funnel), or 'engagement' (if they have good content but low interaction).
 
 3.  **Smart Engagement Analysis**: Calculate the engagement rate (Avg. Likes + Avg. Comments) / Follower Count.

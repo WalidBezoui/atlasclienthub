@@ -200,7 +200,8 @@ function OutreachPage() {
         biography: metricsResult.data.biography,
         userProfitabilityAssessment: "Selling physical products",
         userVisualsAssessment: "Clean but Generic (Lacks personality, looks like a template)",
-        userStrategyAssessment: "Increasing engagement with current followers (Middle of Funnel)",
+        userCtaAssessment: 'Strong, direct link to a sales page, booking site, or freebie',
+        industry: prospect.industry || 'unknown',
       };
       
       const analysisResult = await qualifyProspect(qualifyInput);
@@ -284,17 +285,20 @@ function OutreachPage() {
   };
 
 
-  const handleSaveProspect = useCallback(async (prospectData: Omit<OutreachProspect, 'id'|'userId'> | OutreachProspect) => {
+  const handleSaveProspect = useCallback(async (prospectData: Omit<OutreachProspect, 'id'|'userId'> | OutreachProspect, andGenerateScript?: boolean) => {
      if (!user) {
         toast({title: "Authentication Error", description: "You must be logged in.", variant: "destructive"});
         return;
     }
     try {
+        let savedProspect: OutreachProspect;
         if ('id' in prospectData && prospectData.id) {
             await updateProspect(prospectData.id, prospectData as Partial<OutreachProspect>);
+            savedProspect = { ...prospects.find(p => p.id === prospectData.id)!, ...prospectData };
             toast({ title: "Success", description: `Prospect ${prospectData.name} updated.` });
         } else {
-            await addProspect(prospectData as Omit<OutreachProspect, 'id'|'userId' | 'createdAt'>);
+            const docId = await addProspect(prospectData as Omit<OutreachProspect, 'id'|'userId' | 'createdAt'>);
+            savedProspect = { id: docId, userId: user.uid, ...prospectData };
             toast({ title: "Success", description: `Prospect ${prospectData.name} added.` });
         }
         
@@ -302,11 +306,16 @@ function OutreachPage() {
         setIsEditFormOpen(false);
         setIsRapidAddOpen(false);
         setEditingProspect(undefined);
+        
+        if (andGenerateScript) {
+            handleGenerateScript(savedProspect, 'Cold Outreach DM');
+        }
+
     } catch (error: any) {
         console.error("Error saving prospect:", error);
         toast({ title: "Error", description: error.message || "Could not save prospect.", variant: "destructive"});
     }
-  }, [user, fetchProspects, toast]);
+  }, [user, fetchProspects, toast, prospects]);
 
   const handleUndoDelete = (prospectId: string) => {
     const timeoutId = timeoutMapRef.current.get(prospectId);
@@ -541,7 +550,7 @@ function OutreachPage() {
     
     setScriptModalConfig({
         showConfirmButton: true,
-        confirmButtonText: "Save to Conversation",
+        confirmButtonText: "Copy & Open DM",
         onConfirm: onConfirmScript,
         prospect: prospect, 
     });
@@ -594,7 +603,7 @@ function OutreachPage() {
     
     setScriptModalConfig({
         showConfirmButton: true,
-        confirmButtonText: "Save to Conversation",
+        confirmButtonText: "Copy & Open DM",
         prospect: prospect,
         onConfirm: async (scriptContent: string) => {
            if (currentProspectForScript) {
@@ -685,15 +694,19 @@ function OutreachPage() {
     }
   }, [toast]);
   
-  const handleRegenerateScript = useCallback(async (): Promise<string | null> => {
+  const handleRegenerateScript = useCallback(async (customInstructions: string): Promise<string | null> => {
     if (!currentScriptGenerationInput) {
       toast({ title: "Error", description: "No previous script context to regenerate.", variant: "destructive" });
       return null;
     }
+    
+    const updatedInput = { ...currentScriptGenerationInput, customInstructions };
+    setCurrentScriptGenerationInput(updatedInput);
+
     setIsGeneratingScript(true); 
     setGeneratedScript(''); 
     try {
-      const result = await generateContextualScript(currentScriptGenerationInput);
+      const result = await generateContextualScript(updatedInput);
       setGeneratedScript(result.script); 
       navigator.clipboard.writeText(result.script).then(() => {
         toast({ title: "Auto-copied to clipboard!" });
@@ -1306,6 +1319,7 @@ function OutreachPage() {
         showConfirmButton={scriptModalConfig.showConfirmButton}
         confirmButtonText={scriptModalConfig.confirmButtonText}
         onConfirm={scriptModalConfig.onConfirm ? () => scriptModalConfig.onConfirm(generatedScript) : undefined}
+        prospect={currentProspectForScript}
       />
     </>
   );

@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { fetchInstagramMetrics, type InstagramMetrics } from '@/app/actions/fetch-ig-metrics';
 import { qualifyProspect, type QualifyProspectInput, type QualifyProspectOutput } from '@/ai/flows/qualify-prospect';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ArrowRight, ArrowLeft, Wand2, Star, Save, BrainCircuit, CheckCircle, HelpCircle } from 'lucide-react';
+import { Loader2, ArrowRight, ArrowLeft, Wand2, Star, Save, BrainCircuit, CheckCircle, HelpCircle, Bot } from 'lucide-react';
 import type { OutreachProspect, QualificationData } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
@@ -46,7 +46,7 @@ const ctaQuestions = [
 type RapidProspectDialogProps = {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (prospectData: Omit<OutreachProspect, 'id' | 'userId'>) => void;
+  onSave: (prospectData: Omit<OutreachProspect, 'id' | 'userId'>, andGenerateScript?: boolean) => void;
 };
 
 export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDialogProps) {
@@ -145,7 +145,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
     }
   };
 
-  const handleSave = () => {
+  const handleSave = (andGenerateScript: boolean = false) => {
     if (!analysisResult || !fetchedMetrics) return;
     
     setIsLoading(true); // Reuse isLoading as isSaving
@@ -174,7 +174,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
       businessType: null,
       businessTypeOther: null,
       accountStage: null,
-      source: null,
+      source: 'Rapid Add',
       followUpDate: null,
       followUpNeeded: false,
       offerInterest: [],
@@ -193,7 +193,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
       createdAt: new Date().toISOString(),
     };
     
-    onSave(newProspect);
+    onSave(newProspect, andGenerateScript);
     handleClose();
     setIsLoading(false);
   };
@@ -340,12 +340,18 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
     }
     if (step === 'results') {
       return (
-        <DialogFooter className="mt-auto shrink-0 border-t pt-4">
-          <Button variant="outline" onClick={() => setStep('questions')}><ArrowLeft className="mr-2 h-4 w-4" /> Re-assess</Button>
-          <Button onClick={handleSave} disabled={isLoading}>
-            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}
-             Save Prospect
-          </Button>
+        <DialogFooter className="mt-auto shrink-0 border-t pt-4 flex-col sm:flex-row gap-2">
+          <Button variant="outline" className="w-full sm:w-auto" onClick={() => setStep('questions')}><ArrowLeft className="mr-2 h-4 w-4" /> Re-assess</Button>
+          <div className="flex w-full sm:w-auto gap-2">
+            <Button className="flex-1" onClick={() => handleSave(false)} disabled={isLoading}>
+              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}
+               Save
+            </Button>
+            <Button className="flex-1" onClick={() => handleSave(true)} disabled={isLoading}>
+              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Bot className="mr-2 h-4 w-4" />}
+               Add & Script
+            </Button>
+          </div>
         </DialogFooter>
       );
     }

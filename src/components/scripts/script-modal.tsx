@@ -12,10 +12,11 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Copy, RefreshCw, Loader2, ClipboardList, Send } from 'lucide-react';
+import { Copy, RefreshCw, Loader2, ClipboardList, Send, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
+import type { OutreachProspect } from '@/lib/types';
 
 interface ScriptModalProps {
   isOpen: boolean;
@@ -30,6 +31,7 @@ interface ScriptModalProps {
   confirmButtonText?: string;
   isConfirming?: boolean;
   showConfirmButton?: boolean;
+  prospect?: OutreachProspect | null;
 }
 
 export function ScriptModal({
@@ -43,6 +45,7 @@ export function ScriptModal({
   confirmButtonText = "Confirm",
   isConfirming = false,
   showConfirmButton = false,
+  prospect,
 }: ScriptModalProps) {
   const { toast } = useToast();
   const [currentScript, setCurrentScript] = useState(scriptContent);
@@ -83,6 +86,13 @@ export function ScriptModal({
   const handleConfirm = () => {
     if (onConfirm) {
       onConfirm(currentScript);
+    }
+  };
+
+  const handleCopyAndOpenDm = () => {
+    handleCopy();
+    if (prospect?.instagramHandle) {
+      window.open(`https://www.instagram.com/direct/t/${prospect.instagramHandle}`, '_blank');
     }
   };
 
@@ -146,9 +156,16 @@ export function ScriptModal({
             )}
         </div>
         <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0 sm:justify-end">
-          <Button variant="outline" onClick={handleCopy} disabled={isBusy || !currentScript}>
-            <Copy className="mr-2 h-4 w-4" /> Copy
-          </Button>
+          {showConfirmButton && onConfirm ? (
+              <Button onClick={handleCopyAndOpenDm} disabled={isBusy || !currentScript}>
+                <Copy className="mr-2 h-4 w-4" /> Copy & Open DM
+              </Button>
+            ) : (
+              <Button variant="outline" onClick={handleCopy} disabled={isBusy || !currentScript}>
+                <Copy className="mr-2 h-4 w-4" /> Copy
+              </Button>
+          )}
+
           {showConfirmButton && onConfirm && (
              <Button onClick={handleConfirm} disabled={isBusy || !currentScript}>
                 {isConfirming ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
