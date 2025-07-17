@@ -89,7 +89,7 @@ export function ScriptModal({
       onConfirm(currentScript);
     }
     if (prospect?.instagramHandle) {
-      window.open(`https://www.instagram.com/direct/t/${prospect.instagramHandle}`, '_blank');
+      window.open(`https://www.instagram.com/direct/t/${prospect.instagramHandle.replace('@', '')}`, '_blank');
     }
   };
 
@@ -153,16 +153,14 @@ export function ScriptModal({
             )}
         </div>
         <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0 sm:justify-end">
-          {showConfirmButton && onConfirm ? (
-              <Button variant="outline" onClick={onClose}>
-                Cancel
-              </Button>
-            ) : (
-              <Button variant="outline" onClick={handleCopy} disabled={isBusy || !currentScript}>
-                <Copy className="mr-2 h-4 w-4" /> Copy
-              </Button>
-          )}
+           <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
 
+          <Button variant="outline" onClick={handleCopy} disabled={isBusy || !currentScript}>
+            <Copy className="mr-2 h-4 w-4" /> Copy Script
+          </Button>
+        
           {showConfirmButton && onConfirm && (
              <Button onClick={handleConfirmAndOpen} disabled={isBusy || !currentScript}>
                 {isConfirming ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ExternalLink className="mr-2 h-4 w-4" />}
