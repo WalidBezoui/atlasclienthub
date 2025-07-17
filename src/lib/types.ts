@@ -30,7 +30,7 @@ export type Goal = typeof GOALS[number];
 export const PROSPECT_LOCATIONS = ["Morocco", "Global", "Other"] as const;
 export type ProspectLocation = typeof PROSPECT_LOCATIONS[number];
 
-export const LEAD_SOURCES = ["IG comment", "Hashtag", "Explore", "DM Reply", "Referral", "Website", "LinkedIn", "Discovery Tool", "Other"] as const;
+export const LEAD_SOURCES = ["IG comment", "Hashtag", "Explore", "DM Reply", "Referral", "Website", "LinkedIn", "Discovery Tool", "Rapid Add", "Other"] as const;
 export type LeadSource = typeof LEAD_SOURCES[number];
 
 export const OFFER_INTERESTS = ["Requested Audit", "Asked for Pricing", "Wants Branding/Post Creation", "Wants IG Strategy", "No Reply"] as const;
