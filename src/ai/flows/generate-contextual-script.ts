@@ -85,18 +85,22 @@ export async function generateContextualScript(input: GenerateContextualScriptIn
 
 const SENDER_STUDIO_NAME = "Atlas Social Studio";
 
-const EnglishScriptGenerationSchema = z.object({
-  script: z.string().describe('The generated script in English.'),
-});
-
-const englishScriptPrompt = ai.definePrompt({
-  name: 'generateEnglishScriptPrompt',
+const prompt = ai.definePrompt({
+  name: 'generateAndTranslateScriptPrompt',
   input: {schema: GenerateContextualScriptInputSchema},
-  output: {schema: EnglishScriptGenerationSchema},
+  output: {schema: GenerateContextualScriptOutputSchema},
   prompt: `You are an expert Instagram outreach copywriter for a creative studio called "${SENDER_STUDIO_NAME}", which specializes in social media, content creation, and Instagram strategy.
-Your goal is to craft a personalized, persuasive Instagram DM in ENGLISH based on the provided prospect details and instructions.
 
-**PROSPECT DETAILS & CONTEXT:**
+**YOUR TASK IS A TWO-STEP PROCESS:**
+1.  **STEP 1 (Internal Thought Process):** First, analyze all the prospect details provided below. Based on these details and the script generation rules, mentally craft the perfect, personalized Instagram DM in ENGLISH. This is your internal draft.
+2.  **STEP 2 (Final Output):** Translate the English draft you just created into the requested language: **{{#if language}}{{language}}{{else}}English{{/if}}**. Your final response must *only* be the translated text.
+
+**CRITICAL LANGUAGE INSTRUCTIONS:**
+- Your entire final response MUST be in the requested language.
+- If the requested language is "Moroccan Darija", you MUST write the translation using Arabic letters and a natural, conversational dialect (e.g., "السلام عليكم، كيف الحال؟"). Do not use Latin characters (franco).
+
+---
+**PROSPECT DETAILS & CONTEXT FOR YOUR INTERNAL DRAFT:**
 - **Name**: {{#if clientName}}{{clientName}}{{else if businessName}}{{businessName}}{{else}}{{clientHandle}}{{/if}}
 - **IG Handle**: {{clientHandle}}
 - **Brand Name**: {{businessName}}
@@ -109,7 +113,7 @@ Your goal is to craft a personalized, persuasive Instagram DM in ENGLISH based o
 - **Conversation History**: {{#if conversationHistory}}{{{conversationHistory}}}{{else}}No history.{{/if}}
 
 ---
-**SCRIPT GENERATION RULES**
+**SCRIPT GENERATION RULES (FOR YOUR INTERNAL ENGLISH DRAFT)**
 
 **1. SCRIPT TYPE: "{{scriptType}}"**
 
@@ -128,11 +132,11 @@ Your goal is to craft a personalized, persuasive Instagram DM in ENGLISH based o
 **IF "Soft Close":**
    - Be graceful. Acknowledge it might not be the right time and leave the door open for the future.
 
-**2. POSITIONING & TONE:**
+**2. POSITIONING & TONE (FOR YOUR INTERNAL ENGLISH DRAFT):**
 - Your tone should be: **{{#if tonePreference}}{{tonePreference}}{{else}}Friendly & Confident{{/if}}**.
 - Always position the studio as highly selective. We are on a mission, not desperate for clients.
 
-**3. CUSTOM INSTRUCTIONS:**
+**3. CUSTOM INSTRUCTIONS (FOR YOUR INTERNAL ENGLISH DRAFT):**
 {{#if customInstructions}}
 **CRITICAL: The user has provided specific guidance. You MUST prioritize and follow these instructions.**
 **User Instructions:** "{{{customInstructions}}}"
@@ -141,28 +145,7 @@ Your goal is to craft a personalized, persuasive Instagram DM in ENGLISH based o
 {{/if}}
 
 ---
-Now, generate the "{{scriptType}}" in ENGLISH.
-`,
-});
-
-
-const TranslationInputSchema = z.object({
-  textToTranslate: z.string(),
-  targetLanguage: z.string(),
-});
-
-const translationPrompt = ai.definePrompt({
-    name: 'translationPrompt',
-    input: { schema: TranslationInputSchema },
-    output: { schema: GenerateContextualScriptOutputSchema },
-    prompt: `Translate the following text into {{targetLanguage}}.
-
-If the target language is "Moroccan Darija", you MUST write the translation using Arabic letters and a natural, conversational dialect (e.g., "السلام عليكم، كيف الحال؟"). Do not use Latin characters (franco) for Darija.
-
-Ensure the translation is accurate, maintains the original tone, and is culturally appropriate.
-
-Text to Translate:
-"{{{textToTranslate}}}"
+Now, perform Step 2. Translate your internally-crafted English script into **{{#if language}}{{language}}{{else}}English{{/if}}** and provide only that translation as your output.
 `,
 });
 
@@ -174,33 +157,13 @@ const generateContextualScriptFlow = ai.defineFlow(
     outputSchema: GenerateContextualScriptOutputSchema,
   },
   async (input) => {
-    // Step 1: Generate the script in English to ensure all complex logic is handled correctly.
-    const englishGenerationResult = await englishScriptPrompt(input, { config: { temperature: 0.8, maxOutputTokens: 500 }});
-    const englishScript = englishGenerationResult.output?.script;
-
-    if (!englishScript) {
-        throw new Error("Failed to generate the initial script in English.");
-    }
+    const {output} = await prompt(input, { config: { temperature: 0.8, maxOutputTokens: 500 }});
     
-    const targetLanguage = input.language || 'English';
-
-    // Step 2: If the target language is not English, translate the generated English script.
-    if (targetLanguage !== 'English') {
-        const translationResult = await translationPrompt({
-            textToTranslate: englishScript,
-            targetLanguage: targetLanguage,
-        });
-
-        const translatedScript = translationResult.output?.script;
-        if (!translatedScript) {
-            throw new Error(`Failed to translate the script to ${targetLanguage}.`);
-        }
-        return { script: translatedScript };
+    if (!output?.script) {
+        throw new Error("Failed to generate a valid script.");
     }
 
-    // If the target language was English, return the initially generated script.
-    return { script: englishScript };
+    return { script: output.script };
   }
 );
 
-    
