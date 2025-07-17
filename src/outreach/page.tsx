@@ -51,7 +51,6 @@ import { LoadingSpinner } from '@/components/shared/loading-spinner';
 import { cn } from '@/lib/utils';
 import { useScriptContext } from '@/contexts/ScriptContext';
 import { generateContextualScript, type GenerateContextualScriptInput } from '@/ai/flows/generate-contextual-script';
-import { translateText } from '@/ai/flows/translate-text';
 import { generateQualifierQuestion, type GenerateQualifierInput } from '@/ai/flows/generate-qualifier-question';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
@@ -69,7 +68,6 @@ import { qualifyProspect, type QualifyProspectInput } from '@/ai/flows/qualify-p
 import { CommentGeneratorDialog } from '@/components/outreach/CommentGeneratorDialog';
 import { ProspectTableRow } from '@/components/outreach/prospect-table-row';
 import { ProspectMobileCard } from '@/components/outreach/prospect-mobile-card';
-import type { ScriptLanguage } from '@/lib/types';
 
 
 function OutreachPage() {
@@ -460,16 +458,8 @@ function OutreachPage() {
     setScriptModalTitle(title);
     setGeneratedScript("Failed to generate script. Please try again.");
   };
-  
-  const performTranslation = async (textToTranslate: string, language: ScriptLanguage) => {
-    if (language === 'English') {
-      return textToTranslate;
-    }
-    const translationResult = await translateText({ textToTranslate, targetLanguage: language });
-    return translationResult.translatedText;
-  };
 
-  const handleGenerateScript = useCallback(async (prospect: OutreachProspect, scriptType: GenerateContextualScriptInput['scriptType'], language: ScriptLanguage) => {
+  const handleGenerateScript = useCallback(async (prospect: OutreachProspect, scriptType: GenerateContextualScriptInput['scriptType']) => {
     setCurrentProspectForScript(prospect);
     setIsGeneratingScript(true);
     setIsScriptModalOpen(true);
@@ -558,12 +548,10 @@ function OutreachPage() {
     });
     
     try {
-        const englishResult = await generateContextualScript(input);
-        const finalScript = await performTranslation(englishResult.script, language);
-
-        setGeneratedScript(finalScript);
+        const result = await generateContextualScript(input);
+        setGeneratedScript(result.script);
         setScriptModalTitle(`${scriptType} for ${prospect.name || 'Prospect'}`);
-        navigator.clipboard.writeText(finalScript).then(() => {
+        navigator.clipboard.writeText(result.script).then(() => {
             toast({ title: "Copied to clipboard!", description: "The generated script has been copied automatically." });
         }).catch(err => {
             console.error("Auto-copy failed: ", err);
@@ -698,7 +686,7 @@ function OutreachPage() {
     }
   }, [toast]);
   
-  const handleRegenerateScript = useCallback(async (language: ScriptLanguage, customInstructions: string): Promise<string | null> => {
+  const handleRegenerateScript = useCallback(async (customInstructions: string): Promise<string | null> => {
     if (!currentScriptGenerationInput) {
       toast({ title: "Error", description: "No previous script context to regenerate.", variant: "destructive" });
       return null;
@@ -710,17 +698,15 @@ function OutreachPage() {
     setIsGeneratingScript(true); 
     setGeneratedScript(''); 
     try {
-      const englishResult = await generateContextualScript(updatedInput);
-      const finalScript = await performTranslation(englishResult.script, language);
-
-      setGeneratedScript(finalScript); 
-      navigator.clipboard.writeText(finalScript).then(() => {
+      const result = await generateContextualScript(updatedInput);
+      setGeneratedScript(result.script); 
+      navigator.clipboard.writeText(result.script).then(() => {
         toast({ title: "Auto-copied to clipboard!" });
       }).catch(err => {
         console.error("Failed to auto-copy regenerated script:", err);
       });
       setIsGeneratingScript(false);
-      return finalScript;
+      return result.script;
     } catch (error: any) {
       console.error("Error regenerating script:", error);
       toast({ title: "Script Regeneration Failed", description: (error as Error).message || "Could not regenerate script.", variant: "destructive" });

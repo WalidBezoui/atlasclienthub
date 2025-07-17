@@ -12,8 +12,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuGroup,
 import { Edit, Trash2, MoreHorizontal, Link as LinkIcon, Bot, MessageCircle, MessagesSquare, GraduationCap, FileQuestion, Loader2, Star, Languages } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
-import type { OutreachProspect, OutreachLeadStage, ScriptLanguage } from '@/lib/types';
-import { OUTREACH_LEAD_STAGE_OPTIONS, SCRIPT_LANGUAGES } from '@/lib/types';
+import type { OutreachProspect, OutreachLeadStage } from '@/lib/types';
+import { OUTREACH_LEAD_STAGE_OPTIONS } from '@/lib/types';
 import { Separator } from '../ui/separator';
 
 const ProspectTimelineTooltip = ({ prospect }: { prospect: OutreachProspect }) => {
@@ -70,7 +70,7 @@ interface ProspectTableRowProps {
   onStartAudit: (prospect: OutreachProspect) => void;
   onGenerateComment: (prospect: OutreachProspect) => void;
   onGenerateQualifier: (prospect: OutreachProspect) => void;
-  onGenerateScript: (prospect: OutreachProspect, scriptType: any, language: ScriptLanguage) => void;
+  onGenerateScript: (prospect: OutreachProspect, scriptType: any) => void;
   onEvaluate: (prospect: OutreachProspect) => void;
   onDelete: (prospect: OutreachProspect) => void;
 }
@@ -237,16 +237,9 @@ const ProspectTableRow = React.memo(({
                                     <DropdownMenuSubTrigger><Bot className="mr-2 h-4 w-4" /> Generate Script</DropdownMenuSubTrigger>
                                     <DropdownMenuSubContent>
                                         {scriptMenuItems.map(item => (
-                                            <DropdownMenuSub key={item.type}>
-                                                <DropdownMenuSubTrigger>{item.label}</DropdownMenuSubTrigger>
-                                                <DropdownMenuSubContent>
-                                                    {SCRIPT_LANGUAGES.map(lang => (
-                                                        <DropdownMenuItem key={lang} onClick={() => onGenerateScript(prospect, item.type, lang)}>
-                                                            {lang}
-                                                        </DropdownMenuItem>
-                                                    ))}
-                                                </DropdownMenuSubContent>
-                                            </DropdownMenuSub>
+                                            <DropdownMenuItem key={item.type} onClick={() => onGenerateScript(prospect, item.type)}>
+                                                {item.label}
+                                            </DropdownMenuItem>
                                         ))}
                                     </DropdownMenuSubContent>
                                 </DropdownMenuSub>

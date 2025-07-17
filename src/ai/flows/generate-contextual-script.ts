@@ -2,7 +2,7 @@
 'use server';
 /**
  * @fileOverview Generates contextual scripts based on client or content information.
- * This flow ALWAYS generates the script in English. A separate translation flow should be used.
+ * This flow ALWAYS generates the script in English.
  *
  * - generateContextualScript - A function to generate scripts.
  * - GenerateContextualScriptInput - Input type for script generation.

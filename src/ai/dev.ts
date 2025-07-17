@@ -10,4 +10,3 @@ import '@/ai/flows/discover-prospects.ts';
 import '@/ai/flows/discover-hot-prospects.ts';
 import '@/ai/flows/generate-comment.ts';
 import '@/ai/flows/generate-generic-comment.ts';
-import '@/ai/flows/translate-text.ts';

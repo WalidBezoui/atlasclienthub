@@ -16,16 +16,13 @@ import { Copy, RefreshCw, Loader2, ClipboardList, Send } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { SCRIPT_LANGUAGES } from '@/lib/types';
-import type { ScriptLanguage } from '@/lib/types';
 
 interface ScriptModalProps {
   isOpen: boolean;
   onClose: () => void;
   scriptContent: string;
   title?: string;
-  onRegenerate?: (language: ScriptLanguage, customInstructions: string) => Promise<string | null>;
+  onRegenerate?: (customInstructions: string) => Promise<string | null>;
   isLoadingInitially?: boolean;
   
   // Custom confirmation action props
@@ -50,7 +47,6 @@ export function ScriptModal({
   const { toast } = useToast();
   const [currentScript, setCurrentScript] = useState(scriptContent);
   const [isRegenerating, setIsRegenerating] = useState(false);
-  const [language, setLanguage] = useState<ScriptLanguage>('English');
   const [customInstructions, setCustomInstructions] = useState('');
 
   useEffect(() => {
@@ -72,7 +68,7 @@ export function ScriptModal({
     if (!onRegenerate) return;
     setIsRegenerating(true);
     try {
-      const newScript = await onRegenerate(language, customInstructions);
+      const newScript = await onRegenerate(customInstructions);
       if (newScript) {
         setCurrentScript(newScript);
         toast({ title: "Script Regenerated!", description: "A new version of the script has been generated." });
@@ -97,7 +93,6 @@ export function ScriptModal({
         if (!open) {
             onClose();
             setCustomInstructions('');
-            setLanguage('English');
         }
     }}>
       <DialogContent className="sm:max-w-lg md:max-w-xl">
@@ -127,32 +122,17 @@ export function ScriptModal({
           )}
 
            {onRegenerate && (
-                <div className="space-y-4 rounded-lg border p-4 bg-muted/50">
+                <div className="space-y-2 rounded-lg border p-4 bg-muted/50">
                     <h4 className="text-sm font-semibold">Regeneration Options</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                            <Label htmlFor="language-select" className="text-xs">Language</Label>
-                            <Select value={language} onValueChange={(v: ScriptLanguage) => setLanguage(v)}>
-                                <SelectTrigger id="language-select">
-                                    <SelectValue placeholder="Select language" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {SCRIPT_LANGUAGES.map(lang => (
-                                        <SelectItem key={lang} value={lang}>{lang}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="sm:col-span-2">
-                             <Label htmlFor="custom-instructions" className="text-xs">Custom Instructions (Optional)</Label>
-                             <Input 
-                                id="custom-instructions"
-                                placeholder="e.g., 'Make it more casual', 'Add an emoji'" 
-                                value={customInstructions} 
-                                onChange={(e) => setCustomInstructions(e.target.value)} 
-                                disabled={isBusy}
-                            />
-                        </div>
+                    <div>
+                         <Label htmlFor="custom-instructions" className="text-xs">Custom Instructions (Optional)</Label>
+                         <Input 
+                            id="custom-instructions"
+                            placeholder="e.g., 'Make it more casual', 'Add an emoji'" 
+                            value={customInstructions} 
+                            onChange={(e) => setCustomInstructions(e.target.value)} 
+                            disabled={isBusy}
+                        />
                     </div>
                      <Button variant="secondary" onClick={handleRegenerate} disabled={isBusy} className="w-full">
                         {isRegenerating ? (

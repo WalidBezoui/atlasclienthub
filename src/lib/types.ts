@@ -39,9 +39,6 @@ export type OfferInterest = typeof OFFER_INTERESTS[number];
 export const TONE_PREFERENCES = ["Friendly & casual", "Confident & professional", "Creative & bold"] as const;
 export type TonePreference = typeof TONE_PREFERENCES[number];
 
-export const SCRIPT_LANGUAGES = ["English", "French", "Arabic", "Moroccan Darija"] as const;
-export type ScriptLanguage = typeof SCRIPT_LANGUAGES[number];
-
 // Refined Lead Stages for Outreach
 export type OutreachLeadStage = "To Contact" | "Cold" | "Warm" | "Replied" | "Interested" | "Qualifier Sent" | "Ready for Audit" | "Audit Delivered" | "Closed - Won" | "Closed - Lost" | "Not Interested";
 export const OUTREACH_LEAD_STAGE_OPTIONS: OutreachLeadStage[] = ["To Contact", "Cold", "Warm", "Replied", "Interested", "Qualifier Sent", "Ready for Audit", "Audit Delivered", "Closed - Won", "Closed - Lost", "Not Interested"];
