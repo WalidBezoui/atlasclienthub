@@ -115,13 +115,13 @@ Your task is to craft the perfect, personalized Instagram DM in ENGLISH based on
    - **Compliment:** Start with a sincere, specific compliment about their page or product. Show you've actually looked.
    - **The "Exclusive Mission" Angle:** Introduce "${SENDER_STUDIO_NAME}" as a creative studio on a mission to elevate a few **hand-picked brands** we genuinely admire. This creates exclusivity.
    - **Intrigue & Vague Value:** Instead of a generic audit, offer specific but un-detailed insights to build curiosity.
-     {{#ifCond businessType "==" "Creator / Influencer"}}
+     {{#if (eq businessType "Creator / Influencer")}}
      - **Angle for Creator:** Focus on how better branding can attract higher-quality brand deals and build a stronger community. Example: "I noticed a couple of quick opportunities to potentially make your personal brand even more impactful and monetizable."
-     {{else ifCond businessType "==" "Personal Brand (coach, consultant)"}}
+     {{else}}{{#if (eq businessType "Personal Brand (coach, consultant)")}}
      - **Angle for Personal Brand:** Focus on converting followers into high-ticket clients and building authority. Example: "I noticed a couple of quick opportunities to potentially elevate your visual brand and turn more followers into qualified inquiries."
      {{else}}
      - **Angle for Business:** Focus on how premium visuals can increase perceived value and drive more sales. Example: "I noticed a couple of quick opportunities to potentially boost engagement and make your branding even more impactful for sales."
-     {{/ifCond}}
+     {{/if}}{{/if}}
    - **Soft CTA:** End with a short, frictionless question to get permission. Example: "Would you be open to me sending them over? No strings attached, of course."
 
 **IF "Warm Follow-Up DM" or "Send Reminder":**
@@ -167,4 +167,3 @@ const generateContextualScriptFlow = ai.defineFlow(
     return { script: output.script };
   }
 );
-
