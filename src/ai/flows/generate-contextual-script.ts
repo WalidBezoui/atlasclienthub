@@ -74,6 +74,7 @@ const GenerateContextualScriptInputSchema = z.object({
 });
 export type GenerateContextualScriptInput = z.infer<typeof GenerateContextualScriptInputSchema>;
 
+
 const GenerateContextualScriptOutputSchema = z.object({
   script: z.string().describe('The generated script in English.'),
 });
@@ -87,7 +88,7 @@ const SENDER_STUDIO_NAME = "Atlas Social Studio";
 
 const prompt = ai.definePrompt({
   name: 'generateContextualScriptPrompt',
-  input: {schema: GenerateContextualScriptInputSchema},
+  input: {schema: z.any()}, // Input schema handled in the flow
   output: {schema: GenerateContextualScriptOutputSchema},
   prompt: `You are an expert Instagram outreach copywriter for a creative studio called "${SENDER_STUDIO_NAME}", which specializes in social media, content creation, and Instagram strategy.
 
@@ -115,13 +116,15 @@ Your task is to craft the perfect, personalized Instagram DM in ENGLISH based on
    - **Compliment:** Start with a sincere, specific compliment about their page or product. Show you've actually looked.
    - **The "Exclusive Mission" Angle:** Introduce "${SENDER_STUDIO_NAME}" as a creative studio on a mission to elevate a few **hand-picked brands** we genuinely admire. This creates exclusivity.
    - **Intrigue & Vague Value:** Instead of a generic audit, offer specific but un-detailed insights to build curiosity.
-     {{#if (eq businessType "Creator / Influencer")}}
+     {{#if isCreator}}
      - **Angle for Creator:** Focus on how better branding can attract higher-quality brand deals and build a stronger community. Example: "I noticed a couple of quick opportunities to potentially make your personal brand even more impactful and monetizable."
-     {{else}}{{#if (eq businessType "Personal Brand (coach, consultant)")}}
+     {{/if}}
+     {{#if isPersonalBrand}}
      - **Angle for Personal Brand:** Focus on converting followers into high-ticket clients and building authority. Example: "I noticed a couple of quick opportunities to potentially elevate your visual brand and turn more followers into qualified inquiries."
-     {{else}}
+     {{/if}}
+     {{#if isBusiness}}
      - **Angle for Business:** Focus on how premium visuals can increase perceived value and drive more sales. Example: "I noticed a couple of quick opportunities to potentially boost engagement and make your branding even more impactful for sales."
-     {{/if}}{{/if}}
+     {{/if}}
    - **Soft CTA:** End with a short, frictionless question to get permission. Example: "Would you be open to me sending them over? No strings attached, of course."
 
 **IF "Warm Follow-Up DM" or "Send Reminder":**
@@ -158,7 +161,15 @@ const generateContextualScriptFlow = ai.defineFlow(
     outputSchema: GenerateContextualScriptOutputSchema,
   },
   async (input) => {
-    const {output} = await prompt(input, { config: { temperature: 0.8, maxOutputTokens: 500 }});
+    // Pre-process the input to create boolean flags for Handlebars
+    const promptInput = {
+      ...input,
+      isCreator: input.businessType === "Creator / Influencer",
+      isPersonalBrand: input.businessType === "Personal Brand (coach, consultant)",
+      isBusiness: !["Creator / Influencer", "Personal Brand (coach, consultant)"].includes(input.businessType || ''),
+    };
+
+    const {output} = await prompt(promptInput, { config: { temperature: 0.8, maxOutputTokens: 500 }});
     
     if (!output?.script) {
         throw new Error("Failed to generate a valid script.");
