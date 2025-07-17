@@ -32,13 +32,14 @@ import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useScriptContext, ClientScriptContext, ContentScriptContext } from '@/contexts/ScriptContext';
 import { generateContextualScript, GenerateContextualScriptInput, GenerateContextualScriptOutput } from '@/ai/flows/generate-contextual-script';
+import { translateText } from '@/ai/flows/translate-text';
 import { ScriptModal } from '@/components/scripts/script-modal';
 import { useToast } from '@/hooks/use-toast';
 import { GenericCommentGeneratorDialog } from '@/components/tools/GenericCommentGeneratorDialog';
 import type { ScriptLanguage } from '@/lib/types';
 import { SCRIPT_LANGUAGES } from '@/lib/types';
 
-type ScriptType = GenerateContextualScriptInput['scriptType'];
+type ScriptType = Omit<GenerateContextualScriptInput['scriptType'], 'Generate Next Reply'>;
 
 export function AppHeader() {
   const { isMobile } = useSidebar();
@@ -58,6 +59,14 @@ export function AppHeader() {
     if (!email) return 'U';
     return email.substring(0, 2).toUpperCase();
   };
+  
+  const performTranslation = async (textToTranslate: string, language: ScriptLanguage) => {
+    if (language === 'English') {
+      return textToTranslate;
+    }
+    const translationResult = await translateText({ textToTranslate, targetLanguage: language });
+    return translationResult.translatedText;
+  };
 
   const handleGenerateScript = async (scriptType: ScriptType, language: ScriptLanguage) => {
     setIsGeneratingScript(true);
@@ -65,7 +74,7 @@ export function AppHeader() {
     setGeneratedScript(''); 
     setScriptModalTitle(`Generating ${scriptType}...`);
     
-    let input: Partial<GenerateContextualScriptInput> = { scriptType, language };
+    let input: Partial<GenerateContextualScriptInput> = { scriptType };
 
     if (clientContext) {
       input = {
@@ -82,12 +91,18 @@ export function AppHeader() {
         toast({ title: "Generating Generic Script", description: `No client context set. A generic "${scriptType}" will be generated.`, variant: "default" });
     }
 
-    setCurrentScriptGenerationInput(input as GenerateContextualScriptInput);
+    const fullInput = input as GenerateContextualScriptInput;
+    setCurrentScriptGenerationInput(fullInput);
 
     try {
-      const result: GenerateContextualScriptOutput = await generateContextualScript(input as GenerateContextualScriptInput);
-      setGeneratedScript(result.script);
-      setScriptModalTitle(`${scriptType} - Result`);
+      // Step 1: Generate script in English
+      const englishResult = await generateContextualScript(fullInput);
+      
+      // Step 2: Translate if necessary
+      const finalScript = await performTranslation(englishResult.script, language);
+
+      setGeneratedScript(finalScript);
+      setScriptModalTitle(`${scriptType} - Result (${language})`);
     } catch (error) {
       console.error("Error generating script:", error);
       toast({ title: "Script Generation Failed", description: (error as Error).message || "Could not generate script.", variant: "destructive" });
@@ -104,16 +119,17 @@ export function AppHeader() {
       return null;
     }
     
-    const updatedInput = { ...currentScriptGenerationInput, language, customInstructions };
+    const updatedInput = { ...currentScriptGenerationInput, customInstructions };
     setCurrentScriptGenerationInput(updatedInput);
 
     setIsGeneratingScript(true); 
     setGeneratedScript(''); 
     try {
-      const result = await generateContextualScript(updatedInput);
-      setGeneratedScript(result.script); 
+      const englishResult = await generateContextualScript(updatedInput);
+      const finalScript = await performTranslation(englishResult.script, language);
+      setGeneratedScript(finalScript);
       setIsGeneratingScript(false);
-      return result.script;
+      return finalScript;
     } catch (error) {
       console.error("Error regenerating script:", error);
       toast({ title: "Script Regeneration Failed", description: (error as Error).message || "Could not regenerate script.", variant: "destructive" });

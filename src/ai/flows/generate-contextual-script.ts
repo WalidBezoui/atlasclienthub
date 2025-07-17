@@ -2,6 +2,7 @@
 'use server';
 /**
  * @fileOverview Generates contextual scripts based on client or content information.
+ * This flow ALWAYS generates the script in English. A separate translation flow should be used.
  *
  * - generateContextualScript - A function to generate scripts.
  * - GenerateContextualScriptInput - Input type for script generation.
@@ -10,8 +11,8 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import type { BusinessType, PainPoint, Goal, LeadSource, OfferInterest, TonePreference, ProspectLocation, AccountStage, ScriptLanguage } from '@/lib/types';
-import { BUSINESS_TYPES, PAIN_POINTS, GOALS, LEAD_SOURCES, OFFER_INTERESTS, TONE_PREFERENCES, PROSPECT_LOCATIONS, ACCOUNT_STAGES, OUTREACH_LEAD_STAGE_OPTIONS, SCRIPT_LANGUAGES } from '@/lib/types';
+import type { BusinessType, PainPoint, Goal, LeadSource, OfferInterest, TonePreference, ProspectLocation, AccountStage } from '@/lib/types';
+import { BUSINESS_TYPES, PAIN_POINTS, GOALS, LEAD_SOURCES, OFFER_INTERESTS, TONE_PREFERENCES, PROSPECT_LOCATIONS, ACCOUNT_STAGES, OUTREACH_LEAD_STAGE_OPTIONS } from '@/lib/types';
 
 
 const GenerateContextualScriptInputSchema = z.object({
@@ -68,14 +69,13 @@ const GenerateContextualScriptInputSchema = z.object({
   businessTypeOther: z.string().nullable().optional().describe("Specific business type if 'Other' was selected."),
   
   // Additional Notes (from existing)
-  language: z.enum(SCRIPT_LANGUAGES).nullable().optional().describe("The language for the generated script. Default is English."),
   additionalNotes: z.string().nullable().optional().describe("Any other relevant notes or context for the LLM."),
   customInstructions: z.string().nullable().optional().describe("User-provided custom instructions to guide the reply generation."),
 });
 export type GenerateContextualScriptInput = z.infer<typeof GenerateContextualScriptInputSchema>;
 
 const GenerateContextualScriptOutputSchema = z.object({
-  script: z.string().describe('The generated script.'),
+  script: z.string().describe('The generated script in English.'),
 });
 export type GenerateContextualScriptOutput = z.infer<typeof GenerateContextualScriptOutputSchema>;
 
@@ -86,21 +86,15 @@ export async function generateContextualScript(input: GenerateContextualScriptIn
 const SENDER_STUDIO_NAME = "Atlas Social Studio";
 
 const prompt = ai.definePrompt({
-  name: 'generateAndTranslateScriptPrompt',
+  name: 'generateContextualScriptPrompt',
   input: {schema: GenerateContextualScriptInputSchema},
   output: {schema: GenerateContextualScriptOutputSchema},
   prompt: `You are an expert Instagram outreach copywriter for a creative studio called "${SENDER_STUDIO_NAME}", which specializes in social media, content creation, and Instagram strategy.
 
-**YOUR TASK IS A TWO-STEP PROCESS:**
-1.  **STEP 1 (Internal Thought Process):** First, analyze all the prospect details provided below. Based on these details and the script generation rules, mentally craft the perfect, personalized Instagram DM in ENGLISH. This is your internal draft.
-2.  **STEP 2 (Final Output):** Translate the English draft you just created into the requested language: **{{#if language}}{{language}}{{else}}English{{/if}}**. Your final response must *only* be the translated text.
-
-**CRITICAL LANGUAGE INSTRUCTIONS:**
-- Your entire final response MUST be in the requested language.
-- If the requested language is "Moroccan Darija", you MUST write the translation using Arabic letters and a natural, conversational dialect (e.g., "السلام عليكم، كيف الحال؟"). Do not use Latin characters (franco).
+Your task is to craft the perfect, personalized Instagram DM in ENGLISH based on the prospect details below.
 
 ---
-**PROSPECT DETAILS & CONTEXT FOR YOUR INTERNAL DRAFT:**
+**PROSPECT DETAILS & CONTEXT:**
 - **Name**: {{#if clientName}}{{clientName}}{{else if businessName}}{{businessName}}{{else}}{{clientHandle}}{{/if}}
 - **IG Handle**: {{clientHandle}}
 - **Brand Name**: {{businessName}}
@@ -113,7 +107,7 @@ const prompt = ai.definePrompt({
 - **Conversation History**: {{#if conversationHistory}}{{{conversationHistory}}}{{else}}No history.{{/if}}
 
 ---
-**SCRIPT GENERATION RULES (FOR YOUR INTERNAL ENGLISH DRAFT)**
+**SCRIPT GENERATION RULES**
 
 **1. SCRIPT TYPE: "{{scriptType}}"**
 
@@ -132,11 +126,11 @@ const prompt = ai.definePrompt({
 **IF "Soft Close":**
    - Be graceful. Acknowledge it might not be the right time and leave the door open for the future.
 
-**2. POSITIONING & TONE (FOR YOUR INTERNAL ENGLISH DRAFT):**
+**2. POSITIONING & TONE:**
 - Your tone should be: **{{#if tonePreference}}{{tonePreference}}{{else}}Friendly & Confident{{/if}}**.
 - Always position the studio as highly selective. We are on a mission, not desperate for clients.
 
-**3. CUSTOM INSTRUCTIONS (FOR YOUR INTERNAL ENGLISH DRAFT):**
+**3. CUSTOM INSTRUCTIONS:**
 {{#if customInstructions}}
 **CRITICAL: The user has provided specific guidance. You MUST prioritize and follow these instructions.**
 **User Instructions:** "{{{customInstructions}}}"
@@ -145,7 +139,7 @@ const prompt = ai.definePrompt({
 {{/if}}
 
 ---
-Now, perform Step 2. Translate your internally-crafted English script into **{{#if language}}{{language}}{{else}}English{{/if}}** and provide only that translation as your output.
+Now, generate the script in ENGLISH only.
 `,
 });
 

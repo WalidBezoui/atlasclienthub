@@ -24,8 +24,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import type { OutreachProspect, OutreachLeadStage, StatusHistoryItem, ScriptLanguage } from '@/lib/types';
-import { OUTREACH_LEAD_STAGE_OPTIONS, SCRIPT_LANGUAGES } from '@/lib/types';
+import type { OutreachProspect, OutreachLeadStage, StatusHistoryItem } from '@/lib/types';
+import { OUTREACH_LEAD_STAGE_OPTIONS } from '@/lib/types';
 import {
   Dialog,
   DialogContent,
@@ -51,6 +51,7 @@ import { LoadingSpinner } from '@/components/shared/loading-spinner';
 import { cn } from '@/lib/utils';
 import { useScriptContext } from '@/contexts/ScriptContext';
 import { generateContextualScript, type GenerateContextualScriptInput } from '@/ai/flows/generate-contextual-script';
+import { translateText } from '@/ai/flows/translate-text';
 import { generateQualifierQuestion, type GenerateQualifierInput } from '@/ai/flows/generate-qualifier-question';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
@@ -68,6 +69,7 @@ import { qualifyProspect, type QualifyProspectInput } from '@/ai/flows/qualify-p
 import { CommentGeneratorDialog } from '@/components/outreach/CommentGeneratorDialog';
 import { ProspectTableRow } from '@/components/outreach/prospect-table-row';
 import { ProspectMobileCard } from '@/components/outreach/prospect-mobile-card';
+import type { ScriptLanguage } from '@/lib/types';
 
 
 function OutreachPage() {
@@ -198,10 +200,10 @@ function OutreachPage() {
         avgLikes: metricsResult.data.avgLikes,
         avgComments: metricsResult.data.avgComments,
         biography: metricsResult.data.biography,
-        userProfitabilityAssessment: "Sells high-ticket services (coaching, consulting, agency work)",
-        userVisualsAssessment: "Great content, but the grid is messy and disorganized",
-        userCtaAssessment: "Strong, direct link to a sales page, booking site, or freebie",
-        industry: prospect.industry || "Unknown",
+        userProfitabilityAssessment: "Selling physical products",
+        userVisualsAssessment: "Clean but Generic (Lacks personality, looks like a template)",
+        userCtaAssessment: 'Strong, direct link to a sales page, booking site, or freebie',
+        industry: prospect.industry || 'unknown',
       };
       
       const analysisResult = await qualifyProspect(qualifyInput);
@@ -458,6 +460,14 @@ function OutreachPage() {
     setScriptModalTitle(title);
     setGeneratedScript("Failed to generate script. Please try again.");
   };
+  
+  const performTranslation = async (textToTranslate: string, language: ScriptLanguage) => {
+    if (language === 'English') {
+      return textToTranslate;
+    }
+    const translationResult = await translateText({ textToTranslate, targetLanguage: language });
+    return translationResult.translatedText;
+  };
 
   const handleGenerateScript = useCallback(async (prospect: OutreachProspect, scriptType: GenerateContextualScriptInput['scriptType'], language: ScriptLanguage) => {
     setCurrentProspectForScript(prospect);
@@ -468,7 +478,6 @@ function OutreachPage() {
     
     const input: GenerateContextualScriptInput = {
         scriptType,
-        language,
         clientName: prospect.name?.trim() || null,
         clientHandle: prospect.instagramHandle?.trim() || null,
         businessName: prospect.businessName?.trim() || null,
@@ -549,10 +558,12 @@ function OutreachPage() {
     });
     
     try {
-        const result = await generateContextualScript(input);
-        setGeneratedScript(result.script);
+        const englishResult = await generateContextualScript(input);
+        const finalScript = await performTranslation(englishResult.script, language);
+
+        setGeneratedScript(finalScript);
         setScriptModalTitle(`${scriptType} for ${prospect.name || 'Prospect'}`);
-        navigator.clipboard.writeText(result.script).then(() => {
+        navigator.clipboard.writeText(finalScript).then(() => {
             toast({ title: "Copied to clipboard!", description: "The generated script has been copied automatically." });
         }).catch(err => {
             console.error("Auto-copy failed: ", err);
@@ -693,21 +704,23 @@ function OutreachPage() {
       return null;
     }
     
-    const updatedInput = { ...currentScriptGenerationInput, language, customInstructions };
+    const updatedInput = { ...currentScriptGenerationInput, customInstructions };
     setCurrentScriptGenerationInput(updatedInput);
 
     setIsGeneratingScript(true); 
     setGeneratedScript(''); 
     try {
-      const result = await generateContextualScript(updatedInput);
-      setGeneratedScript(result.script); 
-      navigator.clipboard.writeText(result.script).then(() => {
+      const englishResult = await generateContextualScript(updatedInput);
+      const finalScript = await performTranslation(englishResult.script, language);
+
+      setGeneratedScript(finalScript); 
+      navigator.clipboard.writeText(finalScript).then(() => {
         toast({ title: "Auto-copied to clipboard!" });
       }).catch(err => {
         console.error("Failed to auto-copy regenerated script:", err);
       });
       setIsGeneratingScript(false);
-      return result.script;
+      return finalScript;
     } catch (error: any) {
       console.error("Error regenerating script:", error);
       toast({ title: "Script Regeneration Failed", description: (error as Error).message || "Could not regenerate script.", variant: "destructive" });
