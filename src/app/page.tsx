@@ -184,7 +184,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
-        <Card className="lg:col-span-2 shadow-lg">
+        <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="font-headline">Activity Overview</CardTitle>
             <CardDescription>Monthly client, outreach, and audit trends for the current year.</CardDescription>
@@ -214,7 +214,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
         
-        <Card className="shadow-lg">
+        <Card>
           <CardHeader>
             <CardTitle className="font-headline flex items-center"><ListChecks className="mr-3 h-5 w-5 text-primary" />Daily Agenda</CardTitle>
             <CardDescription>Your prioritized list of tasks for today.</CardDescription>

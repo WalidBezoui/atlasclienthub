@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Users, PlusCircle, Edit, Trash2, Search, ChevronDown, Filter, AlertTriangle, MoreHorizontal } from 'lucide-react';
+import { Users, PlusCircle, Edit, Trash2, Search, ChevronDown, Filter, AlertTriangle, MoreHorizontal, Mail, Phone, ShoppingBag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
@@ -30,6 +30,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useScriptContext } from '@/contexts/ScriptContext'; // Import script context
+import { useIsMobile } from '@/hooks/use-mobile';
 
 
 const CLIENT_STATUS_OPTIONS: ClientStatus[] = ["Active", "On Hold", "Past"];
@@ -61,7 +62,9 @@ const ClientMobileCard = ({ client, onEdit, onDelete }: { client: Client, onEdit
             <div className="flex justify-between items-start gap-4">
                 <div className="flex-1 min-w-0">
                     <p className="font-semibold truncate">{client.name}</p>
-                    <p className="text-sm text-muted-foreground truncate">{client.companyName}</p>
+                    <p className="text-sm text-muted-foreground truncate flex items-center gap-1.5"><ShoppingBag className="h-3 w-3" />{client.companyName}</p>
+                    <p className="text-sm text-muted-foreground truncate flex items-center gap-1.5"><Mail className="h-3 w-3" />{client.contactEmail}</p>
+                    {client.contactPhone && <p className="text-sm text-muted-foreground truncate flex items-center gap-1.5"><Phone className="h-3 w-3" />{client.contactPhone}</p>}
                 </div>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -197,6 +200,7 @@ export default function ClientsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | undefined>(undefined);
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   const fetchClients = useCallback(async () => {
     if (!user) return;
@@ -338,7 +342,7 @@ export default function ClientsPage() {
             clearScriptContext(); // Clear script context when dialog closes
           }
       }}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className={cn("sm:max-w-lg", isMobile && "h-screen w-screen max-w-full")}>
           <DialogHeader>
             <DialogTitle className="font-headline">{editingClient ? 'Edit Client' : 'Add New Client'}</DialogTitle>
             <DialogDescription>
@@ -353,7 +357,7 @@ export default function ClientsPage() {
         </DialogContent>
       </Dialog>
 
-      <Card className="shadow-lg">
+      <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
             <div className="relative w-full sm:w-auto">

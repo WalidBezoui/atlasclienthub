@@ -60,6 +60,13 @@ const ProspectMobileCard = React.memo(({
             default: return 'default';
         }
     };
+
+    const getLeadScoreBadgeVariant = (score: number | null | undefined): "default" | "secondary" | "destructive" => {
+        if (score === null || score === undefined) return "secondary";
+        if (score >= 70) return "default";
+        if (score >= 40) return "secondary";
+        return "destructive";
+    };
     
     return (
         <Card className={cn("p-4", prospect.followUpNeeded && 'bg-primary/10')}>

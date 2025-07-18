@@ -157,7 +157,7 @@ export default function AuditsPage() {
         }
       />
 
-      <Card className="shadow-lg">
+      <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
              <div className="relative w-full sm:w-auto">

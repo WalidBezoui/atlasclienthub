@@ -128,7 +128,7 @@ export default function AuditDetailPage() {
         }
       />
 
-      <Card className="shadow-lg printable-area-card">
+      <Card className="printable-area-card">
         <CardHeader className="no-print">
           <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
             <div>

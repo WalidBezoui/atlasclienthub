@@ -89,8 +89,6 @@ export function ScriptModal({
       onConfirm(currentScript);
     }
     if (prospect?.instagramHandle) {
-      // Instagram doesn't allow direct links to DMs with just a handle.
-      // The reliable alternative is to link to their profile.
       window.open(`https://www.instagram.com/${prospect.instagramHandle.replace('@', '')}/`, '_blank');
     }
   };
@@ -160,13 +158,13 @@ export function ScriptModal({
           </Button>
 
           <Button variant="outline" onClick={handleCopy} disabled={isBusy || !currentScript}>
-            <Copy className="mr-2 h-4 w-4" /> Copy Script
+            <Copy className="mr-2 h-4 w-4" /> Copy Only
           </Button>
         
           {showConfirmButton && onConfirm && (
              <Button onClick={handleConfirmAndOpen} disabled={isBusy || !currentScript}>
                 {isConfirming ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ExternalLink className="mr-2 h-4 w-4" />}
-                {prospect?.instagramHandle ? "Copy & Open Profile" : "Save to Conversation"}
+                {prospect?.instagramHandle ? confirmButtonText : "Save to Conversation"}
             </Button>
           )}
         </DialogFooter>

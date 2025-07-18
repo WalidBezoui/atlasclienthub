@@ -179,7 +179,7 @@ export default function EditAuditPage() {
         icon={Edit}
       />
 
-      <Card className="shadow-lg">
+      <Card>
         <CardHeader>
           <CardTitle className="font-headline">Audit Details</CardTitle>
           <CardDescription>
@@ -246,7 +246,7 @@ export default function EditAuditPage() {
         </CardContent>
       </Card>
 
-    <Card className="shadow-lg">
+    <Card>
         <CardHeader>
             <CardTitle className="font-headline flex items-center">
             <FileText className="mr-2 h-6 w-6 text-primary" />

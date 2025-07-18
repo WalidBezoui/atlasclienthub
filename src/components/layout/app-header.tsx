@@ -14,18 +14,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Menubar,
-  MenubarContent,
-  MenubarItem,
-  MenubarMenu,
-  MenubarSeparator,
-  MenubarShortcut,
-  MenubarTrigger,
-  MenubarSub,
-  MenubarSubTrigger,
-  MenubarSubContent,
-} from "@/components/ui/menubar";
 import { APP_NAME } from '@/lib/constants';
 import { useSidebar } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/useAuth';
@@ -146,36 +134,30 @@ export function AppHeader() {
         
         <div className="flex items-center gap-2">
           {user && (
-            <Menubar className="border-none shadow-none p-0 h-auto bg-transparent">
-              <MenubarMenu>
-                <MenubarTrigger 
-                    asChild
-                    disabled={isScriptMenuButtonDisabled()}
-                    className="px-3 py-2 h-9 text-sm data-[state=open]:bg-accent data-[state=open]:text-accent-foreground hover:bg-accent hover:text-accent-foreground focus:bg-accent"
-                 >
-                   <Button variant="ghost" size="sm" disabled={isScriptMenuButtonDisabled()}>
-                     <BotMessageSquare className="mr-2 h-4 w-4" /> Scripts
-                   </Button>
-                </MenubarTrigger>
-                <MenubarContent align="end">
-                  {scriptMenuItems.map(item => (
-                    <MenubarItem 
-                        key={item.type}
-                        disabled={isGeneratingScript}
-                        onClick={() => handleGenerateScript(item.type)}
-                        title={item.contextRequired === 'client' && !clientContext ? 'No client context. Will generate a generic script.' : undefined}
-                      >
-                       {item.label}
-                    </MenubarItem>
-                  ))}
-                  <MenubarSeparator />
-                  <MenubarItem onClick={() => setIsGenericCommentOpen(true)}>
-                    <Wand2 className="mr-2 h-4 w-4" />
-                    General Comment Generator
-                  </MenubarItem>
-                </MenubarContent>
-              </MenubarMenu>
-            </Menubar>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                 <Button variant="ghost" size="sm" disabled={isScriptMenuButtonDisabled()}>
+                   <BotMessageSquare className="mr-2 h-4 w-4" /> Scripts
+                 </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {scriptMenuItems.map(item => (
+                  <DropdownMenuItem 
+                      key={item.type}
+                      disabled={isGeneratingScript}
+                      onClick={() => handleGenerateScript(item.type)}
+                      title={item.contextRequired === 'client' && !clientContext ? 'No client context. Will generate a generic script.' : undefined}
+                    >
+                     {item.label}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setIsGenericCommentOpen(true)}>
+                  <Wand2 className="mr-2 h-4 w-4" />
+                  General Comment Generator
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
 
           {user && (

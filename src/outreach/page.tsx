@@ -285,17 +285,20 @@ function OutreachPage() {
   };
 
 
-  const handleSaveProspect = useCallback(async (prospectData: Omit<OutreachProspect, 'id'|'userId'> | OutreachProspect) => {
+  const handleSaveProspect = useCallback(async (prospectData: Omit<OutreachProspect, 'id'|'userId'> | OutreachProspect, andGenerateScript?: boolean) => {
      if (!user) {
         toast({title: "Authentication Error", description: "You must be logged in.", variant: "destructive"});
         return;
     }
     try {
+        let savedProspect: OutreachProspect;
         if ('id' in prospectData && prospectData.id) {
             await updateProspect(prospectData.id, prospectData as Partial<OutreachProspect>);
+            savedProspect = { ...prospects.find(p => p.id === prospectData.id)!, ...prospectData };
             toast({ title: "Success", description: `Prospect ${prospectData.name} updated.` });
         } else {
-            await addProspect(prospectData as Omit<OutreachProspect, 'id'|'userId' | 'createdAt'>);
+            const docId = await addProspect(prospectData as Omit<OutreachProspect, 'id'|'userId' | 'createdAt'>);
+            savedProspect = { id: docId, userId: user.uid, ...prospectData, createdAt: new Date().toISOString() };
             toast({ title: "Success", description: `Prospect ${prospectData.name} added.` });
         }
         
@@ -303,11 +306,16 @@ function OutreachPage() {
         setIsEditFormOpen(false);
         setIsRapidAddOpen(false);
         setEditingProspect(undefined);
+        
+        if (andGenerateScript) {
+            handleGenerateScript(savedProspect, 'Cold Outreach DM');
+        }
+
     } catch (error: any) {
         console.error("Error saving prospect:", error);
         toast({ title: "Error", description: error.message || "Could not save prospect.", variant: "destructive"});
     }
-  }, [user, fetchProspects, toast]);
+  }, [user, fetchProspects, toast, prospects]);
 
   const handleUndoDelete = (prospectId: string) => {
     const timeoutId = timeoutMapRef.current.get(prospectId);
@@ -542,7 +550,7 @@ function OutreachPage() {
     
     setScriptModalConfig({
         showConfirmButton: true,
-        confirmButtonText: "Save to Conversation",
+        confirmButtonText: "Copy & Open DM",
         onConfirm: onConfirmScript,
         prospect: prospect, 
     });
@@ -551,11 +559,6 @@ function OutreachPage() {
         const result = await generateContextualScript(input);
         setGeneratedScript(result.script);
         setScriptModalTitle(`${scriptType} for ${prospect.name || 'Prospect'}`);
-        navigator.clipboard.writeText(result.script).then(() => {
-            toast({ title: "Copied to clipboard!", description: "The generated script has been copied automatically." });
-        }).catch(err => {
-            console.error("Auto-copy failed: ", err);
-        });
     } catch (error: any) {
         handleScriptGenerationError(error, "Error Generating Script");
     } finally {
@@ -595,7 +598,7 @@ function OutreachPage() {
     
     setScriptModalConfig({
         showConfirmButton: true,
-        confirmButtonText: "Save to Conversation",
+        confirmButtonText: "Copy & Open DM",
         prospect: prospect,
         onConfirm: async (scriptContent: string) => {
            if (currentProspectForScript) {
@@ -618,11 +621,6 @@ function OutreachPage() {
         const result = await generateQualifierQuestion(input);
         setGeneratedScript(result.question);
         setScriptModalTitle(`Qualifier Question for ${prospect.name}`);
-        navigator.clipboard.writeText(result.question).then(() => {
-            toast({ title: "Copied to clipboard!", description: "The qualifier question has been copied automatically." });
-        }).catch(err => {
-            console.error("Auto-copy failed: ", err);
-        });
     } catch (error: any) {
         handleScriptGenerationError(error, "Error Generating Qualifier");
     } finally {
@@ -1083,7 +1081,7 @@ function OutreachPage() {
         </AlertDialogContent>
     </AlertDialog>
 
-      <Card className="shadow-lg">
+      <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
             <div className="relative w-full sm:w-auto">
@@ -1277,7 +1275,7 @@ function OutreachPage() {
 
       {selectedProspects.size > 0 && (
           <div className="fixed bottom-4 right-4 z-20">
-              <Card className="shadow-2xl flex items-center gap-4 p-3">
+              <Card className="flex items-center gap-4 p-3">
                   <p className="text-sm font-semibold">{selectedProspects.size} selected</p>
                   <Separator orientation="vertical" className="h-6" />
                    <Select onValueChange={(value: OutreachLeadStage) => handleBulkStatusChange(value)}>
@@ -1311,6 +1309,7 @@ function OutreachPage() {
         showConfirmButton={scriptModalConfig.showConfirmButton}
         confirmButtonText={scriptModalConfig.confirmButtonText}
         onConfirm={scriptModalConfig.onConfirm ? () => scriptModalConfig.onConfirm(generatedScript) : undefined}
+        prospect={currentProspectForScript}
       />
     </>
   );
@@ -1323,5 +1322,3 @@ export default function OutreachPageWrapper() {
         </Suspense>
     )
 }
-
-    

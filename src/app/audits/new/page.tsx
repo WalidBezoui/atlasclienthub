@@ -166,7 +166,7 @@ export default function NewAuditPage() {
       />
 
       <form onSubmit={handleSubmit}>
-        <Card className="shadow-lg">
+        <Card>
           <CardHeader>
             <CardTitle className="font-headline">Audit Input</CardTitle>
             <CardDescription>
@@ -241,7 +241,7 @@ export default function NewAuditPage() {
       </form>
 
       {isGenerating && (
-        <Card className="shadow-lg">
+        <Card>
           <CardHeader>
             <CardTitle className="font-headline">Generating Report...</CardTitle>
           </CardHeader>
@@ -252,7 +252,7 @@ export default function NewAuditPage() {
       )}
 
       {auditReport && !isGenerating && (
-        <Card className="shadow-lg">
+        <Card>
           <CardHeader>
             <CardTitle className="font-headline flex items-center">
               <FileText className="mr-2 h-6 w-6 text-primary" />
