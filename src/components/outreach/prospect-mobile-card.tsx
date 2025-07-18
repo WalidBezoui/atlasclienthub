@@ -11,7 +11,7 @@ import { OUTREACH_LEAD_STAGE_OPTIONS } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuGroup, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from '../ui/dropdown-menu';
 import { Button } from '../ui/button';
-import { MoreHorizontal, Edit, MessagesSquare, GraduationCap, Bot, MessageCircle, FileQuestion, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Edit, MessagesSquare, GraduationCap, Bot, MessageCircle, FileQuestion, Trash2, Star, Users } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 interface ProspectMobileCardProps {
@@ -63,13 +63,13 @@ const ProspectMobileCard = React.memo(({
 
     const getLeadScoreBadgeVariant = (score: number | null | undefined): "default" | "secondary" | "destructive" => {
         if (score === null || score === undefined) return "secondary";
-        if (score >= 70) return "default";
-        if (score >= 40) return "secondary";
+        if (score >= 60) return "default";
+        if (score >= 30) return "secondary";
         return "destructive";
     };
     
     return (
-        <Card className={cn("p-4", prospect.followUpNeeded && 'bg-primary/10')}>
+        <Card className={cn("p-4", prospect.followUpNeeded && 'ring-2 ring-primary ring-offset-2 ring-offset-background')}>
             <div className="flex justify-between items-start gap-4">
                 <div className="flex items-start gap-3 flex-grow min-w-0">
                     <Checkbox
@@ -132,17 +132,16 @@ const ProspectMobileCard = React.memo(({
                 </DropdownMenu>
             </div>
             <div className="grid grid-cols-3 gap-2 text-center mt-3 text-xs">
-                <div className="bg-muted/50 p-1.5 rounded-md">
-                    <p className="font-bold">{formatNumber(prospect.followerCount)}</p>
-                    <p className="text-muted-foreground">Followers</p>
+                <div className="bg-muted/50 p-1.5 rounded-md flex flex-col justify-center">
+                    <p className="font-bold flex items-center justify-center gap-1"><Users className="h-3 w-3" /> {formatNumber(prospect.followerCount)}</p>
                 </div>
-                 <div className="bg-muted/50 p-1.5 rounded-md">
+                 <div className="bg-muted/50 p-1.5 rounded-md flex flex-col justify-center">
                     <p className="font-bold">{formatNumber(prospect.postCount)}</p>
-                    <p className="text-muted-foreground">Posts</p>
+                    <p className="text-muted-foreground text-[10px]">Posts</p>
                 </div>
-                 <div className="bg-muted/50 p-1.5 rounded-md">
+                 <div className="bg-muted/50 p-1.5 rounded-md flex flex-col justify-center">
                    <p className="font-bold">{prospect.leadScore ?? '-'}</p>
-                   <p className="text-muted-foreground">Score</p>
+                   <p className="text-muted-foreground text-[10px]">Score</p>
                 </div>
             </div>
             <div className="mt-3">

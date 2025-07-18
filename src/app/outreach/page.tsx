@@ -559,7 +559,6 @@ function OutreachPage() {
         const result = await generateContextualScript(input);
         setGeneratedScript(result.script);
         setScriptModalTitle(`${scriptType} for ${prospect.name || 'Prospect'}`);
-        // The modal itself now handles the copy + open action.
     } catch (error: any) {
         handleScriptGenerationError(error, "Error Generating Script");
     } finally {
@@ -955,7 +954,7 @@ function OutreachPage() {
   };
 
   return (
-    <>
+    <div className="space-y-6">
       <PageHeader
         title="Outreach Manager"
         description="Track and manage your cold outreach efforts with detailed prospect information."
@@ -1082,7 +1081,7 @@ function OutreachPage() {
         </AlertDialogContent>
     </AlertDialog>
 
-      <Card className="shadow-lg">
+      <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
             <div className="relative w-full sm:w-auto">
@@ -1210,13 +1209,15 @@ function OutreachPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                   <TableHead className="w-[50px]">
+                   <TableHead className="w-[50px] p-2">
                      <Checkbox 
                         checked={selectedProspects.size > 0 && selectedProspects.size === sortedAndFilteredProspects.length}
                         onCheckedChange={(checked) => handleToggleAll(!!checked)}
                       />
                   </TableHead>
-                  <TableHead className="w-[50px]">Follow</TableHead>
+                  <TableHead className="w-[50px] p-2">
+                    <Star className="h-4 w-4"/>
+                  </TableHead>
                   <TableHead>Prospect</TableHead>
                   <TableHead className="hidden lg:table-cell">Followers</TableHead>
                   <TableHead className="hidden lg:table-cell">Posts</TableHead>
@@ -1275,8 +1276,8 @@ function OutreachPage() {
       </Card>
 
       {selectedProspects.size > 0 && (
-          <div className="fixed bottom-4 right-4 z-20">
-              <Card className="shadow-2xl flex items-center gap-4 p-3">
+          <div className="fixed bottom-0 left-0 right-0 z-20 md:left-auto md:bottom-4 md:right-4 md:left-auto">
+              <Card className="shadow-2xl flex items-center gap-4 p-3 rounded-none md:rounded-lg">
                   <p className="text-sm font-semibold">{selectedProspects.size} selected</p>
                   <Separator orientation="vertical" className="h-6" />
                    <Select onValueChange={(value: OutreachLeadStage) => handleBulkStatusChange(value)}>
@@ -1312,7 +1313,7 @@ function OutreachPage() {
         onConfirm={scriptModalConfig.onConfirm ? () => scriptModalConfig.onConfirm(generatedScript) : undefined}
         prospect={currentProspectForScript}
       />
-    </>
+    </div>
   );
 }
 

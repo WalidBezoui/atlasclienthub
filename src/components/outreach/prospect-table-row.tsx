@@ -137,10 +137,10 @@ const ProspectTableRow = React.memo(({
 
     return (
         <TableRow key={prospect.id} data-follow-up={!!prospect.followUpNeeded} className="data-[follow-up=true]:bg-primary/10" data-selected={isSelected}>
-            <TableCell>
+            <TableCell className="p-2">
                 <Checkbox checked={isSelected} onCheckedChange={() => onToggleSelect(prospect.id)} aria-label={`Select prospect ${prospect.name}`}/>
             </TableCell>
-            <TableCell>
+            <TableCell className="p-2">
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>
