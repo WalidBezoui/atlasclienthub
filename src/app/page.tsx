@@ -1,7 +1,7 @@
 
 'use client';
 import React, { useEffect, useState, useCallback } from 'react';
-import { LayoutDashboard, Users, Send, ListChecks, PlusCircle, TrendingUp, CheckSquare, Rocket, Calendar, HelpCircle, BarChart3, Building } from 'lucide-react';
+import { LayoutDashboard, Users, Send, ListChecks, PlusCircle, TrendingUp, CheckSquare, Rocket, HelpCircle, BarChart3, Building } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
@@ -143,10 +143,10 @@ export default function DashboardPage() {
   }, [user, authLoading, fetchDashboardData]);
 
   const displayOverviewData = [
-    { metric: 'Active Clients', value: overviewData.activeClients, icon: Users, color: 'text-green-500' },
-    { metric: 'Outreach Today', value: overviewData.outreachToday, icon: Rocket, color: 'text-blue-500' },
-    { metric: 'New Prospects (Month)', value: overviewData.prospectsAddedThisMonth, icon: TrendingUp, color: 'text-yellow-500' },
-    { metric: 'Awaiting Reply (Cold)', value: overviewData.coldProspects, icon: HelpCircle, color: 'text-purple-500' },
+    { metric: 'Active Clients', value: overviewData.activeClients, icon: Users, color: 'text-green-500', bgColor: 'bg-green-100 dark:bg-green-900/50' },
+    { metric: 'Outreach Today', value: overviewData.outreachToday, icon: Rocket, color: 'text-blue-500', bgColor: 'bg-blue-100 dark:bg-blue-900/50' },
+    { metric: 'New Prospects', value: overviewData.prospectsAddedThisMonth, icon: TrendingUp, color: 'text-yellow-500', bgColor: 'bg-yellow-100 dark:bg-yellow-900/50' },
+    { metric: 'Awaiting Reply', value: overviewData.coldProspects, icon: HelpCircle, color: 'text-purple-500', bgColor: 'bg-purple-100 dark:bg-purple-900/50' },
   ];
 
   if (!isClient || authLoading || isLoadingData) {
@@ -170,11 +170,15 @@ export default function DashboardPage() {
        <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
         {displayOverviewData.map((item) => (
           <Card key={item.metric}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium truncate">{item.metric}</CardTitle>
-              <item.icon className={cn("h-4 w-4 text-muted-foreground shrink-0", item.color)} />
-            </CardHeader>
-            <CardContent><div className="text-2xl font-bold">{item.value}</div></CardContent>
+            <CardContent className="p-4 flex flex-col">
+              <div className="flex justify-between items-start mb-2">
+                 <p className="text-sm font-medium text-muted-foreground">{item.metric}</p>
+                <div className={cn("p-1.5 rounded-full", item.bgColor)}>
+                  <item.icon className={cn("h-5 w-5", item.color)} />
+                </div>
+              </div>
+              <p className="text-3xl font-bold">{item.value}</p>
+            </CardContent>
           </Card>
         ))}
       </div>
