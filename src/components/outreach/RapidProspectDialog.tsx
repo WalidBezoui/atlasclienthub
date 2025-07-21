@@ -223,7 +223,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
       return "destructive";
   };
   
-  const renderAnalysisDetails = (data: QualificationData) => {
+  const renderAnalysisDetails = (data: QualificationData, rationale?: string | null) => {
      const profitabilityVariantMap = { 'high': 'default', 'medium': 'secondary', 'low': 'destructive', 'unknown': 'outline' };
      const funnelVariantMap = { 'strong': 'default', 'weak': 'secondary', 'none': 'destructive', 'unknown': 'outline' };
      const clarityVariantMap = { 'very-clear': 'default', 'somewhat-clear': 'secondary', 'unclear': 'destructive', 'unknown': 'outline' };
@@ -231,6 +231,12 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
       
      return (
        <div className="space-y-2 pt-2">
+         {rationale && (
+            <div className="mb-2 p-2 bg-blue-100/50 border border-blue-200 rounded-lg text-xs text-blue-800 dark:bg-blue-900/20 dark:border-blue-700 dark:text-blue-300">
+              <p className="font-bold mb-1">Score Rationale:</p>
+              <p className="whitespace-pre-wrap">{rationale}</p>
+            </div>
+         )}
          <div className="flex justify-between items-center text-xs"><span className="text-muted-foreground">Is Business?</span><Badge variant={yesNoVariantMap[data.isBusiness]} className="capitalize">{data.isBusiness}</Badge></div>
          <div className="flex justify-between items-center text-xs"><span className="text-muted-foreground">Inconsistent Grid?</span><Badge variant={yesNoVariantMap[data.hasInconsistentGrid]} className="capitalize">{data.hasInconsistentGrid}</Badge></div>
          <div className="flex justify-between items-center text-xs"><span className="text-muted-foreground">Low Engagement?</span><Badge variant={yesNoVariantMap[data.hasLowEngagement]} className="capitalize">{data.hasLowEngagement}</Badge></div>
@@ -365,7 +371,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
                     {analysisResult.goals && analysisResult.goals.length > 0 && <div><Label className="text-xs">Suggested Goals</Label><div className="flex flex-wrap gap-1">{analysisResult.goals.map(g => <Badge key={g} variant="secondary">{g}</Badge>)}</div></div>}
                    </div>
                    <Accordion type="single" collapsible className="w-full">
-                      <AccordionItem value="details"><AccordionTrigger className="text-xs pt-2">View Analysis Details</AccordionTrigger><AccordionContent>{renderAnalysisDetails(analysisResult.qualificationData as QualificationData)}</AccordionContent></AccordionItem>
+                      <AccordionItem value="details"><AccordionTrigger className="text-xs pt-2">View Analysis Details</AccordionTrigger><AccordionContent>{renderAnalysisDetails(analysisResult.qualificationData as QualificationData, analysisResult.scoreRationale)}</AccordionContent></AccordionItem>
                   </Accordion>
                 </div>
              </div>
@@ -419,4 +425,5 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
     </Dialog>
   );
 }
+
 

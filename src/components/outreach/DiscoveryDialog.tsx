@@ -83,7 +83,7 @@ const getLeadScoreBadgeVariant = (score: number | null | undefined): "default" |
     return "destructive";
 };
 
-const EvaluationForm = ({ onAnalyze, onCancel, isAnalyzing, setProfitability, setVisuals, setCta, setIndustry, setStrategicGap, canSubmit }: {
+const EvaluationForm = ({ onAnalyze, onCancel, isAnalyzing, setProfitability, setVisuals, setCta, setIndustry, setStrategicGap, canSubmit, rationale }: {
     onAnalyze: () => void;
     onCancel: () => void;
     isAnalyzing: boolean;
@@ -93,6 +93,7 @@ const EvaluationForm = ({ onAnalyze, onCancel, isAnalyzing, setProfitability, se
     setIndustry: (value: string) => void;
     setStrategicGap: (values: string[]) => void;
     canSubmit: boolean;
+    rationale?: string | null;
 }) => {
     const handleCheckboxChange = (setter: (values: string[]) => void, option: string, checked: boolean) => {
         setter(prev => {
@@ -108,6 +109,12 @@ const EvaluationForm = ({ onAnalyze, onCancel, isAnalyzing, setProfitability, se
 
     return (
         <div className="bg-muted/30 p-4 -mx-4 -mb-4 border-t">
+             {rationale && (
+                <div className="mb-4 p-3 bg-blue-100/50 border border-blue-200 rounded-lg text-xs text-blue-800 dark:bg-blue-900/20 dark:border-blue-700 dark:text-blue-300">
+                    <p className="font-bold mb-1">Score Rationale:</p>
+                    <p className="whitespace-pre-wrap">{rationale}</p>
+                </div>
+            )}
             <div className="mb-4">
                  <p className="text-sm font-semibold mb-2">The 5-Point Qualification Checklist:</p>
                  <ul className="space-y-1.5 text-xs text-muted-foreground list-disc pl-4">
@@ -460,6 +467,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
                                             setCta={setCtaAnswer}
                                             setStrategicGap={setStrategicGapAnswer}
                                             canSubmit={!!(industryAnswer && profitabilityAnswer.length > 0 && visualsAnswer.length > 0 && ctaAnswer.length > 0 && strategicGapAnswer.length > 0)}
+                                            rationale={evaluation?.scoreRationale}
                                         />
                                     </AccordionContent>
                                 </Card>
@@ -478,4 +486,5 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
       </Dialog>
   );
 }
+
 
