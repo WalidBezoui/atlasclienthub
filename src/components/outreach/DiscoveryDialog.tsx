@@ -19,7 +19,7 @@ import { Badge } from '../ui/badge';
 import { fetchInstagramMetrics, type InstagramMetrics } from '@/app/actions/fetch-ig-metrics';
 import { qualifyProspect, type QualifyProspectInput, type QualifyProspectOutput } from '@/ai/flows/qualify-prospect';
 import { cn } from '@/lib/utils';
-import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
+import { Checkbox } from '../ui/checkbox';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -87,52 +87,66 @@ const EvaluationForm = ({ onAnalyze, onCancel, isAnalyzing, setProfitability, se
     onAnalyze: () => void;
     onCancel: () => void;
     isAnalyzing: boolean;
-    setProfitability: (value: string) => void;
-    setVisuals: (value: string) => void;
-    setCta: (value: string) => void;
+    setProfitability: (values: string[]) => void;
+    setVisuals: (values: string[]) => void;
+    setCta: (values: string[]) => void;
     setIndustry: (value: string) => void;
-    setStrategicGap: (value: string) => void;
+    setStrategicGap: (values: string[]) => void;
     canSubmit: boolean;
-}) => (
-    <div className="bg-muted/30 p-4 -mx-4 -mb-4 border-t">
-        <div className="mb-4">
-             <p className="text-sm font-semibold mb-2">The 5-Point Qualification Checklist:</p>
-             <ul className="space-y-1.5 text-xs text-muted-foreground list-disc pl-4">
-                {checklistItems.map(item => <li key={item.id}><strong>{item.label}</strong> {item.description}</li>)}
-            </ul>
+}) => {
+    const handleCheckboxChange = (setter: (values: string[]) => void, option: string, checked: boolean) => {
+        setter(prev => {
+            const newSet = new Set(prev);
+            if (checked) {
+                newSet.add(option);
+            } else {
+                newSet.delete(option);
+            }
+            return Array.from(newSet);
+        });
+    };
+
+    return (
+        <div className="bg-muted/30 p-4 -mx-4 -mb-4 border-t">
+            <div className="mb-4">
+                 <p className="text-sm font-semibold mb-2">The 5-Point Qualification Checklist:</p>
+                 <ul className="space-y-1.5 text-xs text-muted-foreground list-disc pl-4">
+                    {checklistItems.map(item => <li key={item.id}><strong>{item.label}</strong> {item.description}</li>)}
+                </ul>
+            </div>
+            <Separator className="my-4"/>
+            <p className="text-sm font-semibold mb-3">Your expertise is needed to qualify this prospect.</p>
+            <div className="space-y-4">
+                <div>
+                    <Label className="font-medium text-xs mb-2 block">1. What's their industry and specific niche?</Label>
+                    <Input placeholder="e.g., Skincare - Organic, handmade products" onChange={(e) => setIndustry(e.target.value)} className="text-xs h-8"/>
+                </div>
+                 <div>
+                    <Label className="font-medium text-xs mb-2 block">2. What is the biggest "Strategic Gap" you can fix?</Label>
+                    <div className="space-y-1">{strategicGapQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><Checkbox id={`gap-${o}`} onCheckedChange={(checked) => handleCheckboxChange(setStrategicGap, o, !!checked)} /><Label htmlFor={`gap-${o}`} className="font-normal text-xs">{o}</Label></div>)}</div>
+                </div>
+                <div>
+                    <Label className="font-medium text-xs mb-2 block">3. How does this account likely make money?</Label>
+                    <div className="space-y-1">{profitabilityQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><Checkbox id={`profit-${o}`} onCheckedChange={(checked) => handleCheckboxChange(setProfitability, o, !!checked)} /><Label htmlFor={`profit-${o}`} className="font-normal text-xs">{o}</Label></div>)}</div>
+                </div>
+                <div>
+                    <Label className="font-medium text-xs mb-2 block">4. What is the state of their visual branding?</Label>
+                    <div className="space-y-1">{visualsQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><Checkbox id={`visual-${o}`} onCheckedChange={(checked) => handleCheckboxChange(setVisuals, o, !!checked)} /><Label htmlFor={`visual-${o}`} className="font-normal text-xs">{o}</Label></div>)}</div>
+                </div>
+                <div>
+                    <Label className="font-medium text-xs mb-2 block">5. What is the state of their bio & call-to-action (CTA)?</Label>
+                    <div className="space-y-1">{ctaQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><Checkbox id={`cta-${o}`} onCheckedChange={(checked) => handleCheckboxChange(setCta, o, !!checked)} /><Label htmlFor={`cta-${o}`} className="font-normal text-xs">{o}</Label></div>)}</div>
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                    <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
+                    <Button size="sm" onClick={onAnalyze} disabled={isAnalyzing || !canSubmit}>
+                        {isAnalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <BrainCircuit className="mr-2 h-4 w-4"/>} Analyze
+                    </Button>
+                </div>
+            </div>
         </div>
-        <Separator className="my-4"/>
-        <p className="text-sm font-semibold mb-3">Your expertise is needed to qualify this prospect.</p>
-        <div className="space-y-4">
-            <div>
-                <Label className="font-medium text-xs mb-2 block">1. What's their industry and specific niche?</Label>
-                <Input placeholder="e.g., Skincare - Organic, handmade products" onChange={(e) => setIndustry(e.target.value)} className="text-xs h-8"/>
-            </div>
-             <div>
-                <Label className="font-medium text-xs mb-2 block">2. What is the biggest "Strategic Gap" you can fix?</Label>
-                <RadioGroup onValueChange={setStrategicGap} className="space-y-1">{strategicGapQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><RadioGroupItem value={o} id={`gap-${o}`} /><Label htmlFor={`gap-${o}`} className="font-normal text-xs">{o}</Label></div>)}</RadioGroup>
-            </div>
-            <div>
-                <Label className="font-medium text-xs mb-2 block">3. How does this account likely make money?</Label>
-                <RadioGroup onValueChange={setProfitability} className="space-y-1">{profitabilityQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><RadioGroupItem value={o} id={`profit-${o}`} /><Label htmlFor={`profit-${o}`} className="font-normal text-xs">{o}</Label></div>)}</RadioGroup>
-            </div>
-            <div>
-                <Label className="font-medium text-xs mb-2 block">4. What is the state of their visual branding?</Label>
-                <RadioGroup onValueChange={setVisuals} className="space-y-1">{visualsQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><RadioGroupItem value={o} id={`visual-${o}`} /><Label htmlFor={`visual-${o}`} className="font-normal text-xs">{o}</Label></div>)}</RadioGroup>
-            </div>
-            <div>
-                <Label className="font-medium text-xs mb-2 block">5. What is the state of their bio & call-to-action (CTA)?</Label>
-                <RadioGroup onValueChange={setCta} className="space-y-1">{ctaQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><RadioGroupItem value={o} id={`cta-${o}`} /><Label htmlFor={`cta-${o}`} className="font-normal text-xs">{o}</Label></div>)}</RadioGroup>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-                <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
-                <Button size="sm" onClick={onAnalyze} disabled={isAnalyzing || !canSubmit}>
-                    {isAnalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <BrainCircuit className="mr-2 h-4 w-4"/>} Analyze
-                </Button>
-            </div>
-        </div>
-    </div>
-);
+    );
+};
 
 
 export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingProspectHandles }: DiscoveryDialogProps) {
@@ -152,10 +166,10 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
   // State for the inline evaluation form
   const [evaluatingHandle, setEvaluatingHandle] = useState<string | null>(null);
   const [industryAnswer, setIndustryAnswer] = useState<string | undefined>();
-  const [profitabilityAnswer, setProfitabilityAnswer] = useState<string | undefined>();
-  const [visualsAnswer, setVisualsAnswer] = useState<string | undefined>();
-  const [ctaAnswer, setCtaAnswer] = useState<string | undefined>();
-  const [strategicGapAnswer, setStrategicGapAnswer] = useState<string | undefined>();
+  const [profitabilityAnswer, setProfitabilityAnswer] = useState<string[]>([]);
+  const [visualsAnswer, setVisualsAnswer] = useState<string[]>([]);
+  const [ctaAnswer, setCtaAnswer] = useState<string[]>([]);
+  const [strategicGapAnswer, setStrategicGapAnswer] = useState<string[]>([]);
 
 
   const { toast } = useToast();
@@ -173,10 +187,10 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
     setEvaluatingHandle(null);
     setIsAnalyzing(false);
     setIndustryAnswer(undefined);
-    setProfitabilityAnswer(undefined);
-    setVisualsAnswer(undefined);
-    setCtaAnswer(undefined);
-    setStrategicGapAnswer(undefined);
+    setProfitabilityAnswer([]);
+    setVisualsAnswer([]);
+    setCtaAnswer([]);
+    setStrategicGapAnswer([]);
   };
 
   const handleClose = () => {
@@ -187,10 +201,10 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
   const handleAccordionChange = (value: string) => {
     if (value) { // Accordion is opening
       setIndustryAnswer(undefined);
-      setProfitabilityAnswer(undefined);
-      setVisualsAnswer(undefined);
-      setCtaAnswer(undefined);
-      setStrategicGapAnswer(undefined);
+      setProfitabilityAnswer([]);
+      setVisualsAnswer([]);
+      setCtaAnswer([]);
+      setStrategicGapAnswer([]);
       setEvaluatingHandle(value);
     } else { // Accordion is closing
       setEvaluatingHandle(null);
@@ -278,7 +292,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
   };
   
   const handleEvaluationSubmit = async () => {
-    if (!evaluatingHandle || !profitabilityAnswer || !visualsAnswer || !ctaAnswer || !industryAnswer || !strategicGapAnswer) {
+    if (!evaluatingHandle || profitabilityAnswer.length === 0 || visualsAnswer.length === 0 || ctaAnswer.length === 0 || !industryAnswer || strategicGapAnswer.length === 0) {
       toast({ title: "Missing Input", description: "Please answer all questions to proceed.", variant: "destructive" });
       return;
     }
@@ -445,7 +459,7 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
                                             setVisuals={setVisualsAnswer}
                                             setCta={setCtaAnswer}
                                             setStrategicGap={setStrategicGapAnswer}
-                                            canSubmit={!!(industryAnswer && profitabilityAnswer && visualsAnswer && ctaAnswer && strategicGapAnswer)}
+                                            canSubmit={!!(industryAnswer && profitabilityAnswer.length > 0 && visualsAnswer.length > 0 && ctaAnswer.length > 0 && strategicGapAnswer.length > 0)}
                                         />
                                     </AccordionContent>
                                 </Card>
@@ -464,3 +478,4 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
       </Dialog>
   );
 }
+

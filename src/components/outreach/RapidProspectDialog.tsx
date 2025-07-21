@@ -15,7 +15,7 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
-import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
+import { Checkbox } from '../ui/checkbox';
 
 type Step = 'initial' | 'fetching' | 'questions' | 'analyzing' | 'results';
 
@@ -73,10 +73,10 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
   
   // State for user answers
   const [industryAnswer, setIndustryAnswer] = useState<string | undefined>();
-  const [profitabilityAnswer, setProfitabilityAnswer] = useState<string | undefined>(undefined);
-  const [visualsAnswer, setVisualsAnswer] = useState<string | undefined>(undefined);
-  const [ctaAnswer, setCtaAnswer] = useState<string | undefined>(undefined);
-  const [strategicGapAnswer, setStrategicGapAnswer] = useState<string | undefined>();
+  const [profitabilityAnswer, setProfitabilityAnswer] = useState<string[]>([]);
+  const [visualsAnswer, setVisualsAnswer] = useState<string[]>([]);
+  const [ctaAnswer, setCtaAnswer] = useState<string[]>([]);
+  const [strategicGapAnswer, setStrategicGapAnswer] = useState<string[]>([]);
 
   const [isLoading, setIsLoading] = useState(false);
 
@@ -88,10 +88,10 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
     setFetchedMetrics(null);
     setAnalysisResult(null);
     setIndustryAnswer(undefined);
-    setProfitabilityAnswer(undefined);
-    setVisualsAnswer(undefined);
-    setCtaAnswer(undefined);
-    setStrategicGapAnswer(undefined);
+    setProfitabilityAnswer([]);
+    setVisualsAnswer([]);
+    setCtaAnswer([]);
+    setStrategicGapAnswer([]);
     setIsLoading(false);
   };
 
@@ -127,7 +127,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
   };
   
   const handleFinalAnalysis = async () => {
-    if (!fetchedMetrics || !profitabilityAnswer || !visualsAnswer || !ctaAnswer || !industryAnswer || !strategicGapAnswer) {
+    if (!fetchedMetrics || profitabilityAnswer.length === 0 || visualsAnswer.length === 0 || ctaAnswer.length === 0 || !industryAnswer || strategicGapAnswer.length === 0) {
         toast({ title: "Missing Input", description: "Please answer all questions to proceed.", variant: "destructive" });
         return;
     }
@@ -243,6 +243,18 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
      );
   };
 
+    const handleCheckboxChange = (setter: React.Dispatch<React.SetStateAction<string[]>>, option: string, checked: boolean) => {
+        setter(prev => {
+            const newSet = new Set(prev);
+            if (checked) {
+                newSet.add(option);
+            } else {
+                newSet.delete(option);
+            }
+            return Array.from(newSet);
+        });
+    };
+
   const renderContent = () => {
     switch (step) {
       case 'initial':
@@ -291,48 +303,48 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
                  
                  <div>
                     <Label className="font-semibold flex items-center mb-2"><HelpCircle className="mr-2 h-4 w-4 text-amber-600" />2. What is the biggest "Strategic Gap" you can fix?</Label>
-                     <RadioGroup value={strategicGapAnswer} onValueChange={setStrategicGapAnswer} className="space-y-2">
+                     <div className="space-y-2">
                       {strategicGapQuestions.map((option) => (
                         <div key={option} className="flex items-center space-x-2">
-                          <RadioGroupItem value={option} id={`rapid-gap-${option.replace(/\s/g, '-')}`} /><Label htmlFor={`rapid-gap-${option.replace(/\s/g, '-')}`} className="font-normal cursor-pointer">{option}</Label>
+                          <Checkbox id={`rapid-gap-${option.replace(/\s/g, '-')}`} onCheckedChange={(checked) => handleCheckboxChange(setStrategicGapAnswer, option, !!checked)} /><Label htmlFor={`rapid-gap-${option.replace(/\s/g, '-')}`} className="font-normal cursor-pointer">{option}</Label>
                         </div>
                       ))}
-                    </RadioGroup>
+                    </div>
                  </div>
                  <Separator/>
 
                  <div>
                     <Label className="font-semibold flex items-center mb-2"><HelpCircle className="mr-2 h-4 w-4 text-amber-600" />3. How does this account likely make money?</Label>
-                     <RadioGroup value={profitabilityAnswer} onValueChange={setProfitabilityAnswer} className="space-y-2">
+                     <div className="space-y-2">
                       {profitabilityQuestions.map((option) => (
                         <div key={option} className="flex items-center space-x-2">
-                          <RadioGroupItem value={option} id={`rapid-profit-${option.replace(/\s/g, '-')}`} /><Label htmlFor={`rapid-profit-${option.replace(/\s/g, '-')}`} className="font-normal cursor-pointer">{option}</Label>
+                          <Checkbox id={`rapid-profit-${option.replace(/\s/g, '-')}`} onCheckedChange={(checked) => handleCheckboxChange(setProfitabilityAnswer, option, !!checked)} /><Label htmlFor={`rapid-profit-${option.replace(/\s/g, '-')}`} className="font-normal cursor-pointer">{option}</Label>
                         </div>
                       ))}
-                    </RadioGroup>
+                    </div>
                  </div>
                  <Separator/>
 
                  <div>
                     <Label className="font-semibold flex items-center mb-2"><HelpCircle className="mr-2 h-4 w-4 text-amber-600" />4. What's your first impression of their visual branding?</Label>
-                     <RadioGroup value={visualsAnswer} onValueChange={setVisualsAnswer} className="space-y-2">
+                     <div className="space-y-2">
                       {visualsQuestions.map((option) => (
                         <div key={option} className="flex items-center space-x-2">
-                          <RadioGroupItem value={option} id={`rapid-visuals-${option.replace(/\s/g, '-')}`} /><Label htmlFor={`rapid-visuals-${option.replace(/\s/g, '-')}`} className="font-normal cursor-pointer">{option}</Label>
+                          <Checkbox id={`rapid-visuals-${option.replace(/\s/g, '-')}`} onCheckedChange={(checked) => handleCheckboxChange(setVisualsAnswer, option, !!checked)} /><Label htmlFor={`rapid-visuals-${option.replace(/\s/g, '-')}`} className="font-normal cursor-pointer">{option}</Label>
                         </div>
                       ))}
-                    </RadioGroup>
+                    </div>
                  </div>
                  <Separator/>
                   <div>
                     <Label className="font-semibold flex items-center mb-2"><HelpCircle className="mr-2 h-4 w-4 text-amber-600" />5. What is the state of their bio & call-to-action (CTA)?</Label>
-                     <RadioGroup value={ctaAnswer} onValueChange={setCtaAnswer} className="space-y-2">
+                     <div className="space-y-2">
                       {ctaQuestions.map((option) => (
                         <div key={option} className="flex items-center space-x-2">
-                          <RadioGroupItem value={option} id={`rapid-cta-${option.replace(/\s/g, '-')}`} /><Label htmlFor={`rapid-cta-${option.replace(/\s/g, '-')}`} className="font-normal cursor-pointer">{option}</Label>
+                          <Checkbox id={`rapid-cta-${option.replace(/\s/g, '-')}`} onCheckedChange={(checked) => handleCheckboxChange(setCtaAnswer, option, !!checked)} /><Label htmlFor={`rapid-cta-${option.replace(/\s/g, '-')}`} className="font-normal cursor-pointer">{option}</Label>
                         </div>
                       ))}
-                    </RadioGroup>
+                    </div>
                  </div>
               </div>
           </div>
@@ -407,3 +419,4 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
     </Dialog>
   );
 }
+

@@ -38,11 +38,11 @@ const QualifyProspectInputSchema = z.object({
   biography: z.string().nullable().describe("The prospect's Instagram bio text."),
 
   // User's Manual Assessment
-  userProfitabilityAssessment: z.string().describe("User's answer to how the account makes money."),
-  userVisualsAssessment: z.string().describe("User's answer about the account's visual branding."),
-  userCtaAssessment: z.string().describe("User's answer about the account's bio and CTA."),
+  userProfitabilityAssessment: z.array(z.string()).describe("User's answers to how the account makes money."),
+  userVisualsAssessment: z.array(z.string()).describe("User's answers about the account's visual branding."),
+  userCtaAssessment: z.array(z.string()).describe("User's answers about the account's bio and CTA."),
   industry: z.string().describe("User's answer about the prospect's industry and niche."),
-  userStrategicGapAssessment: z.string().describe("User's answer identifying the prospect's primary strategic gap."),
+  userStrategicGapAssessment: z.array(z.string()).describe("User's answers identifying the prospect's primary strategic gap."),
 
 });
 export type QualifyProspectInput = z.infer<typeof QualifyProspectInputSchema>;
@@ -77,10 +77,14 @@ const prompt = ai.definePrompt({
 
 **USER'S MANUAL ASSESSMENT (Based on 5-Point Checklist):**
 - **Industry & Niche:** "{{industry}}"
-- **Primary way this account makes money:** "{{userProfitabilityAssessment}}"
-- **Description of their visual branding:** "{{userVisualsAssessment}}"
-- **State of their bio and Call-to-Action (CTA):** "{{userCtaAssessment}}"
-- **The biggest "Strategic Gap" to fix:** "{{userStrategicGapAssessment}}"
+- **Primary way this account makes money:**{{#each userProfitabilityAssessment}}
+  - {{this}}{{/each}}
+- **Description of their visual branding:**{{#each userVisualsAssessment}}
+  - {{this}}{{/each}}
+- **State of their bio and Call-to-Action (CTA):**{{#each userCtaAssessment}}
+  - {{this}}{{/each}}
+- **The biggest "Strategic Gap" to fix:**{{#each userStrategicGapAssessment}}
+  - {{this}}{{/each}}
 
 ---
 **YOUR TASK:**
@@ -89,12 +93,12 @@ const prompt = ai.definePrompt({
 
 2.  **Fill QualificationData Object**: Populate every field in the \`qualificationData\` object.
     -   Set \`industry\` directly from the user's input.
-    -   Infer \`isBusiness\` from all available data. A business account sells something or has a professional purpose. If it's a "hobby", it's 'no'. Otherwise, 'yes'.
-    -   Infer \`postingConsistency\`. If the user notes they haven't posted recently as part of the strategic gap, mark as 'inconsistent'. Otherwise assume 'consistent' unless data suggests otherwise.
+    -   Infer \`isBusiness\` from all available data. A business account sells something or has a professional purpose. If the user assessment includes "hobby", it's 'no'. Otherwise, 'yes'.
+    -   Infer \`postingConsistency\`. If the user notes "hasn't posted in a while", mark as 'inconsistent'. Otherwise assume 'consistent' unless data suggests otherwise.
     -   **Crucially, map the user's text assessments to the correct enum values**:
-        -   For \`profitabilityPotential\`: Map "{{userProfitabilityAssessment}}". "high-ticket" -> 'high'; "products" or "local business" -> 'medium'; "brand deals" -> 'medium'; "hobby" -> 'low'.
-        -   For \`hasInconsistentGrid\`: Map "{{userVisualsAssessment}}". 'yes' if it's "Inconsistent & Messy", "Great content, messy grid", or "Outdated", otherwise 'no'.
-        -   For \`hasNoClearCTA\` and \`salesFunnelStrength\`: Map "{{userCtaAssessment}}". If "No link", set CTA to 'yes' and funnel to 'none'. If "Generic linktree" or "Weak CTA", set CTA to 'yes' and funnel to 'weak'. If "Strong, direct link", set CTA to 'no' and funnel to 'strong'.
+        -   For \`profitabilityPotential\`: If any assessment includes "high-ticket" -> 'high'; if any assessment includes "products" or "local business" -> 'medium'; if any assessment includes "hobby" -> 'low'. Default to 'medium'.
+        -   For \`hasInconsistentGrid\`: 'yes' if assessments include "Inconsistent & Messy", "Great content, messy grid", or "Outdated". Otherwise 'no'.
+        -   For \`hasNoClearCTA\` and \`salesFunnelStrength\`: If "No link", set CTA to 'yes' and funnel to 'none'. If "Generic linktree" or "Weak CTA", set CTA to 'yes' and funnel to 'weak'. If "Strong, direct link", set CTA to 'no' and funnel to 'strong'.
         -   For \`contentPillarClarity\`: Infer this based on all other info. If visuals are messy and CTA is weak, pillars are likely 'unclear'. If visuals are "Clean but Generic", pillars might be 'somewhat-clear'. If "Highly Polished", pillars are 'very-clear'.
     -   Based on the synthesis, determine the primary \`valueProposition\` we can offer, heavily influenced by the "Strategic Gap". If the gap is visuals, set 'visuals'. If it's about getting clients/sales, set 'leads'. If it's about reach, set 'engagement'.
 
@@ -144,3 +148,4 @@ const qualifyProspectFlow = ai.defineFlow(
     return output!;
   }
 );
+
