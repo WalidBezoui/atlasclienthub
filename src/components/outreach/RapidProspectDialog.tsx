@@ -41,6 +41,21 @@ const ctaQuestions = [
   "No link in bio at all, or a broken link"
 ];
 
+const strategicGapQuestions = [
+    "Visuals / Branding (inconsistent grid, bad photos, messy look)",
+    "Content Strategy (no clear topics, not posting Reels, boring content)",
+    "Conversion (bio is a mess, no clear CTA, not turning followers into clients)",
+    "Engagement (good follower count, but very low likes/comments)",
+    "Posting Consistency (hasn't posted in a while, sporadic content)",
+];
+
+const checklistItems = [
+    { id: 'active', label: "Are they an active business?", description: "Have they posted in the last 7-10 days?" },
+    { id: 'size', label: 'Are they the "Goldilocks" size?', description: "Do they have between ~500 and ~15,000 followers?" },
+    { id: 'engaged', label: "Are they an engaged owner?", description: "Do they reply to comments on their own posts?" },
+    { id: 'monetizing', label: "Is there a clear product or service?", description: 'Do they have a website, shop link, or "Book a Call" button?' },
+    { id: 'gap', label: 'Is there an obvious "Strategic Gap" YOU can fix?', description: "e.g., messy bio, bad photos, no Reels, etc." },
+];
 
 
 type RapidProspectDialogProps = {
@@ -61,6 +76,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
   const [profitabilityAnswer, setProfitabilityAnswer] = useState<string | undefined>(undefined);
   const [visualsAnswer, setVisualsAnswer] = useState<string | undefined>(undefined);
   const [ctaAnswer, setCtaAnswer] = useState<string | undefined>(undefined);
+  const [strategicGapAnswer, setStrategicGapAnswer] = useState<string | undefined>();
 
   const [isLoading, setIsLoading] = useState(false);
 
@@ -75,6 +91,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
     setProfitabilityAnswer(undefined);
     setVisualsAnswer(undefined);
     setCtaAnswer(undefined);
+    setStrategicGapAnswer(undefined);
     setIsLoading(false);
   };
 
@@ -110,7 +127,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
   };
   
   const handleFinalAnalysis = async () => {
-    if (!fetchedMetrics || !profitabilityAnswer || !visualsAnswer || !ctaAnswer || !industryAnswer) {
+    if (!fetchedMetrics || !profitabilityAnswer || !visualsAnswer || !ctaAnswer || !industryAnswer || !strategicGapAnswer) {
         toast({ title: "Missing Input", description: "Please answer all questions to proceed.", variant: "destructive" });
         return;
     }
@@ -130,6 +147,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
             userVisualsAssessment: visualsAnswer,
             userCtaAssessment: ctaAnswer,
             industry: industryAnswer,
+            userStrategicGapAssessment: strategicGapAnswer,
         };
 
         const result = await qualifyProspect(input);
@@ -257,16 +275,34 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
           <div className="space-y-4 py-4">
               <div className="p-4 border rounded-lg bg-muted/50 space-y-3">
                  <h3 className="font-semibold text-lg text-center mb-2">Manual Assessment for {instagramHandle}</h3>
+                 <div className="mb-4">
+                    <p className="text-sm font-semibold mb-2">The 5-Point Qualification Checklist:</p>
+                    <ul className="space-y-1.5 text-xs text-muted-foreground list-disc pl-4">
+                        {checklistItems.map(item => <li key={item.id}><strong>{item.label}</strong> {item.description}</li>)}
+                    </ul>
+                 </div>
                  <Separator/>
                  
                  <div>
-                    <Label className="font-semibold flex items-center mb-2"><HelpCircle className="mr-2 h-4 w-4 text-amber-600" />What's their industry and specific niche?</Label>
+                    <Label className="font-semibold flex items-center mb-2"><HelpCircle className="mr-2 h-4 w-4 text-amber-600" />1. What's their industry and specific niche?</Label>
                     <Input placeholder="e.g., Skincare - Organic, handmade products" onChange={(e) => setIndustryAnswer(e.target.value)} />
+                 </div>
+                 <Separator/>
+                 
+                 <div>
+                    <Label className="font-semibold flex items-center mb-2"><HelpCircle className="mr-2 h-4 w-4 text-amber-600" />2. What is the biggest "Strategic Gap" you can fix?</Label>
+                     <RadioGroup value={strategicGapAnswer} onValueChange={setStrategicGapAnswer} className="space-y-2">
+                      {strategicGapQuestions.map((option) => (
+                        <div key={option} className="flex items-center space-x-2">
+                          <RadioGroupItem value={option} id={`rapid-gap-${option.replace(/\s/g, '-')}`} /><Label htmlFor={`rapid-gap-${option.replace(/\s/g, '-')}`} className="font-normal cursor-pointer">{option}</Label>
+                        </div>
+                      ))}
+                    </RadioGroup>
                  </div>
                  <Separator/>
 
                  <div>
-                    <Label className="font-semibold flex items-center mb-2"><HelpCircle className="mr-2 h-4 w-4 text-amber-600" />How does this account likely make money?</Label>
+                    <Label className="font-semibold flex items-center mb-2"><HelpCircle className="mr-2 h-4 w-4 text-amber-600" />3. How does this account likely make money?</Label>
                      <RadioGroup value={profitabilityAnswer} onValueChange={setProfitabilityAnswer} className="space-y-2">
                       {profitabilityQuestions.map((option) => (
                         <div key={option} className="flex items-center space-x-2">
@@ -278,7 +314,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
                  <Separator/>
 
                  <div>
-                    <Label className="font-semibold flex items-center mb-2"><HelpCircle className="mr-2 h-4 w-4 text-amber-600" />What's your first impression of their visual branding?</Label>
+                    <Label className="font-semibold flex items-center mb-2"><HelpCircle className="mr-2 h-4 w-4 text-amber-600" />4. What's your first impression of their visual branding?</Label>
                      <RadioGroup value={visualsAnswer} onValueChange={setVisualsAnswer} className="space-y-2">
                       {visualsQuestions.map((option) => (
                         <div key={option} className="flex items-center space-x-2">
@@ -289,7 +325,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
                  </div>
                  <Separator/>
                   <div>
-                    <Label className="font-semibold flex items-center mb-2"><HelpCircle className="mr-2 h-4 w-4 text-amber-600" />What is the state of their bio & call-to-action (CTA)?</Label>
+                    <Label className="font-semibold flex items-center mb-2"><HelpCircle className="mr-2 h-4 w-4 text-amber-600" />5. What is the state of their bio & call-to-action (CTA)?</Label>
                      <RadioGroup value={ctaAnswer} onValueChange={setCtaAnswer} className="space-y-2">
                       {ctaQuestions.map((option) => (
                         <div key={option} className="flex items-center space-x-2">
@@ -332,7 +368,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
       return (
         <DialogFooter className="mt-auto shrink-0 border-t pt-4">
           <Button variant="outline" onClick={() => setStep('initial')}><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
-          <Button onClick={handleFinalAnalysis} disabled={!profitabilityAnswer || !visualsAnswer || !ctaAnswer || !industryAnswer}>
+          <Button onClick={handleFinalAnalysis} disabled={!profitabilityAnswer || !visualsAnswer || !ctaAnswer || !industryAnswer || !strategicGapAnswer}>
             Analyze <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </DialogFooter>
