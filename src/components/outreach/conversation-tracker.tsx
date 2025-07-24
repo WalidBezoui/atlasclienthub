@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { User, Bot, MoreHorizontal, Edit, Trash2, Repeat, Loader2, Sparkles, Clipboard, Download, Send, MessageCircle } from 'lucide-react';
+import { User, Bot, MoreHorizontal, Edit, Trash2, Repeat, Loader2, Sparkles, Clipboard, Download, Send, MessageCircle, Copy } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
 import type { OutreachProspect, GeneratedComment } from '@/lib/types';
@@ -181,18 +181,17 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
     }
   };
 
-  const handleCopy = () => {
-    const textToCopy = serializeMessages(messages);
-    if (!textToCopy) {
-        toast({ title: 'Nothing to copy', description: 'The conversation is empty.' });
+  const handleCopy = (text: string, successMessage: string) => {
+    if (!text) {
+        toast({ title: 'Nothing to copy', variant: "destructive" });
         return;
     }
-    navigator.clipboard.writeText(textToCopy)
+    navigator.clipboard.writeText(text)
       .then(() => {
-        toast({ title: "Copied!", description: "Full conversation copied to clipboard." });
+        toast({ title: "Copied!", description: successMessage });
       })
       .catch(err => {
-        console.error("Failed to copy conversation: ", err);
+        console.error("Failed to copy: ", err);
         toast({ title: "Copy Failed", variant: "destructive" });
       });
   };
@@ -230,8 +229,8 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
                 *
             </span>
         </h3>
-        <div className="flex items-center gap-1 mr-8">
-            <Button variant="ghost" size="sm" onClick={handleCopy} disabled={!serializeMessages(messages)}>
+        <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" onClick={() => handleCopy(serializeMessages(messages), "Full conversation copied.")} disabled={!serializeMessages(messages)}>
                 <Clipboard className="mr-2 h-4 w-4" /> Copy
             </Button>
             <Button variant="ghost" size="sm" onClick={handleExport} disabled={!serializeMessages(messages)}>
@@ -275,6 +274,7 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
+                                            <DropdownMenuItem onClick={() => handleCopy(message.content, "Message copied.")}><Copy className="mr-2 h-4 w-4"/>Copy Message</DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => handleStartEdit(index)}><Edit className="mr-2 h-4 w-4"/>Edit</DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => handleSwitchSender(index)}><Repeat className="mr-2 h-4 w-4"/>Switch to Prospect</DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => handleDeleteMessage(index)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4"/>Delete</DropdownMenuItem>
@@ -315,6 +315,7 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="start">
+                                            <DropdownMenuItem onClick={() => handleCopy(message.content, "Message copied.")}><Copy className="mr-2 h-4 w-4"/>Copy Message</DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => handleStartEdit(index)}><Edit className="mr-2 h-4 w-4"/>Edit</DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => handleSwitchSender(index)}><Repeat className="mr-2 h-4 w-4"/>Switch to Me</DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => handleDeleteMessage(index)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4"/>Delete</DropdownMenuItem>
@@ -435,3 +436,5 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
     </div>
   );
 }
+
+    

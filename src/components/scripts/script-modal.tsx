@@ -152,23 +152,27 @@ export function ScriptModal({
                 </div>
             )}
         </div>
-        <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0 sm:justify-end">
+        <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0 sm:justify-between">
            <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
 
-          <Button variant="outline" onClick={handleCopy} disabled={isBusy || !currentScript}>
-            <Copy className="mr-2 h-4 w-4" /> Copy Only
-          </Button>
-        
-          {showConfirmButton && onConfirm && (
-             <Button onClick={handleConfirmAndOpen} disabled={isBusy || !currentScript}>
-                {isConfirming ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ExternalLink className="mr-2 h-4 w-4" />}
-                {prospect?.instagramHandle ? confirmButtonText : "Save to Conversation"}
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={handleCopy} disabled={isBusy || !currentScript}>
+                <Copy className="mr-2 h-4 w-4" /> Copy Only
             </Button>
-          )}
+            
+            {showConfirmButton && onConfirm && (
+                <Button onClick={handleConfirmAndOpen} disabled={isBusy || !currentScript}>
+                    {isConfirming ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ExternalLink className="mr-2 h-4 w-4" />}
+                    {prospect?.instagramHandle ? confirmButtonText : "Save to Conversation"}
+                </Button>
+            )}
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
+
+    
