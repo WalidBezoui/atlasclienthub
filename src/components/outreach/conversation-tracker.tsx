@@ -79,6 +79,23 @@ const serializeMessages = (messages: Message[]): string => {
   }).join('\n\n'); 
 };
 
+const formatProspectDetails = (prospect: OutreachProspect | null | undefined): string => {
+    if (!prospect) return "No prospect details available.";
+
+    const details = [
+        `PROSPECT DETAILS`,
+        `================`,
+        `Name: ${prospect.name || 'N/A'}`,
+        `Instagram: @${prospect.instagramHandle || 'N/A'}`,
+        `Status: ${prospect.status || 'N/A'}`,
+        `Lead Score: ${prospect.leadScore ?? 'N/A'}`,
+        `Website: ${prospect.website || 'N/A'}`,
+        `Email: ${prospect.email || 'N/A'}`,
+        `\nNotes:\n${prospect.notes || 'No notes.'}`
+    ];
+    return details.join('\n');
+}
+
 export function ConversationTracker({ value, onChange, prospect, onGenerateReply, isDirty }: ConversationTrackerProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -230,9 +247,27 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
             </span>
         </h3>
         <div className="flex items-center gap-1">
-            <Button variant="ghost" size="sm" onClick={() => handleCopy(serializeMessages(messages), "Full conversation copied.")} disabled={!serializeMessages(messages)}>
-                <Clipboard className="mr-2 h-4 w-4" /> Copy
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" disabled={!serializeMessages(messages)}>
+                      <Clipboard className="mr-2 h-4 w-4" /> Copy
+                  </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => handleCopy(serializeMessages(messages), "Conversation copied.")}>
+                      Conversation Only
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                      const details = formatProspectDetails(prospect);
+                      const conversation = serializeMessages(messages);
+                      const fullText = `${details}\n\n================\nCONVERSATION\n================\n\n${conversation}`;
+                      handleCopy(fullText, "Conversation with details copied.");
+                  }}>
+                      Conversation + Details
+                  </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <Button variant="ghost" size="sm" onClick={handleExport} disabled={!serializeMessages(messages)}>
                 <Download className="mr-2 h-4 w-4" /> Export
             </Button>
@@ -298,7 +333,7 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
                                         className="bg-background text-foreground text-sm"
                                     />
                                     <div className="flex justify-end gap-2">
-                                        <Button variant="ghost" size="sm" onClick={() => setEditingIndex(null)}>Cancel</Button>
+                                        <Button variant="ghost" size="sm" onClick={()={() => setEditingIndex(null)}}>Cancel</Button>
                                         <Button size="sm" onClick={handleSaveEdit}>Save</Button>
                                     </div>
                                     </div>
@@ -436,5 +471,7 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
     </div>
   );
 }
+
+    
 
     
