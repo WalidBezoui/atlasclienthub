@@ -198,10 +198,11 @@ function OutreachPage() {
         avgLikes: metricsResult.data.avgLikes,
         avgComments: metricsResult.data.avgComments,
         biography: metricsResult.data.biography,
-        userProfitabilityAssessment: "Selling physical products",
-        userVisualsAssessment: "Clean but Generic (Lacks personality, looks like a template)",
-        userCtaAssessment: 'Strong, direct link to a sales page, booking site, or freebie',
+        userProfitabilityAssessment: ["Selling physical or digital products (e-commerce, courses)"],
+        userVisualsAssessment: ["Clean but Generic (Looks like a template, lacks personality)"],
+        userCtaAssessment: ['Strong, direct link to a sales page, booking site, or freebie'],
         industry: prospect.industry || 'unknown',
+        userStrategicGapAssessment: ["Visuals / Branding (inconsistent grid, bad photos, messy look)"],
       };
       
       const analysisResult = await qualifyProspect(qualifyInput);
@@ -550,7 +551,7 @@ function OutreachPage() {
     
     setScriptModalConfig({
         showConfirmButton: true,
-        confirmButtonText: "Copy & Open DM",
+        confirmButtonText: "Copy & Open IG",
         onConfirm: onConfirmScript,
         prospect: prospect, 
     });
@@ -598,7 +599,7 @@ function OutreachPage() {
     
     setScriptModalConfig({
         showConfirmButton: true,
-        confirmButtonText: "Copy & Open DM",
+        confirmButtonText: "Copy & Open IG",
         prospect: prospect,
         onConfirm: async (scriptContent: string) => {
            if (currentProspectForScript) {

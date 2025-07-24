@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Copy, RefreshCw, Loader2, ClipboardList, Send, ExternalLink } from 'lucide-react';
+import { Copy, RefreshCw, Loader2, ClipboardList, Send, ExternalLink, Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
@@ -80,6 +80,12 @@ export function ScriptModal({
       console.error("Error regenerating script:", error);
     } finally {
       setIsRegenerating(false);
+    }
+  };
+  
+  const handleConfirm = () => {
+    if (onConfirm) {
+      onConfirm(currentScript);
     }
   };
   
@@ -163,10 +169,16 @@ export function ScriptModal({
             </Button>
             
             {showConfirmButton && onConfirm && (
+              <>
+                <Button variant="secondary" onClick={handleConfirm} disabled={isBusy || !currentScript}>
+                    {isConfirming ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    Copy & Save
+                </Button>
                 <Button onClick={handleConfirmAndOpen} disabled={isBusy || !currentScript}>
                     {isConfirming ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ExternalLink className="mr-2 h-4 w-4" />}
-                    {prospect?.instagramHandle ? confirmButtonText : "Save to Conversation"}
+                    Copy & Open IG
                 </Button>
+              </>
             )}
           </div>
         </DialogFooter>
@@ -174,5 +186,3 @@ export function ScriptModal({
     </Dialog>
   );
 }
-
-    
