@@ -333,7 +333,7 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
                                         className="bg-background text-foreground text-sm"
                                     />
                                     <div className="flex justify-end gap-2">
-                                        <Button variant="ghost" size="sm" onClick={()={() => setEditingIndex(null)}}>Cancel</Button>
+                                        <Button variant="ghost" size="sm" onClick={() => setEditingIndex(null)}>Cancel</Button>
                                         <Button size="sm" onClick={handleSaveEdit}>Save</Button>
                                     </div>
                                     </div>
@@ -471,7 +471,3 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
     </div>
   );
 }
-
-    
-
-    
