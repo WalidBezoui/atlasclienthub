@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
 import type { OutreachProspect } from '@/lib/types';
+import { ScrollArea } from '../ui/scroll-area';
 
 interface ScriptModalProps {
   isOpen: boolean;
@@ -108,8 +109,8 @@ export function ScriptModal({
             setCustomInstructions('');
         }
     }}>
-      <DialogContent className="sm:max-w-lg md:max-w-xl">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-lg md:max-w-xl h-[90vh] flex flex-col p-0">
+        <DialogHeader className="p-6 pb-2 border-b shrink-0">
           <DialogTitle className="font-headline flex items-center">
             <ClipboardList className="mr-2 h-5 w-5 text-primary" /> {title}
           </DialogTitle>
@@ -117,49 +118,53 @@ export function ScriptModal({
             Review the generated script below. You can edit it, regenerate with new options, or copy it.
           </DialogDescription>
         </DialogHeader>
-        <div className="py-4 space-y-3">
-          {isLoadingInitially && !currentScript ? (
-            <div className="flex items-center justify-center h-40">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <span className="ml-2">Generating script...</span>
-            </div>
-          ) : (
-            <Textarea
-              value={currentScript}
-              onChange={(e) => setCurrentScript(e.target.value)} 
-              rows={10}
-              readOnly={isBusy}
-              className="w-full min-h-[200px] text-sm bg-muted/30"
-              placeholder="Script will appear here..."
-            />
-          )}
-
-           {onRegenerate && (
-                <div className="space-y-2 rounded-lg border p-4 bg-muted/50">
-                    <h4 className="text-sm font-semibold">Regeneration Options</h4>
-                    <div>
-                         <Label htmlFor="custom-instructions" className="text-xs">Custom Instructions (Optional)</Label>
-                         <Input 
-                            id="custom-instructions"
-                            placeholder="e.g., 'Make it more casual', 'Add an emoji'" 
-                            value={customInstructions} 
-                            onChange={(e) => setCustomInstructions(e.target.value)} 
-                            disabled={isBusy}
-                        />
-                    </div>
-                     <Button variant="secondary" onClick={handleRegenerate} disabled={isBusy} className="w-full">
-                        {isRegenerating ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                            <RefreshCw className="mr-2 h-4 w-4" />
-                        )}
-                        Regenerate with Options
-                    </Button>
+        
+        <div className="flex-grow overflow-y-auto min-h-0">
+            <div className="p-6 space-y-3">
+              {isLoadingInitially && !currentScript ? (
+                <div className="flex items-center justify-center h-40">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <span className="ml-2">Generating script...</span>
                 </div>
-            )}
+              ) : (
+                <Textarea
+                  value={currentScript}
+                  onChange={(e) => setCurrentScript(e.target.value)} 
+                  rows={10}
+                  readOnly={isBusy}
+                  className="w-full min-h-[200px] text-sm bg-muted/30"
+                  placeholder="Script will appear here..."
+                />
+              )}
+
+               {onRegenerate && (
+                    <div className="space-y-2 rounded-lg border p-4 bg-muted/50">
+                        <h4 className="text-sm font-semibold">Regeneration Options</h4>
+                        <div>
+                             <Label htmlFor="custom-instructions" className="text-xs">Custom Instructions (Optional)</Label>
+                             <Input 
+                                id="custom-instructions"
+                                placeholder="e.g., 'Make it more casual', 'Add an emoji'" 
+                                value={customInstructions} 
+                                onChange={(e) => setCustomInstructions(e.target.value)} 
+                                disabled={isBusy}
+                            />
+                        </div>
+                         <Button variant="secondary" onClick={handleRegenerate} disabled={isBusy} className="w-full">
+                            {isRegenerating ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                                <RefreshCw className="mr-2 h-4 w-4" />
+                            )}
+                            Regenerate with Options
+                        </Button>
+                    </div>
+                )}
+            </div>
         </div>
-        <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0 sm:justify-between">
-           <Button variant="ghost" onClick={onClose}>
+
+        <DialogFooter className="p-4 border-t shrink-0 flex-col sm:flex-row sm:justify-between gap-2">
+           <Button variant="ghost" onClick={onClose} className="w-full sm:w-auto">
             Cancel
           </Button>
 
