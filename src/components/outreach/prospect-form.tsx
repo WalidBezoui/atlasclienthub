@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -24,6 +25,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ScrollArea } from '../ui/scroll-area';
 import { formatDistanceToNow, format } from 'date-fns';
+import { updateProspect } from '@/lib/firebase/services';
 
 const initialFormData: Omit<OutreachProspect, 'id' | 'userId'> = {
     name: '',
@@ -151,7 +153,7 @@ const WarmUpTracker = ({ prospect, onLogActivity, onGenerateComment, onViewConve
 };
 
 
-export function ProspectForm({ prospect, onSave, onCancel, onGenerateComment, onViewConversation }: { prospect?: OutreachProspect, onSave: (prospectData: Omit<OutreachProspect, 'id' | 'userId'> | OutreachProspect) => void, onCancel: () => void, onGenerateComment: (prospect: OutreachProspect) => void, onViewConversation: (prospect: OutreachProspect) => void }) {
+export function ProspectForm({ prospect, onSave, onCancel, onGenerateComment, onViewConversation, onWarmUpActivityLogged }: { prospect?: OutreachProspect, onSave: (prospectData: Omit<OutreachProspect, 'id' | 'userId'> | OutreachProspect) => void, onCancel: () => void, onGenerateComment: (prospect: OutreachProspect) => void, onViewConversation: (prospect: OutreachProspect) => void, onWarmUpActivityLogged: () => void }) {
   const { toast } = useToast();
   const [isFetchingMetrics, setIsFetchingMetrics] = useState(false);
   const [isQualifying, setIsQualifying] = useState(false);
@@ -266,13 +268,20 @@ export function ProspectForm({ prospect, onSave, onCancel, onGenerateComment, on
     onSave(formData as OutreachProspect);
   };
   
-  const handleLogWarmUpActivity = (action: WarmUpAction) => {
-    setFormData(prev => {
-        const newActivity: WarmUpActivity = { action, date: new Date().toISOString() };
-        const updatedWarmUp = [...(prev.warmUp || []), newActivity];
-        return { ...prev, warmUp: updatedWarmUp };
-    });
-    toast({ title: 'Activity Logged', description: `${action} has been recorded.` });
+  const handleLogWarmUpActivity = async (action: WarmUpAction) => {
+    if (!prospect?.id) return;
+    
+    const newActivity: WarmUpActivity = { action, date: new Date().toISOString() };
+    const updatedWarmUp = [...(formData.warmUp || []), newActivity];
+    
+    try {
+        await updateProspect(prospect.id, { warmUp: updatedWarmUp });
+        setFormData(prev => ({ ...prev, warmUp: updatedWarmUp }));
+        toast({ title: 'Activity Logged', description: `${action} has been recorded.` });
+        onWarmUpActivityLogged();
+    } catch (error: any) {
+        toast({ title: 'Error', description: error.message || "Could not log activity.", variant: "destructive"});
+    }
   };
 
   return (

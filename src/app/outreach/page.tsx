@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useCallback, Suspense, useRef, useMemo } from 'react';
@@ -551,7 +552,7 @@ function OutreachPage() {
     
     setScriptModalConfig({
         showConfirmButton: true,
-        confirmButtonText: "Copy & Open IG",
+        confirmButtonText: "Copy & Open DM",
         onConfirm: onConfirmScript,
         prospect: prospect, 
     });
@@ -976,7 +977,13 @@ function OutreachPage() {
         isOpen={isCommentGeneratorOpen}
         onClose={() => setIsCommentGeneratorOpen(false)}
         prospect={prospectForComment}
-        onCommentAdded={() => updateProspectInState(prospectForComment!.id, { ...prospectForComment })}
+        onCommentAdded={() => {
+          if (prospectForComment) {
+            updateProspect(prospectForComment.id, { warmUp: [...(prospectForComment.warmUp || []), {action: 'Left Comment', date: new Date().toISOString() }]})
+            updateProspectInState(prospectForComment.id, { ...prospectForComment, warmUp: [...(prospectForComment.warmUp || []), {action: 'Left Comment', date: new Date().toISOString() }] });
+            fetchProspects();
+          }
+        }}
       />
 
       <DiscoveryDialog
@@ -999,6 +1006,19 @@ function OutreachPage() {
             prospect={editingProspect} 
             onSave={handleSaveProspect} 
             onCancel={() => { setIsEditFormOpen(false); setEditingProspect(undefined);}} 
+            onGenerateComment={() => {
+              if (editingProspect) {
+                setProspectForComment(editingProspect);
+                setIsCommentGeneratorOpen(true);
+              }
+            }}
+            onViewConversation={() => {
+              if (editingProspect) {
+                setCurrentProspectForConversation(editingProspect);
+                setIsConversationModalOpen(true);
+              }
+            }}
+            onWarmUpActivityLogged={fetchProspects}
           />
         </DialogContent>
       </Dialog>
