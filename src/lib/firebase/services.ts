@@ -564,7 +564,7 @@ export const getDashboardOverview = async (): Promise<{
     getCountFromServer(outreachSentThisMonthQuery),
     getCountFromServer(newLeadsThisMonthQuery),
     getCountFromServer(coldProspectsQuery),
-    getCountFromServer(prospectsAddedThisMonthQuery),
+    getCountFromServer(prospectsAddedSnapshot),
   ]);
 
   return {
@@ -625,7 +625,7 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
 
     const [followUpSnapshot, needsQualifierSnapshot, warmingUpSnapshot, toContactSnapshot] = await Promise.all([
         getDocs(followUpQuery),
-        getDocs(needsQualifierSnapshot),
+        getDocs(needsQualifierQuery),
         getDocs(warmingUpQuery),
         getDocs(toContactSnapshot)
     ]);
