@@ -1,7 +1,8 @@
 
+
 'use client';
 import React, { useEffect, useState, useCallback } from 'react';
-import { LayoutDashboard, Users, Send, ListChecks, PlusCircle, TrendingUp, CheckSquare, Rocket, HelpCircle, BarChart3, Building } from 'lucide-react';
+import { LayoutDashboard, Users, Send, ListChecks, PlusCircle, TrendingUp, CheckSquare, Rocket, HelpCircle, BarChart3, Building, Flame } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
@@ -39,7 +40,7 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 const AgendaItemCard = ({ item }: { item: AgendaItem }) => {
-    const { type, prospect, dueDate } = item;
+    const { type, prospect, dueDate, description: itemDescription } = item;
     let icon, title, description, badgeText, link;
     let badgeVariant: "default" | "secondary" | "outline" | "destructive" = "default";
 
@@ -55,19 +56,27 @@ const AgendaItemCard = ({ item }: { item: AgendaItem }) => {
             badgeText = dueDate ? `Due ${formatDistanceToNow(new Date(dueDate), { addSuffix: true })}` : 'Follow up';
             badgeVariant = isOverdue ? 'destructive' : 'secondary';
             break;
-        case 'INITIAL_CONTACT':
-            icon = <Send className="h-5 w-5 text-blue-500" />;
-            title = `Initial outreach to ${prospect.name}`;
-            description = `New prospect ready for contact.`;
-            badgeText = 'To Contact';
-            badgeVariant = 'outline';
+        case 'WARM_UP_ACTION':
+            icon = <Flame className="h-5 w-5 text-destructive" />;
+            title = `Warm up ${prospect.name}`;
+            description = itemDescription || 'Continue warm-up sequence.';
+            badgeText = 'Warming Up';
+            badgeVariant = 'secondary';
+            link = `/outreach`; // General link, user can find the prospect
             break;
         case 'SEND_QUALIFIER':
             icon = <FileQuestion className="h-5 w-5 text-purple-500" />;
             title = `Send qualifier to ${prospect.name}`;
-            description = `Prospect has replied and is interested.`;
+            description = itemDescription || `Prospect replied and is interested.`;
             badgeText = 'Needs Qualifier';
             badgeVariant = 'default';
+            break;
+        case 'INITIAL_CONTACT':
+            icon = <Send className="h-5 w-5 text-blue-500" />;
+            title = `Initial outreach to ${prospect.name}`;
+            description = itemDescription || `New prospect ready for contact.`;
+            badgeText = 'To Contact';
+            badgeVariant = 'outline';
             break;
         default:
             return null;

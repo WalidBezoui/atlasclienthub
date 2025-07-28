@@ -1,4 +1,5 @@
 
+
 import { db, auth } from './config';
 import {
   collection,
@@ -17,7 +18,7 @@ import {
   limit,
   arrayUnion,
 } from 'firebase/firestore';
-import { subMonths, format, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from 'date-fns';
+import { subMonths, format, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isToday } from 'date-fns';
 
 import type { Client, InstagramAudit, OutreachProspect, MonthlyActivity, OutreachLeadStage, AgendaItem, StatusHistoryItem } from '@/lib/types';
 
@@ -214,6 +215,7 @@ export const addProspect = async (prospectData: Omit<OutreachProspect, 'id' | 'u
     nextStep: prospectData.nextStep || null,
     conversationHistory: prospectData.conversationHistory || null,
     comments: prospectData.comments || [],
+    warmUp: [],
 
     qualifierQuestion: prospectData.qualifierQuestion || null,
     qualifierSentAt: processDateForFirestore(prospectData.qualifierSentAt),
@@ -278,6 +280,7 @@ export const getProspects = async (): Promise<OutreachProspect[]> => {
       nextStep: data.nextStep || null,
       conversationHistory: data.conversationHistory || null,
       comments: data.comments || null,
+      warmUp: data.warmUp || [],
       qualifierQuestion: data.qualifierQuestion || null,
       qualifierSentAt: convertTimestampToISO(data.qualifierSentAt),
       qualifierReply: data.qualifierReply || null,
@@ -336,7 +339,7 @@ export const updateProspect = async (id: string, prospectData: Partial<Omit<Outr
     }
   });
   
-  const arrayFields: (keyof OutreachProspect)[] = ['painPoints', 'goals', 'offerInterest', 'comments'];
+  const arrayFields: (keyof OutreachProspect)[] = ['painPoints', 'goals', 'offerInterest', 'comments', 'warmUp'];
   arrayFields.forEach(field => {
     if (prospectData.hasOwnProperty(field)) {
       dataToUpdate[field] = prospectData[field] || [];
@@ -585,7 +588,7 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
     const processedIds = new Set<string>();
     const AGENDA_LIMIT = 10;
 
-    // Query 1: Overdue or due today follow-ups
+    // Priority 1: Overdue or due today follow-ups
     const followUpQuery = query(
         prospectsCollection,
         where('userId', '==', userId),
@@ -594,7 +597,7 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
         limit(AGENDA_LIMIT)
     );
     
-    // Query 2: Needs qualifier (important)
+    // Priority 2: Prospects needing a qualifier question
     const needsQualifierQuery = query(
         prospectsCollection,
         where('userId', '==', userId),
@@ -602,7 +605,16 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
         limit(AGENDA_LIMIT)
     );
 
-    // Query 3: New prospects to contact
+    // Priority 3: Prospects in "Warming Up" stage
+    const warmingUpQuery = query(
+        prospectsCollection,
+        where('userId', '==', userId),
+        where('status', '==', 'Warming Up'),
+        orderBy('lastContacted', 'asc'),
+        limit(AGENDA_LIMIT)
+    );
+
+    // Priority 4: New prospects to contact
     const toContactQuery = query(
         prospectsCollection,
         where('userId', '==', userId),
@@ -611,45 +623,76 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
         limit(AGENDA_LIMIT)
     );
 
-    const [followUpSnapshot, needsQualifierSnapshot, toContactSnapshot] = await Promise.all([
+    const [followUpSnapshot, needsQualifierSnapshot, warmingUpSnapshot, toContactSnapshot] = await Promise.all([
         getDocs(followUpQuery),
-        getDocs(needsQualifierQuery),
-        getDocs(toContactQuery)
+        getDocs(needsQualifierSnapshot),
+        getDocs(warmingUpQuery),
+        getDocs(toContactSnapshot)
     ]);
 
+    // Process in order of priority
     followUpSnapshot.forEach(doc => {
+        if (agendaItems.length >= AGENDA_LIMIT || processedIds.has(doc.id)) return;
         const prospect = doc.data() as OutreachProspect;
         const dueDate = prospect.followUpDate ? new Date(prospect.followUpDate) : new Date();
-        if (processedIds.has(doc.id) || dueDate > endOfDay(now)) return;
-        agendaItems.push({
-            type: 'FOLLOW_UP',
-            prospect: { id: doc.id, name: prospect.name, instagramHandle: prospect.instagramHandle, status: prospect.status },
-            dueDate: prospect.followUpDate,
-        });
-        processedIds.add(doc.id);
+        if (dueDate <= endOfDay(now)) {
+            agendaItems.push({
+                type: 'FOLLOW_UP',
+                prospect: { id: doc.id, name: prospect.name, instagramHandle: prospect.instagramHandle, status: prospect.status },
+                dueDate: prospect.followUpDate,
+            });
+            processedIds.add(doc.id);
+        }
     });
 
     needsQualifierSnapshot.forEach(doc => {
+        if (agendaItems.length >= AGENDA_LIMIT || processedIds.has(doc.id)) return;
         const prospect = doc.data() as OutreachProspect;
-        if (processedIds.has(doc.id) || prospect.qualifierQuestion) return;
-        agendaItems.push({
-            type: 'SEND_QUALIFIER',
-            prospect: { id: doc.id, name: prospect.name, instagramHandle: prospect.instagramHandle, status: prospect.status },
-        });
-        processedIds.add(doc.id);
+        if (!prospect.qualifierQuestion) {
+            agendaItems.push({
+                type: 'SEND_QUALIFIER',
+                prospect: { id: doc.id, name: prospect.name, instagramHandle: prospect.instagramHandle, status: prospect.status },
+                description: "Prospect is interested. Send a qualifier question."
+            });
+            processedIds.add(doc.id);
+        }
+    });
+
+    warmingUpSnapshot.forEach(doc => {
+        if (agendaItems.length >= AGENDA_LIMIT || processedIds.has(doc.id)) return;
+        const prospect = doc.data() as OutreachProspect;
+        const activities = prospect.warmUp || [];
+        const lastActivityDate = activities.length > 0 ? new Date(activities[activities.length - 1].date) : null;
+        
+        // Add to agenda if no activity today
+        if (!lastActivityDate || !isToday(lastActivityDate)) {
+             const actions = new Set(activities.map(a => a.action));
+             let nextAction = "Like Posts";
+             if (actions.has('Liked Posts')) nextAction = "View Story";
+             if (actions.has('Viewed Story')) nextAction = "Left Comment";
+             if (actions.has('Left Comment')) nextAction = "Replied to Story";
+
+            agendaItems.push({
+                type: 'WARM_UP_ACTION',
+                prospect: { id: doc.id, name: prospect.name, instagramHandle: prospect.instagramHandle, status: prospect.status },
+                description: `Warm up: ${nextAction}`
+            });
+            processedIds.add(doc.id);
+        }
     });
 
     toContactSnapshot.forEach(doc => {
-        if (processedIds.has(doc.id)) return;
+        if (agendaItems.length >= AGENDA_LIMIT || processedIds.has(doc.id)) return;
         const prospect = doc.data() as OutreachProspect;
         agendaItems.push({
             type: 'INITIAL_CONTACT',
             prospect: { id: doc.id, name: prospect.name, instagramHandle: prospect.instagramHandle, status: prospect.status },
+            description: "New prospect, ready for first contact."
         });
         processedIds.add(doc.id);
     });
 
-    return agendaItems.slice(0, AGENDA_LIMIT);
+    return agendaItems;
 };
 
 

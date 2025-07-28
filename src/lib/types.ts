@@ -62,6 +62,7 @@ export type StatusHistoryItem = {
 export type WarmUpAction = 'Liked Posts' | 'Viewed Story' | 'Left Comment' | 'Replied to Story';
 
 export type WarmUpActivity = {
+  id: string; // Use a unique ID for each activity to allow deletion
   action: WarmUpAction;
   date: string; // ISO string
   note?: string; // e.g., the comment text
@@ -173,12 +174,13 @@ export type InstagramAudit = {
 
 export type Optional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
 
-export type AgendaItemType = 'FOLLOW_UP' | 'INITIAL_CONTACT' | 'SEND_QUALIFIER';
+export type AgendaItemType = 'FOLLOW_UP' | 'INITIAL_CONTACT' | 'SEND_QUALIFIER' | 'WARM_UP_ACTION';
 
 export type AgendaItem = {
   type: AgendaItemType;
   prospect: Pick<OutreachProspect, 'id' | 'name' | 'instagramHandle' | 'status'>;
   dueDate?: string;
+  description?: string; // Add description for more context
 };
 
 export type MonthlyActivity = {

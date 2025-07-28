@@ -1,18 +1,29 @@
 
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Flame, Eye, Heart, MessageCircle as MessageCircleIcon, MessageSquare, AlertTriangle } from 'lucide-react';
+import { Loader2, Flame, Eye, Heart, MessageCircle as MessageCircleIcon, MessageSquare, AlertTriangle, Trash2 } from 'lucide-react';
 import type { OutreachProspect, WarmUpActivity, WarmUpAction, OutreachLeadStage } from '@/lib/types';
 import { updateProspect } from '@/lib/firebase/services';
 import { Progress } from '@/components/ui/progress';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface WarmUpDialogProps {
   isOpen: boolean;
@@ -35,6 +46,7 @@ export function WarmUpDialog({
 }: WarmUpDialogProps) {
   const [currentProspect, setCurrentProspect] = useState<OutreachProspect | null | undefined>(prospect);
   const [isLoading, setIsLoading] = useState(false);
+  const [activityToDelete, setActivityToDelete] = useState<WarmUpActivity | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -45,7 +57,7 @@ export function WarmUpDialog({
     if (!currentProspect) return;
     setIsLoading(true);
     
-    const newActivity: WarmUpActivity = { action, date: new Date().toISOString() };
+    const newActivity: WarmUpActivity = { id: crypto.randomUUID(), action, date: new Date().toISOString() };
     const updatedWarmUp = [...(currentProspect.warmUp || []), newActivity];
 
     try {
@@ -59,6 +71,24 @@ export function WarmUpDialog({
       setIsLoading(false);
     }
   };
+
+  const handleDeleteActivity = async () => {
+    if (!currentProspect || !activityToDelete) return;
+    
+    const updatedWarmUp = (currentProspect.warmUp || []).filter(activity => activity.id !== activityToDelete.id);
+    
+    try {
+      await updateProspect(currentProspect.id, { warmUp: updatedWarmUp });
+      setCurrentProspect(prev => prev ? { ...prev, warmUp: updatedWarmUp } : null);
+      toast({ title: 'Activity Removed', description: `The activity has been deleted.` });
+      onActivityLogged();
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message || "Could not delete activity.", variant: "destructive" });
+    } finally {
+      setActivityToDelete(null);
+    }
+  };
+
 
   const handleComment = () => {
     if (currentProspect) {
@@ -97,79 +127,107 @@ export function WarmUpDialog({
   ];
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="font-headline text-2xl flex items-center">
-            <Flame className="mr-2 h-6 w-6 text-destructive" /> Warm-Up Lead
-          </DialogTitle>
-          <DialogDescription>
-            Warm up <span className="font-semibold text-foreground">{currentProspect?.name || 'this prospect'}</span> before direct outreach to increase response rates.
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <AlertDialog open={!!activityToDelete} onOpenChange={(open) => !open && setActivityToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action will permanently delete this activity from the log.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteActivity}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-        <Card>
-          <CardHeader>
-            <div className="flex justify-between items-center">
-                <CardTitle>Warm-Up Progress</CardTitle>
-                <span className="font-bold text-lg">{progress}%</span>
-            </div>
-            <Progress value={progress} className="mt-2" />
-          </CardHeader>
-          <CardContent>
-             {!isWarmingUp && (
-                <div className="p-3 mb-4 text-center bg-destructive/10 border border-destructive/20 rounded-lg">
-                    <AlertTriangle className="mx-auto h-8 w-8 text-destructive mb-2"/>
-                    <p className="text-sm font-semibold">Warm-up is not active.</p>
-                    <p className="text-xs text-muted-foreground mb-3">To log activities, you must set the prospect's status to "Warming Up".</p>
-                    <Button size="sm" onClick={handleEnableWarming}>Enable Warming Up Status</Button>
-                </div>
-             )}
-            <div className="flex gap-2 mb-4 flex-wrap">
-              {actionButtons.map(btn => (
-                <TooltipProvider key={btn.name}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="flex-1">
-                         <Button 
-                            variant={btn.complete ? "default" : "outline"} 
-                            className="w-full"
-                            onClick={btn.action} 
-                            disabled={!isWarmingUp || isLoading}
-                         >
-                            <btn.icon className="mr-2 h-4 w-4" /> {btn.name}
-                        </Button>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{btn.complete ? 'Completed!' : btn.tip}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              ))}
-            </div>
-            <h4 className="font-semibold text-sm mb-2">Activity Log</h4>
-            <ScrollArea className="h-32 border bg-muted/30 rounded-md p-2">
-              <div className="space-y-2 text-xs">
-                {activities.length > 0 ? (
-                  activities.slice().reverse().map((activity, index) => (
-                    <div key={index} className="flex justify-between items-center p-1.5 bg-background rounded-md">
-                      <p className="font-medium">{activity.action}</p>
-                      <p className="text-muted-foreground">{format(new Date(activity.date), "MMM d, yyyy")}</p>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-muted-foreground text-center pt-8">No warm-up activities logged yet.</p>
-                )}
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-headline text-2xl flex items-center">
+              <Flame className="mr-2 h-6 w-6 text-destructive" /> Warm-Up Lead
+            </DialogTitle>
+            <DialogDescription>
+              Warm up <span className="font-semibold text-foreground">{currentProspect?.name || 'this prospect'}</span> before direct outreach to increase response rates.
+            </DialogDescription>
+          </DialogHeader>
+
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                  <CardTitle>Warm-Up Progress</CardTitle>
+                  <span className="font-bold text-lg">{progress}%</span>
               </div>
-            </ScrollArea>
-          </CardContent>
-        </Card>
+              <Progress value={progress} className="mt-2" />
+            </CardHeader>
+            <CardContent>
+              {!isWarmingUp && (
+                  <div className="p-3 mb-4 text-center bg-destructive/10 border border-destructive/20 rounded-lg">
+                      <AlertTriangle className="mx-auto h-8 w-8 text-destructive mb-2"/>
+                      <p className="text-sm font-semibold">Warm-up is not active.</p>
+                      <p className="text-xs text-muted-foreground mb-3">To log activities, you must set the prospect's status to "Warming Up".</p>
+                      <Button size="sm" onClick={handleEnableWarming}>Enable Warming Up Status</Button>
+                  </div>
+              )}
+              <div className="flex gap-2 mb-4 flex-wrap">
+                {actionButtons.map(btn => (
+                  <TooltipProvider key={btn.name}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex-1">
+                          <Button 
+                              variant={btn.complete ? "default" : "outline"} 
+                              className="w-full"
+                              onClick={btn.action} 
+                              disabled={!isWarmingUp || isLoading}
+                          >
+                              <btn.icon className="mr-2 h-4 w-4" /> {btn.name}
+                          </Button>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{btn.complete ? 'Completed!' : btn.tip}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ))}
+              </div>
+              <h4 className="font-semibold text-sm mb-2">Activity Log</h4>
+              <ScrollArea className="h-32 border bg-muted/30 rounded-md p-2">
+                <div className="space-y-2 text-xs">
+                  {activities.length > 0 ? (
+                    activities.slice().reverse().map((activity) => (
+                      <div key={activity.id} className="flex justify-between items-center p-1.5 bg-background rounded-md group">
+                        <p className="font-medium">{activity.action}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-muted-foreground">{format(new Date(activity.date), "MMM d, yyyy")}</p>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-5 w-5 opacity-0 group-hover:opacity-100" 
+                            onClick={() => setActivityToDelete(activity)}
+                            disabled={!isWarmingUp}
+                          >
+                            <Trash2 className="h-3 w-3 text-destructive" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-muted-foreground text-center pt-8">No warm-up activities logged yet.</p>
+                  )}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Close</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <DialogFooter>
+            <Button variant="outline" onClick={onClose}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
