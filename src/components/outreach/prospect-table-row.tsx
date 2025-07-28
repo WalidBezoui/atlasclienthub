@@ -9,12 +9,13 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuGroup, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
-import { Edit, Trash2, MoreHorizontal, Link as LinkIcon, Bot, MessageCircle, MessagesSquare, GraduationCap, FileQuestion, Loader2, Star, Languages } from 'lucide-react';
+import { Edit, Trash2, MoreHorizontal, Link as LinkIcon, Bot, MessageCircle, MessagesSquare, GraduationCap, FileQuestion, Loader2, Star, Languages, Flame, UserPlus } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { OutreachProspect, OutreachLeadStage } from '@/lib/types';
 import { OUTREACH_LEAD_STAGE_OPTIONS } from '@/lib/types';
 import { Separator } from '../ui/separator';
+import { Progress } from '../ui/progress';
 
 const ProspectTimelineTooltip = ({ prospect }: { prospect: OutreachProspect }) => {
     if (!prospect.createdAt) return null;
@@ -102,12 +103,19 @@ const ProspectTableRow = React.memo(({
     const getStatusBadgeVariant = (status: OutreachLeadStage): "default" | "secondary" | "outline" | "destructive" => {
         switch (status) {
             case 'Closed - Won': case 'Audit Delivered': case 'Ready for Audit': case 'Replied': case 'Interested': return 'default';
-            case 'Warm': case 'Qualifier Sent': return 'secondary';
+            case 'Warming Up': case 'Warm': case 'Qualifier Sent': return 'secondary';
             case 'Cold': case 'To Contact': return 'outline';
             case 'Closed - Lost': case 'Not Interested': return 'destructive';
             default: return 'default';
         }
     };
+    
+    const calculateWarmUpProgress = (prospect: OutreachProspect): number => {
+      const activities = prospect.warmUp || [];
+      const uniqueActions = new Set(activities.map(a => a.action));
+      return (uniqueActions.size / 4) * 100;
+    };
+
 
     const getLeadScoreBadgeVariant = (score: number | null | undefined): "default" | "secondary" | "destructive" => {
         if (score === null || score === undefined) return "secondary";
@@ -172,14 +180,27 @@ const ProspectTableRow = React.memo(({
             <TableCell className="hidden lg:table-cell text-muted-foreground">{formatNumber(prospect.followerCount)}</TableCell>
             <TableCell className="hidden lg:table-cell text-muted-foreground">{formatNumber(prospect.postCount)}</TableCell>
             <TableCell className="hidden sm:table-cell">
-                <Select value={prospect.status} onValueChange={(newStatus: OutreachLeadStage) => onStatusChange(prospect.id, newStatus)}>
-                    <SelectTrigger className="h-auto py-0.5 px-2.5 border-none shadow-none [&>span]:flex [&>span]:items-center text-xs w-auto min-w-[100px]">
-                        <SelectValue asChild>
-                            <Badge variant={getStatusBadgeVariant(prospect.status)} className="cursor-pointer text-xs whitespace-nowrap">{prospect.status}</Badge>
-                        </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>{OUTREACH_LEAD_STAGE_OPTIONS.map(s => <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>)}</SelectContent>
-                </Select>
+               {prospect.status === 'Warming Up' ? (
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger className="w-full">
+                                <Progress value={calculateWarmUpProgress(prospect)} className="h-1.5" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Warm-up Progress: {calculateWarmUpProgress(prospect)}%</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                ) : (
+                    <Select value={prospect.status} onValueChange={(newStatus: OutreachLeadStage) => onStatusChange(prospect.id, newStatus)}>
+                        <SelectTrigger className="h-auto py-0.5 px-2.5 border-none shadow-none [&>span]:flex [&>span]:items-center text-xs w-auto min-w-[100px]">
+                            <SelectValue asChild>
+                                <Badge variant={getStatusBadgeVariant(prospect.status)} className="cursor-pointer text-xs whitespace-nowrap">{prospect.status}</Badge>
+                            </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>{OUTREACH_LEAD_STAGE_OPTIONS.map(s => <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>)}</SelectContent>
+                    </Select>
+                )}
             </TableCell>
             <TableCell className="hidden md:table-cell">
                 {prospect.leadScore !== null && prospect.leadScore !== undefined ? (
@@ -205,7 +226,7 @@ const ProspectTableRow = React.memo(({
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                             <DropdownMenuGroup>
-                                <DropdownMenuItem onClick={() => onEdit(prospect)}><Edit className="mr-2 h-4 w-4" /> Edit Prospect</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => onEdit(prospect)}><Edit className="mr-2 h-4 w-4" /> Edit Details & Warm-up</DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => onViewConversation(prospect)}><MessagesSquare className="mr-2 h-4 w-4" /> Manage Conversation</DropdownMenuItem>
                                 <Tooltip>
                                     <TooltipTrigger asChild>

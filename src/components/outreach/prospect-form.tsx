@@ -12,12 +12,16 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from '@/hooks/use-toast';
 import { fetchInstagramMetrics } from '@/app/actions/fetch-ig-metrics';
-import type { OutreachProspect, OutreachLeadStage, BusinessType, PainPoint, Goal, LeadSource, OfferInterest, TonePreference, ProspectLocation, AccountStage } from '@/lib/types';
+import type { OutreachProspect, OutreachLeadStage, BusinessType, PainPoint, Goal, LeadSource, OfferInterest, TonePreference, ProspectLocation, AccountStage, WarmUpActivity, WarmUpAction } from '@/lib/types';
 import { OUTREACH_LEAD_STAGE_OPTIONS, BUSINESS_TYPES, PAIN_POINTS, GOALS, LEAD_SOURCES, OFFER_INTERESTS, TONE_PREFERENCES, PROSPECT_LOCATIONS, ACCOUNT_STAGES } from '@/lib/types';
-import { RefreshCw, Loader2, Info, Briefcase, BarChart3, AlertCircle, Target, MessageSquare, Settings2, FileQuestion, Star } from 'lucide-react';
+import { RefreshCw, Loader2, Info, Briefcase, BarChart3, AlertCircle, Target, MessageSquare, Settings2, FileQuestion, Star, Flame, Eye, Heart, MessageCircle as MessageCircleIcon } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { qualifyProspect, type QualifyProspectInput } from '@/ai/flows/qualify-prospect';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const initialFormData: Omit<OutreachProspect, 'id' | 'userId'> = {
     name: '',
@@ -60,6 +64,7 @@ const initialFormData: Omit<OutreachProspect, 'id' | 'userId'> = {
     leadScore: null,
     qualificationData: null,
     createdAt: new Date().toISOString(),
+    warmUp: [],
 };
 
 // A "safe" date formatter that won't crash on invalid input
@@ -77,7 +82,64 @@ const safeFormatDate = (dateString: string | null | undefined): string => {
     }
 };
 
-export function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProspect, onSave: (prospectData: Omit<OutreachProspect, 'id' | 'userId'> | OutreachProspect) => void, onCancel: () => void }) {
+const WarmUpTracker = ({ prospect, onLogActivity, onGenerateComment, onViewConversation }: { prospect: Partial<OutreachProspect>, onLogActivity: (action: WarmUpAction) => void, onGenerateComment: () => void, onViewConversation: () => void }) => {
+    const activities = prospect.warmUp || [];
+    const hasLiked = activities.some(a => a.action === 'Liked Posts');
+    const hasViewedStory = activities.some(a => a.action === 'Viewed Story');
+    const hasCommented = activities.some(a => a.action === 'Left Comment');
+    const hasReplied = activities.some(a => a.action === 'Replied to Story');
+
+    const progress = (hasLiked + hasViewedStory + hasCommented + hasReplied) * 25;
+
+    const phases = [
+        { name: "Silent Phase", goal: "Days 1-3: Familiarity", complete: hasLiked && hasViewedStory, actions: [
+            { name: "Like Posts", icon: Heart, complete: hasLiked, action: () => onLogActivity('Liked Posts')},
+            { name: "View Story", icon: Eye, complete: hasViewedStory, action: () => onLogActivity('Viewed Story')},
+        ]},
+        { name: "Value Phase", goal: "Days 4-7: Authority", complete: hasCommented, actions: [
+            { name: "Leave Comment", icon: MessageCircleIcon, complete: hasCommented, action: onGenerateComment },
+        ]},
+        { name: "Private Phase", goal: "Days 8-10: Rapport", complete: hasReplied, actions: [
+            { name: "Reply to Story", icon: MessageSquare, complete: hasReplied, action: onViewConversation },
+        ]},
+    ];
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center"><Flame className="mr-2 text-destructive"/>Warm-Up Progress</CardTitle>
+                <CardDescription>Follow these steps to warm up the lead before direct outreach.</CardDescription>
+                <Progress value={progress} className="mt-2" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+                {phases.map(phase => (
+                    <div key={phase.name}>
+                        <h4 className="font-semibold text-sm">{phase.name} <span className="text-xs text-muted-foreground font-normal">- {phase.goal}</span></h4>
+                        <div className="flex gap-2 mt-2">
+                            {phase.actions.map(action => (
+                                <TooltipProvider key={action.name}>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                             <Button variant={action.complete ? "default" : "outline"} size="sm" onClick={action.action}>
+                                                <action.icon className="mr-2 h-4 w-4" /> {action.name}
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>{action.complete ? 'Completed!' : `Log: ${action.name}`}</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+            </CardContent>
+        </Card>
+    );
+};
+
+
+export function ProspectForm({ prospect, onSave, onCancel, onGenerateComment, onViewConversation }: { prospect?: OutreachProspect, onSave: (prospectData: Omit<OutreachProspect, 'id' | 'userId'> | OutreachProspect) => void, onCancel: () => void, onGenerateComment: (prospect: OutreachProspect) => void, onViewConversation: (prospect: OutreachProspect) => void }) {
   const { toast } = useToast();
   const [isFetchingMetrics, setIsFetchingMetrics] = useState(false);
   const [isQualifying, setIsQualifying] = useState(false);
@@ -146,10 +208,11 @@ export function ProspectForm({ prospect, onSave, onCancel }: { prospect?: Outrea
             avgLikes: metricsResult.data.avgLikes,
             avgComments: metricsResult.data.avgComments,
             biography: metricsResult.data.biography,
-            // Provide default answers for a quicker re-qualification flow inside the form
-            userProfitabilityAssessment: 'Directly selling products (e-commerce, physical goods)',
-            userVisualsAssessment: 'Inconsistent & Messy (No clear visual direction or style)',
-            userStrategyAssessment: 'Brand Awareness (They need to establish a clear brand identity and reach new people)',
+            userProfitabilityAssessment: ["Selling physical or digital products (e-commerce, courses)"],
+            userVisualsAssessment: ["Clean but Generic (Looks like a template, lacks personality)"],
+            userCtaAssessment: ['Strong, direct link to a sales page, booking site, or freebie'],
+            industry: formData.industry || 'unknown',
+            userStrategicGapAssessment: ["Visuals / Branding (inconsistent grid, bad photos, messy look)"],
         });
 
         if (qualifyResult) {
@@ -190,6 +253,15 @@ export function ProspectForm({ prospect, onSave, onCancel }: { prospect?: Outrea
     
     onSave(formData as OutreachProspect);
   };
+  
+  const handleLogWarmUpActivity = (action: WarmUpAction) => {
+    setFormData(prev => {
+        const newActivity: WarmUpActivity = { action, date: new Date().toISOString() };
+        const updatedWarmUp = [...(prev.warmUp || []), newActivity];
+        return { ...prev, warmUp: updatedWarmUp };
+    });
+    toast({ title: 'Activity Logged', description: `${action} has been recorded.` });
+  };
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col h-full overflow-hidden">
@@ -200,225 +272,243 @@ export function ProspectForm({ prospect, onSave, onCancel }: { prospect?: Outrea
           {prospect ? 'Update the comprehensive details for this prospect.' : 'Fill in the form to add a new prospect with detailed information.'}
         </DialogDescription>
       </DialogHeader>
-
-      <div className="flex-grow overflow-y-auto pr-4 -mr-4 space-y-2 py-4">
-        <Accordion type="multiple" defaultValue={['basic-info', 'lead-status']} className="w-full">
-            <AccordionItem value="basic-info">
-              <AccordionTrigger><h4 className="font-semibold text-base flex items-center"><Info className="mr-2 h-5 w-5 text-primary"/>Basic Info</h4></AccordionTrigger>
-              <AccordionContent className="space-y-3 pt-2">
-                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <Label htmlFor="name">Prospect Name *</Label>
-                      <Input id="name" name="name" value={formData.name || ''} onChange={handleChange} required />
-                    </div>
-                    <div>
-                      <Label htmlFor="instagramHandle">IG Handle</Label>
-                      <Input id="instagramHandle" name="instagramHandle" placeholder="@username" value={formData.instagramHandle || ''} onChange={handleChange} />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="businessName">Business Name</Label>
-                    <Input id="businessName" name="businessName" value={formData.businessName || ''} onChange={handleChange} />
-                  </div>
-                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <Label htmlFor="website">Website</Label>
-                      <Input id="website" name="website" type="url" placeholder="https://example.com" value={formData.website || ''} onChange={handleChange} />
-                    </div>
-                     <div>
-                      <Label htmlFor="email">Email</Label>
-                      <Input id="email" name="email" type="email" value={formData.email || ''} onChange={handleChange} />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <Label htmlFor="prospectLocation">Prospect Location</Label>
-                      <Select value={formData.prospectLocation || undefined} onValueChange={(value: ProspectLocation) => handleSelectChange('prospectLocation', value)}>
-                        <SelectTrigger id="prospectLocation"><SelectValue placeholder="Select location" /></SelectTrigger>
-                        <SelectContent>{PROSPECT_LOCATIONS.map(loc => <SelectItem key={loc} value={loc}>{loc}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor="industry">Industry</Label>
-                      <Input id="industry" name="industry" placeholder="e.g., Fashion, SaaS" value={formData.industry || ''} onChange={handleChange} />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="visualStyle">Visual Style Notes</Label>
-                    <Input id="visualStyle" name="visualStyle" placeholder="e.g., Luxe, clean, messy..." value={formData.visualStyle || ''} onChange={handleChange} />
-                  </div>
-                  <div>
-                    <Label htmlFor="bioSummary">Bio Summary</Label>
-                    <Textarea id="bioSummary" name="bioSummary" placeholder="Summary of their Instagram bio" value={formData.bioSummary || ''} onChange={handleChange} rows={3}/>
-                  </div>
-              </AccordionContent>
-            </AccordionItem>
-            
-            <AccordionItem value="business-profile">
-               <AccordionTrigger><h4 className="font-semibold text-base flex items-center"><Briefcase className="mr-2 h-5 w-5 text-primary"/>Business Profile</h4></AccordionTrigger>
-               <AccordionContent className="pt-2">
-                 <RadioGroup value={formData.businessType || undefined} onValueChange={(value) => handleSelectChange('businessType', value as BusinessType)} className="space-y-1">
-                    {BUSINESS_TYPES.map(type => (
-                      <div key={type} className="flex items-center space-x-2">
-                        <RadioGroupItem value={type} id={`businessType-${type.replace(/\s*\/\s*|\s+/g, '-')}`} />
-                        <Label htmlFor={`businessType-${type.replace(/\s*\/\s*|\s+/g, '-')}`} className="font-normal">{type}</Label>
+      
+      <Tabs defaultValue="details" className="flex-grow flex flex-col min-h-0">
+          <TabsList className="shrink-0 grid w-full grid-cols-2">
+            <TabsTrigger value="details">Details</TabsTrigger>
+            <TabsTrigger value="warmup" disabled={formData.status !== 'Warming Up'}>
+              <Flame className="mr-2 h-4 w-4"/> Warm-Up
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="details" className="flex-grow overflow-y-auto pr-4 -mr-4 space-y-2 py-4">
+            <Accordion type="multiple" defaultValue={['basic-info', 'lead-status']} className="w-full">
+                <AccordionItem value="basic-info">
+                  <AccordionTrigger><h4 className="font-semibold text-base flex items-center"><Info className="mr-2 h-5 w-5 text-primary"/>Basic Info</h4></AccordionTrigger>
+                  <AccordionContent className="space-y-3 pt-2">
+                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <Label htmlFor="name">Prospect Name *</Label>
+                          <Input id="name" name="name" value={formData.name || ''} onChange={handleChange} required />
+                        </div>
+                        <div>
+                          <Label htmlFor="instagramHandle">IG Handle</Label>
+                          <Input id="instagramHandle" name="instagramHandle" placeholder="@username" value={formData.instagramHandle || ''} onChange={handleChange} />
+                        </div>
                       </div>
-                    ))}
-                  </RadioGroup>
-                  {formData.businessType === "Other" && (
-                    <div className="mt-2">
-                      <Label htmlFor="businessTypeOther">Specify Other Business Type</Label>
-                      <Input id="businessTypeOther" name="businessTypeOther" value={formData.businessTypeOther || ''} onChange={handleChange} />
-                    </div>
-                  )}
-               </AccordionContent>
-            </AccordionItem>
-
-            <AccordionItem value="metrics">
-              <AccordionTrigger><h4 className="font-semibold text-base flex items-center"><BarChart3 className="mr-2 h-5 w-5 text-primary"/>Metrics & Qualification</h4></AccordionTrigger>
-              <AccordionContent className="space-y-3 pt-2">
-                <Button type="button" variant="outline" onClick={handleFetchAndQualify} disabled={isFetchingMetrics || isQualifying || !formData.instagramHandle}>
-                    {isFetchingMetrics || isQualifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                    {isFetchingMetrics ? 'Fetching...' : isQualifying ? 'Re-qualifying...' : 'Fetch & Re-qualify'}
-                </Button>
-                {formData.leadScore !== null && formData.leadScore !== undefined && (
-                  <div className="p-3 bg-muted/50 rounded-md">
-                    <Label>Lead Score</Label>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="text-base">{formData.leadScore}</Badge>
-                      <p className="text-xs text-muted-foreground">This score was automatically calculated.</p>
-                    </div>
-                  </div>
-                )}
-                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                        <Label htmlFor="accountStage">Account Stage</Label>
-                        <Select value={formData.accountStage || undefined} onValueChange={(value: AccountStage) => handleSelectChange('accountStage', value)}>
-                          <SelectTrigger id="accountStage"><SelectValue placeholder="Select account stage" /></SelectTrigger>
-                          <SelectContent>{ACCOUNT_STAGES.map(stage => <SelectItem key={stage} value={stage}>{stage}</SelectItem>)}</SelectContent>
-                        </Select>
-                    </div>
-                    <div>
-                        <Label htmlFor="followerCount">Follower Count</Label>
-                        <Input id="followerCount" name="followerCount" type="number" value={formData.followerCount ?? ''} onChange={handleChange} />
-                    </div>
-                    <div>
-                        <Label htmlFor="postCount">Post Count</Label>
-                        <Input id="postCount" name="postCount" type="number" value={formData.postCount ?? ''} onChange={handleChange} />
-                    </div>
-                    <div>
-                        <Label htmlFor="avgLikes">Avg Likes</Label>
-                        <Input id="avgLikes" name="avgLikes" type="number" step="0.1" value={formData.avgLikes ?? ''} onChange={handleChange} />
-                    </div>
-                    <div>
-                        <Label htmlFor="avgComments">Avg Comments</Label>
-                        <Input id="avgComments" name="avgComments" type="number" step="0.1" value={formData.avgComments ?? ''} onChange={handleChange} />
-                    </div>
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-
-            <AccordionItem value="pains-goals">
-               <AccordionTrigger><h4 className="font-semibold text-base flex items-center"><AlertCircle className="mr-2 h-5 w-5 text-primary"/>Pain Points & Goals</h4></AccordionTrigger>
-               <AccordionContent className="space-y-4 pt-2">
-                  <div>
-                    <Label>Current Problems / Pain Points</Label>
-                    <div className="p-3 border rounded-md mt-1 space-y-2 columns-1 sm:columns-2">
-                        {PAIN_POINTS.map(point => (
-                            <div key={point} className="flex items-center space-x-2 break-inside-avoid-column">
-                                <Checkbox id={`pain-${point.replace(/\s*\/\s*|\s+/g, '-')}`} checked={(formData.painPoints || []).includes(point)} onCheckedChange={() => handleCheckboxFieldChange('painPoints', point)} />
-                                <Label htmlFor={`pain-${point.replace(/\s*\/\s*|\s+/g, '-')}`} className="font-normal">{point}</Label>
-                            </div>
+                      <div>
+                        <Label htmlFor="businessName">Business Name</Label>
+                        <Input id="businessName" name="businessName" value={formData.businessName || ''} onChange={handleChange} />
+                      </div>
+                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <Label htmlFor="website">Website</Label>
+                          <Input id="website" name="website" type="url" placeholder="https://example.com" value={formData.website || ''} onChange={handleChange} />
+                        </div>
+                         <div>
+                          <Label htmlFor="email">Email</Label>
+                          <Input id="email" name="email" type="email" value={formData.email || ''} onChange={handleChange} />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <Label htmlFor="prospectLocation">Prospect Location</Label>
+                          <Select value={formData.prospectLocation || undefined} onValueChange={(value: ProspectLocation) => handleSelectChange('prospectLocation', value)}>
+                            <SelectTrigger id="prospectLocation"><SelectValue placeholder="Select location" /></SelectTrigger>
+                            <SelectContent>{PROSPECT_LOCATIONS.map(loc => <SelectItem key={loc} value={loc}>{loc}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor="industry">Industry</Label>
+                          <Input id="industry" name="industry" placeholder="e.g., Fashion, SaaS" value={formData.industry || ''} onChange={handleChange} />
+                        </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="visualStyle">Visual Style Notes</Label>
+                        <Input id="visualStyle" name="visualStyle" placeholder="e.g., Luxe, clean, messy..." value={formData.visualStyle || ''} onChange={handleChange} />
+                      </div>
+                      <div>
+                        <Label htmlFor="bioSummary">Bio Summary</Label>
+                        <Textarea id="bioSummary" name="bioSummary" placeholder="Summary of their Instagram bio" value={formData.bioSummary || ''} onChange={handleChange} rows={3}/>
+                      </div>
+                  </AccordionContent>
+                </AccordionItem>
+                
+                <AccordionItem value="business-profile">
+                   <AccordionTrigger><h4 className="font-semibold text-base flex items-center"><Briefcase className="mr-2 h-5 w-5 text-primary"/>Business Profile</h4></AccordionTrigger>
+                   <AccordionContent className="pt-2">
+                     <RadioGroup value={formData.businessType || undefined} onValueChange={(value) => handleSelectChange('businessType', value as BusinessType)} className="space-y-1">
+                        {BUSINESS_TYPES.map(type => (
+                          <div key={type} className="flex items-center space-x-2">
+                            <RadioGroupItem value={type} id={`businessType-${type.replace(/\s*\/\s*|\s+/g, '-')}`} />
+                            <Label htmlFor={`businessType-${type.replace(/\s*\/\s*|\s+/g, '-')}`} className="font-normal">{type}</Label>
+                          </div>
                         ))}
+                      </RadioGroup>
+                      {formData.businessType === "Other" && (
+                        <div className="mt-2">
+                          <Label htmlFor="businessTypeOther">Specify Other Business Type</Label>
+                          <Input id="businessTypeOther" name="businessTypeOther" value={formData.businessTypeOther || ''} onChange={handleChange} />
+                        </div>
+                      )}
+                   </AccordionContent>
+                </AccordionItem>
+    
+                <AccordionItem value="metrics">
+                  <AccordionTrigger><h4 className="font-semibold text-base flex items-center"><BarChart3 className="mr-2 h-5 w-5 text-primary"/>Metrics & Qualification</h4></AccordionTrigger>
+                  <AccordionContent className="space-y-3 pt-2">
+                    <Button type="button" variant="outline" onClick={handleFetchAndQualify} disabled={isFetchingMetrics || isQualifying || !formData.instagramHandle}>
+                        {isFetchingMetrics || isQualifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                        {isFetchingMetrics ? 'Fetching...' : isQualifying ? 'Re-qualifying...' : 'Fetch & Re-qualify'}
+                    </Button>
+                    {formData.leadScore !== null && formData.leadScore !== undefined && (
+                      <div className="p-3 bg-muted/50 rounded-md">
+                        <Label>Lead Score</Label>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="text-base">{formData.leadScore}</Badge>
+                          <p className="text-xs text-muted-foreground">This score was automatically calculated.</p>
+                        </div>
+                      </div>
+                    )}
+                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <Label htmlFor="accountStage">Account Stage</Label>
+                            <Select value={formData.accountStage || undefined} onValueChange={(value: AccountStage) => handleSelectChange('accountStage', value)}>
+                              <SelectTrigger id="accountStage"><SelectValue placeholder="Select account stage" /></SelectTrigger>
+                              <SelectContent>{ACCOUNT_STAGES.map(stage => <SelectItem key={stage} value={stage}>{stage}</SelectItem>)}</SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <Label htmlFor="followerCount">Follower Count</Label>
+                            <Input id="followerCount" name="followerCount" type="number" value={formData.followerCount ?? ''} onChange={handleChange} />
+                        </div>
+                        <div>
+                            <Label htmlFor="postCount">Post Count</Label>
+                            <Input id="postCount" name="postCount" type="number" value={formData.postCount ?? ''} onChange={handleChange} />
+                        </div>
+                        <div>
+                            <Label htmlFor="avgLikes">Avg Likes</Label>
+                            <Input id="avgLikes" name="avgLikes" type="number" step="0.1" value={formData.avgLikes ?? ''} onChange={handleChange} />
+                        </div>
+                        <div>
+                            <Label htmlFor="avgComments">Avg Comments</Label>
+                            <Input id="avgComments" name="avgComments" type="number" step="0.1" value={formData.avgComments ?? ''} onChange={handleChange} />
+                        </div>
                     </div>
-                  </div>
-                   <div>
-                    <Label>Goals They Might Want</Label>
-                    <div className="p-3 border rounded-md mt-1 space-y-2 columns-1 sm:columns-2">
-                        {GOALS.map(goal => (
-                            <div key={goal} className="flex items-center space-x-2 break-inside-avoid-column">
-                                <Checkbox id={`goal-${goal.replace(/\s*\/\s*|\s+/g, '-')}`} checked={(formData.goals || []).includes(goal)} onCheckedChange={() => handleCheckboxFieldChange('goals', goal)} />
-                                <Label htmlFor={`goal-${goal.replace(/\s*\/\s*|\s+/g, '-')}`} className="font-normal">{goal}</Label>
-                            </div>
-                        ))}
+                  </AccordionContent>
+                </AccordionItem>
+    
+                <AccordionItem value="pains-goals">
+                   <AccordionTrigger><h4 className="font-semibold text-base flex items-center"><AlertCircle className="mr-2 h-5 w-5 text-primary"/>Pain Points & Goals</h4></AccordionTrigger>
+                   <AccordionContent className="space-y-4 pt-2">
+                      <div>
+                        <Label>Current Problems / Pain Points</Label>
+                        <div className="p-3 border rounded-md mt-1 space-y-2 columns-1 sm:columns-2">
+                            {PAIN_POINTS.map(point => (
+                                <div key={point} className="flex items-center space-x-2 break-inside-avoid-column">
+                                    <Checkbox id={`pain-${point.replace(/\s*\/\s*|\s+/g, '-')}`} checked={(formData.painPoints || []).includes(point)} onCheckedChange={() => handleCheckboxFieldChange('painPoints', point)} />
+                                    <Label htmlFor={`pain-${point.replace(/\s*\/\s*|\s+/g, '-')}`} className="font-normal">{point}</Label>
+                                </div>
+                            ))}
+                        </div>
+                      </div>
+                       <div>
+                        <Label>Goals They Might Want</Label>
+                        <div className="p-3 border rounded-md mt-1 space-y-2 columns-1 sm:columns-2">
+                            {GOALS.map(goal => (
+                                <div key={goal} className="flex items-center space-x-2 break-inside-avoid-column">
+                                    <Checkbox id={`goal-${goal.replace(/\s*\/\s*|\s+/g, '-')}`} checked={(formData.goals || []).includes(goal)} onCheckedChange={() => handleCheckboxFieldChange('goals', goal)} />
+                                    <Label htmlFor={`goal-${goal.replace(/\s*\/\s*|\s+/g, '-')}`} className="font-normal">{goal}</Label>
+                                </div>
+                            ))}
+                        </div>
+                      </div>
+                   </AccordionContent>
+                </AccordionItem>
+    
+                <AccordionItem value="lead-status">
+                   <AccordionTrigger><h4 className="font-semibold text-base flex items-center"><Star className="mr-2 h-5 w-5 text-primary"/>Lead & Interaction Status</h4></AccordionTrigger>
+                   <AccordionContent className="space-y-3 pt-2">
+                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                          <Label htmlFor="status">Lead Stage *</Label>
+                          <Select value={formData.status} onValueChange={(value: OutreachLeadStage) => handleSelectChange('status', value)} required>
+                            <SelectTrigger id="status"><SelectValue placeholder="Select lead stage" /></SelectTrigger>
+                            <SelectContent>{OUTREACH_LEAD_STAGE_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                          </Select>
+                      </div>
+                      <div>
+                          <Label htmlFor="source">Source</Label>
+                          <Select value={formData.source || undefined} onValueChange={(value: LeadSource) => handleSelectChange('source', value)}>
+                            <SelectTrigger id="source"><SelectValue placeholder="Select source" /></SelectTrigger>
+                            <SelectContent>{LEAD_SOURCES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                          </Select>
+                      </div>
                     </div>
-                  </div>
-               </AccordionContent>
-            </AccordionItem>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div><Label htmlFor="lastContacted">Last Contacted</Label><Input id="lastContacted" name="lastContacted" type="date" value={formData.lastContacted || ''} onChange={handleChange} /></div>
+                        <div><Label htmlFor="followUpDate">Follow-up Date</Label><Input id="followUpDate" name="followUpDate" type="date" value={formData.followUpDate || ''} onChange={handleChange} /></div>
+                    </div>
+                    <div>
+                        <Label htmlFor="lastMessageSnippet">Last Message from Prospect</Label>
+                        <Textarea id="lastMessageSnippet" name="lastMessageSnippet" placeholder="e.g., 'Thanks, I'll check it out'" value={formData.lastMessageSnippet || ''} onChange={handleChange} rows={2}/>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2">
+                      <div className="flex items-center space-x-2"><Checkbox id="followUpNeeded" checked={!!formData.followUpNeeded} onCheckedChange={(checked) => handleSingleCheckboxChange('followUpNeeded', !!checked)} /><Label htmlFor="followUpNeeded" className="font-normal">Follow-Up?</Label></div>
+                      <div className="flex items-center space-x-2"><Checkbox id="linkSent" checked={!!formData.linkSent} onCheckedChange={(checked) => handleSingleCheckboxChange('linkSent', !!checked)} /><Label htmlFor="linkSent" className="font-normal">Link Sent?</Label></div>
+                      <div className="flex items-center space-x-2"><Checkbox id="carouselOffered" checked={!!formData.carouselOffered} onCheckedChange={(checked) => handleSingleCheckboxChange('carouselOffered', !!checked)} /><Label htmlFor="carouselOffered" className="font-normal">Carousel Offered?</Label></div>
+                    </div>
+                   </AccordionContent>
+                </AccordionItem>
+                
+                <AccordionItem value="prompts-notes">
+                   <AccordionTrigger><h4 className="font-semibold text-base flex items-center"><Settings2 className="mr-2 h-5 w-5 text-primary"/>Smart Prompts & Notes</h4></AccordionTrigger>
+                   <AccordionContent className="space-y-3 pt-2">
+                     <div>
+                          <Label htmlFor="uniqueNote">Unique observation about this brand? (1-2 sentences)</Label>
+                          <Textarea id="uniqueNote" name="uniqueNote" placeholder="e.g., They post skincare tips in Darija" value={formData.uniqueNote || ''} onChange={handleChange} rows={2}/>
+                      </div>
+                      <div>
+                          <Label htmlFor="helpStatement">Help statement (AI-generated summary)</Label>
+                          <Textarea id="helpStatement" name="helpStatement" placeholder="e.g., Their highlights and bio confuse visitors." value={formData.helpStatement || ''} onChange={handleChange} rows={2}/>
+                      </div>
+                      <div>
+                          <Label htmlFor="nextStep">Next Step (Manual)</Label>
+                          <Textarea id="nextStep" name="nextStep" placeholder="e.g., 'Follow up on audit feedback next week.'" value={formData.nextStep || ''} onChange={handleChange} rows={2}/>
+                      </div>
+                      <div>
+                          <Label>Tone Preference?</Label>
+                          <RadioGroup value={formData.tonePreference || undefined} onValueChange={(value) => handleSelectChange('tonePreference', value as TonePreference)} className="mt-1 space-y-1">
+                              {TONE_PREFERENCES.map(tone => (
+                                <div key={tone} className="flex items-center space-x-2">
+                                  <RadioGroupItem value={tone} id={`tone-${tone.replace(/\s*\/\s*|\s+/g, '-')}`} />
+                                  <Label htmlFor={`tone-${tone.replace(/\s*\/\s*|\s+/g, '-')}`} className="font-normal">{tone}</Label>
+                                </div>
+                              ))}
+                            </RadioGroup>
+                      </div>
+                      <div className="pt-2">
+                        <Label htmlFor="lastScriptSent">Last Script Sent (Label)</Label>
+                        <Input id="lastScriptSent" name="lastScriptSent" placeholder="e.g., 'Initial Cold DM'" value={formData.lastScriptSent || ''} onChange={handleChange} />
+                      </div>
+                      <div className="pt-2">
+                        <Label htmlFor="notes">General Notes</Label>
+                        <Textarea id="notes" name="notes" value={formData.notes || ''} onChange={handleChange} />
+                      </div>
+                   </AccordionContent>
+                </AccordionItem>
+            </Accordion>
+          </TabsContent>
+          <TabsContent value="warmup" className="flex-grow overflow-y-auto pr-4 -mr-4 space-y-2 py-4">
+             <WarmUpTracker 
+                prospect={formData} 
+                onLogActivity={handleLogWarmUpActivity}
+                onGenerateComment={() => onGenerateComment(formData as OutreachProspect)}
+                onViewConversation={() => onViewConversation(formData as OutreachProspect)}
+              />
+          </TabsContent>
+      </Tabs>
 
-            <AccordionItem value="lead-status">
-               <AccordionTrigger><h4 className="font-semibold text-base flex items-center"><Star className="mr-2 h-5 w-5 text-primary"/>Lead & Interaction Status</h4></AccordionTrigger>
-               <AccordionContent className="space-y-3 pt-2">
-                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                      <Label htmlFor="status">Lead Stage *</Label>
-                      <Select value={formData.status} onValueChange={(value: OutreachLeadStage) => handleSelectChange('status', value)} required>
-                        <SelectTrigger id="status"><SelectValue placeholder="Select lead stage" /></SelectTrigger>
-                        <SelectContent>{OUTREACH_LEAD_STAGE_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                      </Select>
-                  </div>
-                  <div>
-                      <Label htmlFor="source">Source</Label>
-                      <Select value={formData.source || undefined} onValueChange={(value: LeadSource) => handleSelectChange('source', value)}>
-                        <SelectTrigger id="source"><SelectValue placeholder="Select source" /></SelectTrigger>
-                        <SelectContent>{LEAD_SOURCES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                      </Select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div><Label htmlFor="lastContacted">Last Contacted</Label><Input id="lastContacted" name="lastContacted" type="date" value={formData.lastContacted || ''} onChange={handleChange} /></div>
-                    <div><Label htmlFor="followUpDate">Follow-up Date</Label><Input id="followUpDate" name="followUpDate" type="date" value={formData.followUpDate || ''} onChange={handleChange} /></div>
-                </div>
-                <div>
-                    <Label htmlFor="lastMessageSnippet">Last Message from Prospect</Label>
-                    <Textarea id="lastMessageSnippet" name="lastMessageSnippet" placeholder="e.g., 'Thanks, I'll check it out'" value={formData.lastMessageSnippet || ''} onChange={handleChange} rows={2}/>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2">
-                  <div className="flex items-center space-x-2"><Checkbox id="followUpNeeded" checked={!!formData.followUpNeeded} onCheckedChange={(checked) => handleSingleCheckboxChange('followUpNeeded', !!checked)} /><Label htmlFor="followUpNeeded" className="font-normal">Follow-Up?</Label></div>
-                  <div className="flex items-center space-x-2"><Checkbox id="linkSent" checked={!!formData.linkSent} onCheckedChange={(checked) => handleSingleCheckboxChange('linkSent', !!checked)} /><Label htmlFor="linkSent" className="font-normal">Link Sent?</Label></div>
-                  <div className="flex items-center space-x-2"><Checkbox id="carouselOffered" checked={!!formData.carouselOffered} onCheckedChange={(checked) => handleSingleCheckboxChange('carouselOffered', !!checked)} /><Label htmlFor="carouselOffered" className="font-normal">Carousel Offered?</Label></div>
-                </div>
-               </AccordionContent>
-            </AccordionItem>
-            
-            <AccordionItem value="prompts-notes">
-               <AccordionTrigger><h4 className="font-semibold text-base flex items-center"><Settings2 className="mr-2 h-5 w-5 text-primary"/>Smart Prompts & Notes</h4></AccordionTrigger>
-               <AccordionContent className="space-y-3 pt-2">
-                 <div>
-                      <Label htmlFor="uniqueNote">Unique observation about this brand? (1-2 sentences)</Label>
-                      <Textarea id="uniqueNote" name="uniqueNote" placeholder="e.g., They post skincare tips in Darija" value={formData.uniqueNote || ''} onChange={handleChange} rows={2}/>
-                  </div>
-                  <div>
-                      <Label htmlFor="helpStatement">Help statement (AI-generated summary)</Label>
-                      <Textarea id="helpStatement" name="helpStatement" placeholder="e.g., Their highlights and bio confuse visitors." value={formData.helpStatement || ''} onChange={handleChange} rows={2}/>
-                  </div>
-                  <div>
-                      <Label htmlFor="nextStep">Next Step (Manual)</Label>
-                      <Textarea id="nextStep" name="nextStep" placeholder="e.g., 'Follow up on audit feedback next week.'" value={formData.nextStep || ''} onChange={handleChange} rows={2}/>
-                  </div>
-                  <div>
-                      <Label>Tone Preference?</Label>
-                      <RadioGroup value={formData.tonePreference || undefined} onValueChange={(value) => handleSelectChange('tonePreference', value as TonePreference)} className="mt-1 space-y-1">
-                          {TONE_PREFERENCES.map(tone => (
-                            <div key={tone} className="flex items-center space-x-2">
-                              <RadioGroupItem value={tone} id={`tone-${tone.replace(/\s*\/\s*|\s+/g, '-')}`} />
-                              <Label htmlFor={`tone-${tone.replace(/\s*\/\s*|\s+/g, '-')}`} className="font-normal">{tone}</Label>
-                            </div>
-                          ))}
-                        </RadioGroup>
-                  </div>
-                  <div className="pt-2">
-                    <Label htmlFor="lastScriptSent">Last Script Sent (Label)</Label>
-                    <Input id="lastScriptSent" name="lastScriptSent" placeholder="e.g., 'Initial Cold DM'" value={formData.lastScriptSent || ''} onChange={handleChange} />
-                  </div>
-                  <div className="pt-2">
-                    <Label htmlFor="notes">General Notes</Label>
-                    <Textarea id="notes" name="notes" value={formData.notes || ''} onChange={handleChange} />
-                  </div>
-               </AccordionContent>
-            </AccordionItem>
-        </Accordion>
-      </div>
 
       <DialogFooter className="border-t pt-4 shrink-0">
         <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>

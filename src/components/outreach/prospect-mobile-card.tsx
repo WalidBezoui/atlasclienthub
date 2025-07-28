@@ -11,8 +11,9 @@ import { OUTREACH_LEAD_STAGE_OPTIONS } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuGroup, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from '../ui/dropdown-menu';
 import { Button } from '../ui/button';
-import { MoreHorizontal, Edit, MessagesSquare, GraduationCap, Bot, MessageCircle, FileQuestion, Trash2, Star, Users } from 'lucide-react';
+import { MoreHorizontal, Edit, MessagesSquare, GraduationCap, Bot, MessageCircle, FileQuestion, Trash2, Star, Users, Flame } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
+import { Progress } from '../ui/progress';
 
 interface ProspectMobileCardProps {
   prospect: OutreachProspect;
@@ -54,11 +55,17 @@ const ProspectMobileCard = React.memo(({
     const getStatusBadgeVariant = (status: OutreachLeadStage): "default" | "secondary" | "outline" | "destructive" => {
         switch (status) {
             case 'Closed - Won': case 'Audit Delivered': case 'Ready for Audit': case 'Replied': case 'Interested': return 'default';
-            case 'Warm': case 'Qualifier Sent': return 'secondary';
+            case 'Warming Up': case 'Warm': case 'Qualifier Sent': return 'secondary';
             case 'Cold': case 'To Contact': return 'outline';
             case 'Closed - Lost': case 'Not Interested': return 'destructive';
             default: return 'default';
         }
+    };
+    
+    const calculateWarmUpProgress = (prospect: OutreachProspect): number => {
+      const activities = prospect.warmUp || [];
+      const uniqueActions = new Set(activities.map(a => a.action));
+      return (uniqueActions.size / 4) * 100;
     };
 
     const getLeadScoreBadgeVariant = (score: number | null | undefined): "default" | "secondary" | "destructive" => {
@@ -94,7 +101,7 @@ const ProspectMobileCard = React.memo(({
                         <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 -mt-1"><MoreHorizontal className="h-4 w-4"/></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onEdit(prospect)}><Edit className="mr-2 h-4 w-4"/>Edit</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onEdit(prospect)}><Edit className="mr-2 h-4 w-4"/>Edit Details & Warm-up</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onViewConversation(prospect)}><MessagesSquare className="mr-2 h-4 w-4"/>Conversation</DropdownMenuItem>
                         <DropdownMenuSeparator/>
                         <DropdownMenuSub>
@@ -131,19 +138,29 @@ const ProspectMobileCard = React.memo(({
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>
-            <div className="grid grid-cols-3 gap-2 text-center mt-3 text-xs">
-                <div className="bg-muted/50 p-1.5 rounded-md flex flex-col justify-center">
-                    <p className="font-bold flex items-center justify-center gap-1"><Users className="h-3 w-3" /> {formatNumber(prospect.followerCount)}</p>
+            {prospect.status === 'Warming Up' ? (
+                <div className="mt-3 space-y-1">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-muted-foreground font-medium">Warm-up Progress</span>
+                    <span className="font-semibold">{calculateWarmUpProgress(prospect)}%</span>
+                  </div>
+                  <Progress value={calculateWarmUpProgress(prospect)} className="h-1.5" />
                 </div>
-                 <div className="bg-muted/50 p-1.5 rounded-md flex flex-col justify-center">
-                    <p className="font-bold">{formatNumber(prospect.postCount)}</p>
-                    <p className="text-muted-foreground text-[10px]">Posts</p>
+            ) : (
+                <div className="grid grid-cols-3 gap-2 text-center mt-3 text-xs">
+                    <div className="bg-muted/50 p-1.5 rounded-md flex flex-col justify-center">
+                        <p className="font-bold flex items-center justify-center gap-1"><Users className="h-3 w-3" /> {formatNumber(prospect.followerCount)}</p>
+                    </div>
+                    <div className="bg-muted/50 p-1.5 rounded-md flex flex-col justify-center">
+                        <p className="font-bold">{formatNumber(prospect.postCount)}</p>
+                        <p className="text-muted-foreground text-[10px]">Posts</p>
+                    </div>
+                    <div className="bg-muted/50 p-1.5 rounded-md flex flex-col justify-center">
+                      <p className="font-bold">{prospect.leadScore ?? '-'}</p>
+                      <p className="text-muted-foreground text-[10px]">Score</p>
+                    </div>
                 </div>
-                 <div className="bg-muted/50 p-1.5 rounded-md flex flex-col justify-center">
-                   <p className="font-bold">{prospect.leadScore ?? '-'}</p>
-                   <p className="text-muted-foreground text-[10px]">Score</p>
-                </div>
-            </div>
+            )}
             <div className="mt-3">
                 <Select
                   value={prospect.status}

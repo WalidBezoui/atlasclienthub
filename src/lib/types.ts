@@ -40,8 +40,8 @@ export const TONE_PREFERENCES = ["Friendly & casual", "Confident & professional"
 export type TonePreference = typeof TONE_PREFERENCES[number];
 
 // Refined Lead Stages for Outreach
-export type OutreachLeadStage = "To Contact" | "Cold" | "Warm" | "Replied" | "Interested" | "Qualifier Sent" | "Ready for Audit" | "Audit Delivered" | "Closed - Won" | "Closed - Lost" | "Not Interested";
-export const OUTREACH_LEAD_STAGE_OPTIONS: OutreachLeadStage[] = ["To Contact", "Cold", "Warm", "Replied", "Interested", "Qualifier Sent", "Ready for Audit", "Audit Delivered", "Closed - Won", "Closed - Lost", "Not Interested"];
+export type OutreachLeadStage = "To Contact" | "Warming Up" | "Cold" | "Warm" | "Replied" | "Interested" | "Qualifier Sent" | "Ready for Audit" | "Audit Delivered" | "Closed - Won" | "Closed - Lost" | "Not Interested";
+export const OUTREACH_LEAD_STAGE_OPTIONS: OutreachLeadStage[] = ["To Contact", "Warming Up", "Cold", "Warm", "Replied", "Interested", "Qualifier Sent", "Ready for Audit", "Audit Delivered", "Closed - Won", "Closed - Lost", "Not Interested"];
 
 export const COMMENT_TYPES = ["Value-add", "Question", "Compliment", "Story-based"] as const;
 export type CommentType = typeof COMMENT_TYPES[number];
@@ -57,6 +57,14 @@ export type GeneratedComment = {
 export type StatusHistoryItem = {
   status: OutreachLeadStage | 'Added';
   date: string; // ISO date string
+};
+
+export type WarmUpAction = 'Liked Posts' | 'Viewed Story' | 'Left Comment' | 'Replied to Story';
+
+export type WarmUpActivity = {
+  action: WarmUpAction;
+  date: string; // ISO string
+  note?: string; // e.g., the comment text
 };
 
 export type QualificationData = {
@@ -140,6 +148,9 @@ export type OutreachProspect = {
   // New Scoring & Qualification Fields
   leadScore?: number | null;
   qualificationData?: QualificationData | null;
+  
+  // New Warm-up Tracking Fields
+  warmUp?: WarmUpActivity[] | null;
 };
 
 

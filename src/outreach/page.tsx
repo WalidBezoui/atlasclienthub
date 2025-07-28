@@ -198,10 +198,11 @@ function OutreachPage() {
         avgLikes: metricsResult.data.avgLikes,
         avgComments: metricsResult.data.avgComments,
         biography: metricsResult.data.biography,
-        userProfitabilityAssessment: "Selling physical products",
-        userVisualsAssessment: "Clean but Generic (Lacks personality, looks like a template)",
-        userCtaAssessment: 'Strong, direct link to a sales page, booking site, or freebie',
+        userProfitabilityAssessment: ["Selling physical or digital products (e-commerce, courses)"],
+        userVisualsAssessment: ["Clean but Generic (Looks like a template, lacks personality)"],
+        userCtaAssessment: ['Strong, direct link to a sales page, booking site, or freebie'],
         industry: prospect.industry || 'unknown',
+        userStrategicGapAssessment: ["Visuals / Branding (inconsistent grid, bad photos, messy look)"],
       };
       
       const analysisResult = await qualifyProspect(qualifyInput);
@@ -598,7 +599,7 @@ function OutreachPage() {
     
     setScriptModalConfig({
         showConfirmButton: true,
-        confirmButtonText: "Copy & Open DM",
+        confirmButtonText: "Copy & Open IG",
         prospect: prospect,
         onConfirm: async (scriptContent: string) => {
            if (currentProspectForScript) {
@@ -954,7 +955,7 @@ function OutreachPage() {
   };
 
   return (
-    <>
+    <div className="space-y-6">
       <PageHeader
         title="Outreach Manager"
         description="Track and manage your cold outreach efforts with detailed prospect information."
@@ -975,7 +976,12 @@ function OutreachPage() {
         isOpen={isCommentGeneratorOpen}
         onClose={() => setIsCommentGeneratorOpen(false)}
         prospect={prospectForComment}
-        onCommentAdded={() => updateProspectInState(prospectForComment!.id, { ...prospectForComment })}
+        onCommentAdded={() => {
+          if (prospectForComment) {
+            updateProspect(prospectForComment.id, { warmUp: [...(prospectForComment.warmUp || []), {action: 'Left Comment', date: new Date().toISOString() }]})
+            updateProspectInState(prospectForComment.id, { ...prospectForComment, warmUp: [...(prospectForComment.warmUp || []), {action: 'Left Comment', date: new Date().toISOString() }] });
+          }
+        }}
       />
 
       <DiscoveryDialog
@@ -998,6 +1004,18 @@ function OutreachPage() {
             prospect={editingProspect} 
             onSave={handleSaveProspect} 
             onCancel={() => { setIsEditFormOpen(false); setEditingProspect(undefined);}} 
+            onGenerateComment={() => {
+              if (editingProspect) {
+                setProspectForComment(editingProspect);
+                setIsCommentGeneratorOpen(true);
+              }
+            }}
+            onViewConversation={() => {
+              if (editingProspect) {
+                setCurrentProspectForConversation(editingProspect);
+                setIsConversationModalOpen(true);
+              }
+            }}
           />
         </DialogContent>
       </Dialog>
@@ -1209,13 +1227,15 @@ function OutreachPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                   <TableHead className="w-[50px]">
+                   <TableHead className="w-[50px] p-2">
                      <Checkbox 
                         checked={selectedProspects.size > 0 && selectedProspects.size === sortedAndFilteredProspects.length}
                         onCheckedChange={(checked) => handleToggleAll(!!checked)}
                       />
                   </TableHead>
-                  <TableHead className="w-[50px]">Follow</TableHead>
+                  <TableHead className="w-[50px] p-2">
+                    <Star className="h-4 w-4"/>
+                  </TableHead>
                   <TableHead>Prospect</TableHead>
                   <TableHead className="hidden lg:table-cell">Followers</TableHead>
                   <TableHead className="hidden lg:table-cell">Posts</TableHead>
@@ -1274,8 +1294,8 @@ function OutreachPage() {
       </Card>
 
       {selectedProspects.size > 0 && (
-          <div className="fixed bottom-4 right-4 z-20">
-              <Card className="flex items-center gap-4 p-3">
+          <div className="fixed bottom-0 left-0 right-0 z-20 md:left-auto md:bottom-4 md:right-4 md:left-auto">
+              <Card className="shadow-2xl flex items-center gap-4 p-3 rounded-none md:rounded-lg">
                   <p className="text-sm font-semibold">{selectedProspects.size} selected</p>
                   <Separator orientation="vertical" className="h-6" />
                    <Select onValueChange={(value: OutreachLeadStage) => handleBulkStatusChange(value)}>
@@ -1311,7 +1331,7 @@ function OutreachPage() {
         onConfirm={scriptModalConfig.onConfirm ? () => scriptModalConfig.onConfirm(generatedScript) : undefined}
         prospect={currentProspectForScript}
       />
-    </>
+    </div>
   );
 }
 
