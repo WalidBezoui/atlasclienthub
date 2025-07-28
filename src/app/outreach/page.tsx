@@ -3,7 +3,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, Suspense, useRef, useMemo } from 'react';
-import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, Bot, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileText, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare, Save, FileQuestion, GraduationCap, MoreHorizontal, Wrench, Telescope, Users, CheckSquare, ArrowUpDown, Check } from 'lucide-react';
+import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, Bot, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileText, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare, Save, FileQuestion, GraduationCap, MoreHorizontal, Wrench, Telescope, Users, CheckSquare, ArrowUpDown, Check, Flame } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import * as papa from 'papaparse';
 import { Button } from '@/components/ui/button';
@@ -69,6 +69,7 @@ import { qualifyProspect, type QualifyProspectInput } from '@/ai/flows/qualify-p
 import { CommentGeneratorDialog } from '@/components/outreach/CommentGeneratorDialog';
 import { ProspectTableRow } from '@/components/outreach/prospect-table-row';
 import { ProspectMobileCard } from '@/components/outreach/prospect-mobile-card';
+import { WarmUpDialog } from '@/components/outreach/warm-up-dialog';
 
 
 function OutreachPage() {
@@ -87,6 +88,7 @@ function OutreachPage() {
   const [isEditFormOpen, setIsEditFormOpen] = useState(false);
   const [isRapidAddOpen, setIsRapidAddOpen] = useState(false);
   const [isDiscoveryOpen, setIsDiscoveryOpen] = useState(false);
+  const [isWarmUpOpen, setIsWarmUpOpen] = useState(false);
   const [editingProspect, setEditingProspect] = useState<OutreachProspect | undefined>(undefined);
   const [prospectToDelete, setProspectToDelete] = useState<OutreachProspect | null>(null);
   const [selectedProspects, setSelectedProspects] = useState<Set<string>>(new Set());
@@ -954,6 +956,12 @@ function OutreachPage() {
       direction: prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc'
     }));
   };
+  
+  const handleOpenWarmUpDialog = (prospect: OutreachProspect) => {
+    setEditingProspect(prospect);
+    setIsWarmUpOpen(true);
+  };
+
 
   return (
     <div className="space-y-6">
@@ -971,6 +979,16 @@ function OutreachPage() {
             </Button>
           </div>
         }
+      />
+
+      <WarmUpDialog
+        isOpen={isWarmUpOpen}
+        onClose={() => setIsWarmUpOpen(false)}
+        prospect={editingProspect}
+        onActivityLogged={fetchProspects}
+        onGenerateComment={handleOpenCommentGenerator}
+        onViewConversation={handleOpenConversationModal}
+        onStatusChange={handleStatusChange}
       />
 
       <CommentGeneratorDialog
@@ -1008,14 +1026,12 @@ function OutreachPage() {
             onCancel={() => { setIsEditFormOpen(false); setEditingProspect(undefined);}} 
             onGenerateComment={() => {
               if (editingProspect) {
-                setProspectForComment(editingProspect);
-                setIsCommentGeneratorOpen(true);
+                handleOpenCommentGenerator(editingProspect);
               }
             }}
             onViewConversation={() => {
               if (editingProspect) {
-                setCurrentProspectForConversation(editingProspect);
-                setIsConversationModalOpen(true);
+                handleOpenConversationModal(editingProspect);
               }
             }}
             onWarmUpActivityLogged={fetchProspects}
@@ -1216,6 +1232,7 @@ function OutreachPage() {
                         onEvaluate={handleEvaluateProspect}
                         onDelete={setProspectToDelete}
                         onGenerateScript={handleGenerateScript}
+                        onWarmUp={handleOpenWarmUpDialog}
                       />
                   ))
               ) : (
@@ -1273,6 +1290,7 @@ function OutreachPage() {
                           onGenerateScript={handleGenerateScript}
                           onEvaluate={handleEvaluateProspect}
                           onDelete={setProspectToDelete}
+                          onWarmUp={handleOpenWarmUpDialog}
                         />
                     ))
                   ) : (

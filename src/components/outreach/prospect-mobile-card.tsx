@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React from 'react';
@@ -28,6 +29,7 @@ interface ProspectMobileCardProps {
   onEvaluate: (prospect: OutreachProspect) => void;
   onDelete: (prospect: OutreachProspect) => void;
   onGenerateScript: (prospect: OutreachProspect, scriptType: any) => void;
+  onWarmUp: (prospect: OutreachProspect) => void;
 }
 
 const ProspectMobileCard = React.memo(({
@@ -42,7 +44,8 @@ const ProspectMobileCard = React.memo(({
   onGenerateQualifier,
   onEvaluate,
   onDelete,
-  onGenerateScript
+  onGenerateScript,
+  onWarmUp,
 }: ProspectMobileCardProps) => {
 
     const formatNumber = (num: number | null | undefined): string => {
@@ -101,7 +104,8 @@ const ProspectMobileCard = React.memo(({
                         <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 -mt-1"><MoreHorizontal className="h-4 w-4"/></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onEdit(prospect)}><Edit className="mr-2 h-4 w-4"/>Edit Details & Warm-up</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onWarmUp(prospect)}><Flame className="mr-2 h-4 w-4"/>Warm Up</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onEdit(prospect)}><Edit className="mr-2 h-4 w-4"/>Edit Details</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onViewConversation(prospect)}><MessagesSquare className="mr-2 h-4 w-4"/>Conversation</DropdownMenuItem>
                         <DropdownMenuSeparator/>
                         <DropdownMenuSub>

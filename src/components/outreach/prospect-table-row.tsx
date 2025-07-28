@@ -74,6 +74,7 @@ interface ProspectTableRowProps {
   onGenerateScript: (prospect: OutreachProspect, scriptType: any) => void;
   onEvaluate: (prospect: OutreachProspect) => void;
   onDelete: (prospect: OutreachProspect) => void;
+  onWarmUp: (prospect: OutreachProspect) => void;
 }
 
 const ProspectTableRow = React.memo(({
@@ -90,7 +91,8 @@ const ProspectTableRow = React.memo(({
   onGenerateQualifier,
   onGenerateScript,
   onEvaluate,
-  onDelete
+  onDelete,
+  onWarmUp,
 }: ProspectTableRowProps) => {
 
     const formatNumber = (num: number | null | undefined): string => {
@@ -226,7 +228,8 @@ const ProspectTableRow = React.memo(({
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                             <DropdownMenuGroup>
-                                <DropdownMenuItem onClick={() => onEdit(prospect)}><Edit className="mr-2 h-4 w-4" /> Edit Details & Warm-up</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => onWarmUp(prospect)}><Flame className="mr-2 h-4 w-4" />Warm Up</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => onEdit(prospect)}><Edit className="mr-2 h-4 w-4" /> Edit Details</DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => onViewConversation(prospect)}><MessagesSquare className="mr-2 h-4 w-4" /> Manage Conversation</DropdownMenuItem>
                                 <Tooltip>
                                     <TooltipTrigger asChild>

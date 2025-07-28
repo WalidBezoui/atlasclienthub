@@ -150,7 +150,7 @@ export type OutreachProspect = {
   qualificationData?: QualificationData | null;
   
   // New Warm-up Tracking Fields
-  warmUp?: WarmUpActivity[] | null;
+  warmUp?: WarmUpActivity[];
 };
 
 

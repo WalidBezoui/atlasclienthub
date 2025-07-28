@@ -86,72 +86,6 @@ const safeFormatDate = (dateString: string | null | undefined): string => {
     }
 };
 
-const WarmUpTracker = ({ prospect, onLogActivity, onGenerateComment, onViewConversation }: { prospect: Partial<OutreachProspect>, onLogActivity: (action: WarmUpAction) => void, onGenerateComment: () => void, onViewConversation: () => void }) => {
-    const activities = prospect.warmUp || [];
-    const isDisabled = prospect.status !== 'Warming Up';
-    const hasLiked = activities.some(a => a.action === 'Liked Posts');
-    const hasViewedStory = activities.some(a => a.action === 'Viewed Story');
-    const hasCommented = activities.some(a => a.action === 'Left Comment');
-    const hasReplied = activities.some(a => a.action === 'Replied to Story');
-
-    const progress = (hasLiked + hasViewedStory + hasCommented + hasReplied) * 25;
-    
-    const actionButtons = [
-        { name: "Like Posts", icon: Heart, action: () => onLogActivity('Liked Posts'), complete: hasLiked, tip: "Like 3-5 of their recent posts." },
-        { name: "View Story", icon: Eye, action: () => onLogActivity('Viewed Story'), complete: hasViewedStory, tip: "View their story to show up in their viewers list." },
-        { name: "Leave Comment", icon: MessageCircleIcon, action: onGenerateComment, complete: hasCommented, tip: "Generate and leave a thoughtful comment."},
-        { name: "Reply to Story", icon: MessageSquare, action: onViewConversation, complete: hasReplied, tip: "Reply to one of their stories to start a DM." },
-    ];
-
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center"><Flame className="mr-2 text-destructive"/>Warm-Up Progress</CardTitle>
-                <CardDescription>
-                    {isDisabled 
-                        ? 'Enable "Warming Up" status to log activities.'
-                        : 'Follow these steps to warm up the lead before direct outreach.'
-                    }
-                </CardDescription>
-                <Progress value={progress} className="mt-2" />
-            </CardHeader>
-            <CardContent>
-                <div className="flex gap-2 mb-4 flex-wrap">
-                    {actionButtons.map(btn => (
-                        <TooltipProvider key={btn.name}>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                     <Button variant={btn.complete ? "default" : "outline"} size="sm" onClick={btn.action} disabled={isDisabled}>
-                                        <btn.icon className="mr-2 h-4 w-4" /> {btn.name}
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>{btn.complete ? 'Completed!' : btn.tip}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                    ))}
-                </div>
-                <h4 className="font-semibold text-sm mb-2">Activity Log</h4>
-                <ScrollArea className="h-24">
-                     <div className="space-y-2 text-xs">
-                        {activities.length > 0 ? (
-                             activities.slice().reverse().map((activity, index) => (
-                                <div key={index} className="flex justify-between items-center p-1.5 bg-muted/50 rounded-md">
-                                    <p className="font-medium">{activity.action}</p>
-                                    <p className="text-muted-foreground">{format(new Date(activity.date), "MMM d, yyyy")}</p>
-                                </div>
-                            ))
-                        ) : (
-                            <p className="text-muted-foreground text-center pt-4">No warm-up activities logged yet.</p>
-                        )}
-                    </div>
-                </ScrollArea>
-            </CardContent>
-        </Card>
-    );
-};
-
 
 export function ProspectForm({ prospect, onSave, onCancel, onGenerateComment, onViewConversation, onWarmUpActivityLogged }: { prospect?: OutreachProspect, onSave: (prospectData: Omit<OutreachProspect, 'id' | 'userId'> | OutreachProspect) => void, onCancel: () => void, onGenerateComment: (prospect: OutreachProspect) => void, onViewConversation: (prospect: OutreachProspect) => void, onWarmUpActivityLogged: () => void }) {
   const { toast } = useToast();
@@ -296,12 +230,6 @@ export function ProspectForm({ prospect, onSave, onCancel, onGenerateComment, on
       
         <ScrollArea className="flex-grow pr-4 -mr-4 py-4">
             <div className="space-y-4">
-                <WarmUpTracker 
-                    prospect={formData} 
-                    onLogActivity={handleLogWarmUpActivity}
-                    onGenerateComment={() => onGenerateComment(formData as OutreachProspect)}
-                    onViewConversation={() => onViewConversation(formData as OutreachProspect)}
-                />
                 <Accordion type="multiple" defaultValue={['basic-info', 'lead-status']} className="w-full space-y-2">
                     <AccordionItem value="basic-info">
                       <AccordionTrigger><h4 className="font-semibold text-base flex items-center"><Info className="mr-2 h-5 w-5 text-primary"/>Basic Info</h4></AccordionTrigger>
