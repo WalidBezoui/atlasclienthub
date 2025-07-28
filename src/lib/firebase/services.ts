@@ -627,7 +627,7 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
         getDocs(followUpQuery),
         getDocs(needsQualifierQuery),
         getDocs(warmingUpQuery),
-        getDocs(toContactSnapshot)
+        getDocs(toContactQuery)
     ]);
 
     // Process in order of priority
