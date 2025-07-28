@@ -22,6 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { ScrollArea } from '../ui/scroll-area';
 
 const initialFormData: Omit<OutreachProspect, 'id' | 'userId'> = {
     name: '',
@@ -82,7 +83,7 @@ const safeFormatDate = (dateString: string | null | undefined): string => {
     }
 };
 
-const WarmUpTracker = ({ prospect, onLogActivity, onGenerateComment, onViewConversation }: { prospect: Partial<OutreachProspect>, onLogActivity: (action: WarmUpAction) => void, onGenerateComment: () => void, onViewConversation: () => void }) => {
+const WarmUpTracker = ({ prospect, onLogActivity, onGenerateComment, onViewConversation, isDisabled }: { prospect: Partial<OutreachProspect>, onLogActivity: (action: WarmUpAction) => void, onGenerateComment: () => void, onViewConversation: () => void, isDisabled: boolean }) => {
     const activities = prospect.warmUp || [];
     const hasLiked = activities.some(a => a.action === 'Liked Posts');
     const hasViewedStory = activities.some(a => a.action === 'Viewed Story');
@@ -108,7 +109,7 @@ const WarmUpTracker = ({ prospect, onLogActivity, onGenerateComment, onViewConve
         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center"><Flame className="mr-2 text-destructive"/>Warm-Up Progress</CardTitle>
-                <CardDescription>Follow these steps to warm up the lead before direct outreach.</CardDescription>
+                <CardDescription>Follow these steps to warm up the lead before direct outreach. This is enabled when status is "Warming Up".</CardDescription>
                 <Progress value={progress} className="mt-2" />
             </CardHeader>
             <CardContent className="space-y-4">
@@ -120,7 +121,7 @@ const WarmUpTracker = ({ prospect, onLogActivity, onGenerateComment, onViewConve
                                 <TooltipProvider key={action.name}>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                             <Button variant={action.complete ? "default" : "outline"} size="sm" onClick={action.action}>
+                                             <Button variant={action.complete ? "default" : "outline"} size="sm" onClick={action.action} disabled={isDisabled}>
                                                 <action.icon className="mr-2 h-4 w-4" /> {action.name}
                                             </Button>
                                         </TooltipTrigger>
@@ -273,16 +274,8 @@ export function ProspectForm({ prospect, onSave, onCancel, onGenerateComment, on
         </DialogDescription>
       </DialogHeader>
       
-      <Tabs defaultValue="details" className="flex-grow flex flex-col min-h-0">
-          <TabsList className="shrink-0 grid w-full grid-cols-2">
-            <TabsTrigger value="details">Details</TabsTrigger>
-            <TabsTrigger value="warmup" disabled={formData.status !== 'Warming Up'}>
-              <Flame className="mr-2 h-4 w-4"/> Warm-Up
-            </TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="details" className="flex-grow overflow-y-auto pr-4 -mr-4 space-y-2 py-4">
-            <Accordion type="multiple" defaultValue={['basic-info', 'lead-status']} className="w-full">
+        <ScrollArea className="flex-grow pr-4 -mr-4 py-4">
+            <Accordion type="multiple" defaultValue={['basic-info', 'lead-status', 'warmup']} className="w-full space-y-2">
                 <AccordionItem value="basic-info">
                   <AccordionTrigger><h4 className="font-semibold text-base flex items-center"><Info className="mr-2 h-5 w-5 text-primary"/>Basic Info</h4></AccordionTrigger>
                   <AccordionContent className="space-y-3 pt-2">
@@ -460,6 +453,19 @@ export function ProspectForm({ prospect, onSave, onCancel, onGenerateComment, on
                     </div>
                    </AccordionContent>
                 </AccordionItem>
+
+                <AccordionItem value="warmup">
+                   <AccordionTrigger><h4 className="font-semibold text-base flex items-center"><Flame className="mr-2 h-5 w-5 text-primary"/>Warm-Up Actions</h4></AccordionTrigger>
+                   <AccordionContent className="pt-2">
+                        <WarmUpTracker 
+                            prospect={formData} 
+                            onLogActivity={handleLogWarmUpActivity}
+                            onGenerateComment={() => onGenerateComment(formData as OutreachProspect)}
+                            onViewConversation={() => onViewConversation(formData as OutreachProspect)}
+                            isDisabled={formData.status !== 'Warming Up'}
+                        />
+                   </AccordionContent>
+                </AccordionItem>
                 
                 <AccordionItem value="prompts-notes">
                    <AccordionTrigger><h4 className="font-semibold text-base flex items-center"><Settings2 className="mr-2 h-5 w-5 text-primary"/>Smart Prompts & Notes</h4></AccordionTrigger>
@@ -498,16 +504,7 @@ export function ProspectForm({ prospect, onSave, onCancel, onGenerateComment, on
                    </AccordionContent>
                 </AccordionItem>
             </Accordion>
-          </TabsContent>
-          <TabsContent value="warmup" className="flex-grow overflow-y-auto pr-4 -mr-4 space-y-2 py-4">
-             <WarmUpTracker 
-                prospect={formData} 
-                onLogActivity={handleLogWarmUpActivity}
-                onGenerateComment={() => onGenerateComment(formData as OutreachProspect)}
-                onViewConversation={() => onViewConversation(formData as OutreachProspect)}
-              />
-          </TabsContent>
-      </Tabs>
+      </ScrollArea>
 
 
       <DialogFooter className="border-t pt-4 shrink-0">
