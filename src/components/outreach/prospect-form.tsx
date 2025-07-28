@@ -87,7 +87,7 @@ const safeFormatDate = (dateString: string | null | undefined): string => {
 };
 
 
-export function ProspectForm({ prospect, onSave, onCancel, onGenerateComment, onViewConversation, onWarmUpActivityLogged }: { prospect?: OutreachProspect, onSave: (prospectData: Omit<OutreachProspect, 'id' | 'userId'> | OutreachProspect) => void, onCancel: () => void, onGenerateComment: (prospect: OutreachProspect) => void, onViewConversation: (prospect: OutreachProspect) => void, onWarmUpActivityLogged: () => void }) {
+export function ProspectForm({ prospect, onSave, onCancel }: { prospect?: OutreachProspect, onSave: (prospectData: Omit<OutreachProspect, 'id' | 'userId'> | OutreachProspect) => void, onCancel: () => void }) {
   const { toast } = useToast();
   const [isFetchingMetrics, setIsFetchingMetrics] = useState(false);
   const [isQualifying, setIsQualifying] = useState(false);
@@ -202,22 +202,6 @@ export function ProspectForm({ prospect, onSave, onCancel, onGenerateComment, on
     onSave(formData as OutreachProspect);
   };
   
-  const handleLogWarmUpActivity = async (action: WarmUpAction) => {
-    if (!prospect?.id) return;
-    
-    const newActivity: WarmUpActivity = { action, date: new Date().toISOString() };
-    const updatedWarmUp = [...(formData.warmUp || []), newActivity];
-    
-    try {
-        await updateProspect(prospect.id, { warmUp: updatedWarmUp });
-        setFormData(prev => ({ ...prev, warmUp: updatedWarmUp }));
-        toast({ title: 'Activity Logged', description: `${action} has been recorded.` });
-        onWarmUpActivityLogged();
-    } catch (error: any) {
-        toast({ title: 'Error', description: error.message || "Could not log activity.", variant: "destructive"});
-    }
-  };
-
   return (
     <form onSubmit={handleSubmit} className="flex flex-col h-full overflow-hidden">
       
