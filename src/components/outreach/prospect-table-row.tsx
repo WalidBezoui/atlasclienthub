@@ -158,7 +158,7 @@ const ProspectTableRow = React.memo(({
 
 
     return (
-        <TableRow key={prospect.id} data-follow-up={!!prospect.followUpNeeded} className="data-[follow-up=true]:bg-primary/10" data-selected={isSelected}>
+        <TableRow data-follow-up={!!prospect.followUpNeeded} className="data-[follow-up=true]:bg-primary/10" data-selected={isSelected}>
             <TableCell className="p-2">
                 <Checkbox checked={isSelected} onCheckedChange={() => onToggleSelect(prospect.id)} aria-label={`Select prospect ${prospect.name}`}/>
             </TableCell>
@@ -250,8 +250,8 @@ const ProspectTableRow = React.memo(({
                                 <DropdownMenuItem onClick={() => onViewConversation(prospect)}><MessagesSquare className="mr-2 h-4 w-4" /> Manage Conversation</DropdownMenuItem>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
-                                        <div className={cn(!prospect.status.startsWith("Ready")} && "cursor-not-allowed w-full")}>
-                                            <DropdownMenuItem disabled={!prospect.status.startsWith("Ready")} className={cn(!prospect.status.startsWith("Ready")} && "cursor-not-allowed")} onClick={() => prospect.status.startsWith("Ready") && onStartAudit(prospect)} >
+                                        <div className={cn(!prospect.status.startsWith("Ready") && "cursor-not-allowed w-full")}>
+                                            <DropdownMenuItem disabled={!prospect.status.startsWith("Ready")} className={cn(!prospect.status.startsWith("Ready") && "cursor-not-allowed")} onClick={() => prospect.status.startsWith("Ready") && onStartAudit(prospect)} >
                                                 <GraduationCap className="mr-2 h-4 w-4" /> Create Audit
                                             </DropdownMenuItem>
                                         </div>
