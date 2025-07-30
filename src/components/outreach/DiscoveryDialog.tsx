@@ -115,13 +115,6 @@ const EvaluationForm = ({ onAnalyze, onCancel, isAnalyzing, setProfitability, se
                     <p className="whitespace-pre-wrap">{rationale}</p>
                 </div>
             )}
-            <div className="mb-4">
-                 <p className="text-sm font-semibold mb-2">The 5-Point Qualification Checklist:</p>
-                 <ul className="space-y-1.5 text-xs text-muted-foreground list-disc pl-4">
-                    {checklistItems.map(item => <li key={item.id}><strong>{item.label}</strong> {item.description}</li>)}
-                </ul>
-            </div>
-            <Separator className="my-4"/>
             <p className="text-sm font-semibold mb-3">Your expertise is needed to qualify this prospect.</p>
             <div className="space-y-4">
                 <div>
@@ -486,5 +479,6 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
       </Dialog>
   );
 }
+
 
 

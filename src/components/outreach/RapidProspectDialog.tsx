@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
 import { Checkbox } from '../ui/checkbox';
+import { WarmUpDialog } from './warm-up-dialog';
 
 type Step = 'initial' | 'fetching' | 'questions' | 'analyzing' | 'results';
 
@@ -50,15 +51,6 @@ const strategicGapQuestions = [
     "Posting Consistency (hasn't posted in a while, sporadic content)",
 ];
 
-const checklistItems = [
-    { id: 'active', label: "Are they an active business?", description: "Have they posted in the last 7-10 days?" },
-    { id: 'size', label: 'Are they the "Goldilocks" size?', description: "Do they have between ~500 and ~15,000 followers?" },
-    { id: 'engaged', label: "Are they an engaged owner?", description: "Do they reply to comments on their own posts?" },
-    { id: 'monetizing', label: "Is there a clear product or service?", description: 'Do they have a website, shop link, or "Book a Call" button?' },
-    { id: 'gap', label: 'Is there an obvious "Strategic Gap" YOU can fix?', description: "e.g., messy bio, bad photos, no Reels, etc." },
-];
-
-
 type RapidProspectDialogProps = {
   isOpen: boolean;
   onClose: () => void;
@@ -81,6 +73,8 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
   const [strategicGapAnswer, setStrategicGapAnswer] = useState<string[]>([]);
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isWarmUpOpen, setIsWarmUpOpen] = useState(false);
+  const [prospectForWarmUp, setProspectForWarmUp] = useState<OutreachProspect | null>(null);
 
   const { toast } = useToast();
 
@@ -96,6 +90,8 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
     setCtaAnswer([]);
     setStrategicGapAnswer([]);
     setIsLoading(false);
+    setIsWarmUpOpen(false);
+    setProspectForWarmUp(null);
   };
 
   const handleClose = () => {
@@ -163,7 +159,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
         toast({ title: 'Analysis Failed', description: error.message, variant: 'destructive' });
         setStep('questions');
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -333,13 +329,6 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
           <div className="space-y-4 py-4">
               <div className="p-4 border rounded-lg bg-muted/50 space-y-3">
                  <h3 className="font-semibold text-lg text-center mb-2">Manual Assessment for {instagramHandle}</h3>
-                 <div className="mb-4">
-                    <p className="text-sm font-semibold mb-2">The 5-Point Qualification Checklist:</p>
-                    <ul className="space-y-1.5 text-xs text-muted-foreground list-disc pl-4">
-                        {checklistItems.map(item => <li key={item.id}><strong>{item.label}</strong> {item.description}</li>)}
-                    </ul>
-                 </div>
-                 <Separator/>
                  
                  <div>
                     <Label className="font-semibold flex items-center mb-2"><HelpCircle className="mr-2 h-4 w-4 text-amber-600" />{currentQuestion.label}</Label>
