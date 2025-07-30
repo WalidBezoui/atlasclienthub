@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -13,7 +12,7 @@ import { Progress } from '@/components/ui/progress';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -57,7 +56,16 @@ export function WarmUpDialog({
     if (!currentProspect) return;
     setIsLoading(true);
     
-    const newActivity: WarmUpActivity = { id: crypto.randomUUID(), action, date: new Date().toISOString() };
+    const now = new Date();
+    // Schedule next action 1-2 days from now
+    const nextActionDue = addDays(now, Math.random() > 0.5 ? 1 : 2).toISOString();
+
+    const newActivity: WarmUpActivity = { 
+      id: crypto.randomUUID(), 
+      action, 
+      date: now.toISOString(),
+      nextActionDue: nextActionDue,
+    };
     const updatedWarmUp = [...(currentProspect.warmUp || []), newActivity];
 
     try {

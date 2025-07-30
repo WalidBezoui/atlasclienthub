@@ -171,7 +171,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
     const newProspect: Omit<OutreachProspect, 'id' | 'userId'> = {
       name: handleWithoutAt,
       instagramHandle: handleWithoutAt,
-      status: 'To Contact',
+      status: andGenerateScript ? 'To Contact' : 'Warming Up',
       followerCount: fetchedMetrics.followerCount ?? null,
       postCount: fetchedMetrics.postCount ?? null,
       avgLikes: fetchedMetrics.avgLikes ?? null,
@@ -209,6 +209,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
       qualifierSentAt: null,
       qualifierReply: null,
       createdAt: new Date().toISOString(),
+      warmUp: [],
     };
     
     onSave(newProspect, andGenerateScript);

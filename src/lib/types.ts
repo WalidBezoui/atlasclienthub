@@ -65,6 +65,7 @@ export type WarmUpActivity = {
   id: string; // Use a unique ID for each activity to allow deletion
   action: WarmUpAction;
   date: string; // ISO string
+  nextActionDue?: string; // ISO string for when the next action should be scheduled
   note?: string; // e.g., the comment text
 };
 

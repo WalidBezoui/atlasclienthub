@@ -20,7 +20,7 @@ import {
 } from 'firebase/firestore';
 import { subMonths, format, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isToday } from 'date-fns';
 
-import type { Client, InstagramAudit, OutreachProspect, MonthlyActivity, OutreachLeadStage, AgendaItem, StatusHistoryItem } from '@/lib/types';
+import type { Client, InstagramAudit, OutreachProspect, MonthlyActivity, OutreachLeadStage, AgendaItem, StatusHistoryItem, WarmUpActivity } from '@/lib/types';
 
 // Generic function to get current user ID
 const getCurrentUserId = (): string | null => {
@@ -280,7 +280,11 @@ export const getProspects = async (): Promise<OutreachProspect[]> => {
       nextStep: data.nextStep || null,
       conversationHistory: data.conversationHistory || null,
       comments: data.comments || null,
-      warmUp: data.warmUp || [],
+      warmUp: (data.warmUp || []).map((activity: any) => ({
+        ...activity,
+        date: convertTimestampToISO(activity.date) || new Date().toISOString(),
+        nextActionDue: convertTimestampToISO(activity.nextActionDue),
+      })),
       qualifierQuestion: data.qualifierQuestion || null,
       qualifierSentAt: convertTimestampToISO(data.qualifierSentAt),
       qualifierReply: data.qualifierReply || null,
@@ -319,6 +323,19 @@ export const updateProspect = async (id: string, prospectData: Partial<Omit<Outr
       dataToUpdate.statusHistory = [];
     }
   }
+  if (prospectData.hasOwnProperty('warmUp')) {
+    const warmUp = prospectData.warmUp || [];
+    if (Array.isArray(warmUp)) {
+      dataToUpdate.warmUp = warmUp.map((item: WarmUpActivity) => ({
+        ...item,
+        date: processDateForFirestore(item.date, true),
+        nextActionDue: processDateForFirestore(item.nextActionDue),
+      }));
+    } else {
+      dataToUpdate.warmUp = [];
+    }
+  }
+
   
   const numericFields: (keyof OutreachProspect)[] = ['followerCount', 'postCount', 'avgLikes', 'avgComments', 'leadScore'];
   numericFields.forEach(field => {
@@ -339,7 +356,7 @@ export const updateProspect = async (id: string, prospectData: Partial<Omit<Outr
     }
   });
   
-  const arrayFields: (keyof OutreachProspect)[] = ['painPoints', 'goals', 'offerInterest', 'comments', 'warmUp'];
+  const arrayFields: (keyof OutreachProspect)[] = ['painPoints', 'goals', 'offerInterest', 'comments'];
   arrayFields.forEach(field => {
     if (prospectData.hasOwnProperty(field)) {
       dataToUpdate[field] = prospectData[field] || [];
@@ -555,7 +572,7 @@ export const getDashboardOverview = async (): Promise<{
     outreachSentThisMonthSnapshot,
     newLeadsSnapshot,
     coldProspectsSnapshot,
-    prospectsAddedSnapshot
+    prospectsAddedSnapshot,
   ] = await Promise.all([
     getCountFromServer(clientsQuery),
     getCountFromServer(auditsQuery),
@@ -584,6 +601,7 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
     if (!userId) return [];
 
     const now = new Date();
+    const todayTimestamp = Timestamp.fromDate(endOfDay(now));
     let agendaItems: AgendaItem[] = [];
     const processedIds = new Set<string>();
     const AGENDA_LIMIT = 10;
@@ -605,13 +623,12 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
         limit(AGENDA_LIMIT)
     );
 
-    // Priority 3: Prospects in "Warming Up" stage
+    // Priority 3: Prospects in "Warming Up" stage with next action due
     const warmingUpQuery = query(
         prospectsCollection,
         where('userId', '==', userId),
         where('status', '==', 'Warming Up'),
-        orderBy('lastContacted', 'asc'),
-        limit(AGENDA_LIMIT)
+        limit(AGENDA_LIMIT * 2) // Fetch more to filter client-side
     );
 
     // Priority 4: New prospects to contact
@@ -658,28 +675,38 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
         }
     });
 
-    warmingUpSnapshot.forEach(doc => {
-        if (agendaItems.length >= AGENDA_LIMIT || processedIds.has(doc.id)) return;
-        const prospect = doc.data() as OutreachProspect;
-        const activities = prospect.warmUp || [];
-        const lastActivityDate = activities.length > 0 ? new Date(activities[activities.length - 1].date) : null;
-        
-        // Add to agenda if no activity today
-        if (!lastActivityDate || !isToday(lastActivityDate)) {
-             const actions = new Set(activities.map(a => a.action));
-             let nextAction = "Like Posts";
-             if (actions.has('Liked Posts')) nextAction = "View Story";
-             if (actions.has('Viewed Story')) nextAction = "Left Comment";
-             if (actions.has('Left Comment')) nextAction = "Replied to Story";
+    warmingUpSnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() as OutreachProspect }))
+        .sort((a, b) => { // Sort by the most recent nextActionDue date
+            const aDate = a.warmUp?.[a.warmUp.length - 1]?.nextActionDue;
+            const bDate = b.warmUp?.[b.warmUp.length - 1]?.nextActionDue;
+            if (!aDate) return 1;
+            if (!bDate) return -1;
+            return new Date(aDate).getTime() - new Date(bDate).getTime();
+        })
+        .forEach(prospect => {
+            if (agendaItems.length >= AGENDA_LIMIT || processedIds.has(prospect.id)) return;
+            
+            const lastActivity = prospect.warmUp?.[prospect.warmUp.length - 1];
+            if (!lastActivity?.nextActionDue || new Date(lastActivity.nextActionDue) > endOfDay(now)) {
+                return; // Skip if no next action is due or it's in the future
+            }
 
+            const actions = new Set(prospect.warmUp?.map(a => a.action));
+            let nextAction = "Like Posts";
+            if (actions.has('Liked Posts')) nextAction = "View Story";
+            if (actions.has('Viewed Story')) nextAction = "Left Comment";
+            if (actions.has('Left Comment')) nextAction = "Replied to Story";
+            
             agendaItems.push({
                 type: 'WARM_UP_ACTION',
-                prospect: { id: doc.id, name: prospect.name, instagramHandle: prospect.instagramHandle, status: prospect.status },
-                description: `Warm up: ${nextAction}`
+                prospect: { id: prospect.id, name: prospect.name, instagramHandle: prospect.instagramHandle, status: prospect.status },
+                description: `Warm up: ${nextAction}`,
+                dueDate: lastActivity.nextActionDue,
             });
-            processedIds.add(doc.id);
-        }
-    });
+            processedIds.add(prospect.id);
+        });
+
 
     toContactSnapshot.forEach(doc => {
         if (agendaItems.length >= AGENDA_LIMIT || processedIds.has(doc.id)) return;
