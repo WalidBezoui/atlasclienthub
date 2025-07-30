@@ -1,8 +1,9 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useCallback, Suspense, useRef, useMemo } from 'react';
-import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, Bot, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileText, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare, Save, FileQuestion, GraduationCap, MoreHorizontal, Wrench, Telescope, Users, CheckSquare, ArrowUpDown, Check } from 'lucide-react';
+import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, Bot, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileText, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare, Save, FileQuestion, GraduationCap, MoreHorizontal, Wrench, Telescope, Users, CheckSquare, ArrowUpDown, Check, Flame } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import * as papa from 'papaparse';
 import { Button } from '@/components/ui/button';
@@ -68,6 +69,7 @@ import { qualifyProspect, type QualifyProspectInput } from '@/ai/flows/qualify-p
 import { CommentGeneratorDialog } from '@/components/outreach/CommentGeneratorDialog';
 import { ProspectTableRow } from '@/components/outreach/prospect-table-row';
 import { ProspectMobileCard } from '@/components/outreach/prospect-mobile-card';
+import { WarmUpDialog } from '@/components/outreach/warm-up-dialog';
 
 
 function OutreachPage() {
@@ -86,6 +88,7 @@ function OutreachPage() {
   const [isEditFormOpen, setIsEditFormOpen] = useState(false);
   const [isRapidAddOpen, setIsRapidAddOpen] = useState(false);
   const [isDiscoveryOpen, setIsDiscoveryOpen] = useState(false);
+  const [isWarmUpOpen, setIsWarmUpOpen] = useState(false);
   const [editingProspect, setEditingProspect] = useState<OutreachProspect | undefined>(undefined);
   const [prospectToDelete, setProspectToDelete] = useState<OutreachProspect | null>(null);
   const [selectedProspects, setSelectedProspects] = useState<Set<string>>(new Set());
@@ -751,25 +754,39 @@ function OutreachPage() {
     if (!key) return filteredProspects;
 
     const getLastActivity = (prospect: OutreachProspect): number => {
-      const dates = [
-        prospect.createdAt,
-        prospect.lastContacted,
-        ...(prospect.statusHistory?.map(h => h.date) || [])
-      ].filter(d => d).map(d => new Date(d!).getTime());
-      return Math.max(0, ...dates);
+        if (prospect.status === 'Warming Up') {
+            const lastActivity = prospect.warmUp?.[(prospect.warmUp?.length || 0) - 1];
+            if (lastActivity?.nextActionDue) {
+                try { return new Date(lastActivity.nextActionDue).getTime(); } catch { /* fallthrough */ }
+            }
+        }
+        const dates = [
+            prospect.createdAt,
+            prospect.lastContacted,
+            ...(prospect.statusHistory?.map(h => h.date) || [])
+        ].filter(d => d).map(d => new Date(d!).getTime());
+        return Math.max(0, ...dates);
     };
 
     return [...filteredProspects].sort((a, b) => {
         if (a.followUpNeeded && !b.followUpNeeded) return -1;
         if (!a.followUpNeeded && b.followUpNeeded) return 1;
 
+        if (key === 'lastActivity') {
+            const aTime = getLastActivity(a);
+            const bTime = getLastActivity(b);
+            const comparison = (a.status === 'Warming Up' ? aTime : bTime) - (b.status === 'Warming Up' ? bTime : aTime);
+            if (a.status === 'Warming Up' && b.status !== 'Warming Up') return -1;
+            if (a.status !== 'Warming Up' && b.status === 'Warming Up') return 1;
+             if (a.status === 'Warming Up' && b.status === 'Warming Up') {
+                 return direction === 'asc' ? aTime - bTime : bTime - aTime;
+             }
+
+            return direction === 'desc' ? bTime - aTime : aTime - bTime;
+        }
+
         const aValue = a[key as keyof OutreachProspect];
         const bValue = b[key as keyof OutreachProspect];
-
-        if (key === 'lastActivity') {
-            const comparison = getLastActivity(b) - getLastActivity(a);
-            return direction === 'desc' ? comparison : -comparison;
-        }
 
         if (aValue == null) return 1;
         if (bValue == null) return -1;
@@ -953,6 +970,12 @@ function OutreachPage() {
       direction: prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc'
     }));
   };
+  
+  const handleOpenWarmUpDialog = (prospect: OutreachProspect) => {
+    setEditingProspect(prospect);
+    setIsWarmUpOpen(true);
+  };
+
 
   return (
     <div className="space-y-6">
@@ -972,6 +995,16 @@ function OutreachPage() {
         }
       />
 
+      <WarmUpDialog
+        isOpen={isWarmUpOpen}
+        onClose={() => setIsWarmUpOpen(false)}
+        prospect={editingProspect}
+        onActivityLogged={fetchProspects}
+        onGenerateComment={handleOpenCommentGenerator}
+        onViewConversation={handleOpenConversationModal}
+        onStatusChange={handleStatusChange}
+      />
+
       <CommentGeneratorDialog
         isOpen={isCommentGeneratorOpen}
         onClose={() => setIsCommentGeneratorOpen(false)}
@@ -980,6 +1013,7 @@ function OutreachPage() {
           if (prospectForComment) {
             updateProspect(prospectForComment.id, { warmUp: [...(prospectForComment.warmUp || []), {action: 'Left Comment', date: new Date().toISOString() }]})
             updateProspectInState(prospectForComment.id, { ...prospectForComment, warmUp: [...(prospectForComment.warmUp || []), {action: 'Left Comment', date: new Date().toISOString() }] });
+            fetchProspects();
           }
         }}
       />
@@ -1004,18 +1038,6 @@ function OutreachPage() {
             prospect={editingProspect} 
             onSave={handleSaveProspect} 
             onCancel={() => { setIsEditFormOpen(false); setEditingProspect(undefined);}} 
-            onGenerateComment={() => {
-              if (editingProspect) {
-                setProspectForComment(editingProspect);
-                setIsCommentGeneratorOpen(true);
-              }
-            }}
-            onViewConversation={() => {
-              if (editingProspect) {
-                setCurrentProspectForConversation(editingProspect);
-                setIsConversationModalOpen(true);
-              }
-            }}
           />
         </DialogContent>
       </Dialog>
@@ -1213,6 +1235,7 @@ function OutreachPage() {
                         onEvaluate={handleEvaluateProspect}
                         onDelete={setProspectToDelete}
                         onGenerateScript={handleGenerateScript}
+                        onWarmUp={handleOpenWarmUpDialog}
                       />
                   ))
               ) : (
@@ -1241,7 +1264,7 @@ function OutreachPage() {
                   <TableHead className="hidden lg:table-cell">Posts</TableHead>
                   <TableHead className="hidden sm:table-cell">Status</TableHead>
                   <TableHead className="hidden md:table-cell">Score</TableHead>
-                  <TableHead className="hidden xl:table-cell">Last Activity</TableHead>
+                  <TableHead className="hidden xl:table-cell">Next/Last Activity</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1270,6 +1293,7 @@ function OutreachPage() {
                           onGenerateScript={handleGenerateScript}
                           onEvaluate={handleEvaluateProspect}
                           onDelete={setProspectToDelete}
+                          onWarmUp={handleOpenWarmUpDialog}
                         />
                     ))
                   ) : (

@@ -697,6 +697,7 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
             if (actions.has('Liked Posts')) nextAction = "View Story";
             if (actions.has('Viewed Story')) nextAction = "Left Comment";
             if (actions.has('Left Comment')) nextAction = "Replied to Story";
+            if (actions.has('Replied to Story')) return; // All warm up actions complete
             
             agendaItems.push({
                 type: 'WARM_UP_ACTION',

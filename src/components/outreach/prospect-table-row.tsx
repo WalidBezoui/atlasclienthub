@@ -9,7 +9,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuGroup, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
-import { Edit, Trash2, MoreHorizontal, Link as LinkIcon, Bot, MessageCircle, MessagesSquare, GraduationCap, FileQuestion, Loader2, Star, Languages, Flame, UserPlus } from 'lucide-react';
+import { Edit, Trash2, MoreHorizontal, Link as LinkIcon, Bot, MessageCircle, MessagesSquare, GraduationCap, FileQuestion, Loader2, Star, Languages, Flame, UserPlus, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { OutreachProspect, OutreachLeadStage } from '@/lib/types';
@@ -126,7 +126,16 @@ const ProspectTableRow = React.memo(({
         return "destructive";
     };
 
-    const getLastActivityText = (prospect: OutreachProspect): string => {
+    const getActivityText = (prospect: OutreachProspect): { text: string, isNext: boolean } => {
+        if (prospect.status === 'Warming Up') {
+            const lastActivity = prospect.warmUp?.[(prospect.warmUp?.length || 0) - 1];
+            if (lastActivity?.nextActionDue) {
+                try {
+                    return { text: `Next action ${formatDistanceToNow(new Date(lastActivity.nextActionDue), { addSuffix: true })}`, isNext: true };
+                } catch { /* fallthrough */ }
+            }
+        }
+
         const lastStatusEvent = prospect.statusHistory?.[prospect.statusHistory.length - 1];
         let lastEventDateString: string | undefined | null = lastStatusEvent?.date;
         if (prospect.lastContacted) {
@@ -137,13 +146,16 @@ const ProspectTableRow = React.memo(({
         if (!lastEventDateString) {
             lastEventDateString = prospect.createdAt;
         }
-        if (!lastEventDateString) return '-';
+        if (!lastEventDateString) return { text: '-', isNext: false };
         try {
             const lastEventDate = new Date(lastEventDateString);
-            if (isNaN(lastEventDate.getTime())) return '-';
-            return formatDistanceToNow(lastEventDate, { addSuffix: true });
-        } catch { return '-'; }
+            if (isNaN(lastEventDate.getTime())) return { text: '-', isNext: false };
+            return { text: formatDistanceToNow(lastEventDate, { addSuffix: true }), isNext: false };
+        } catch { return { text: '-', isNext: false }; }
     };
+    
+    const activityInfo = getActivityText(prospect);
+
 
     return (
         <TableRow key={prospect.id} data-follow-up={!!prospect.followUpNeeded} className="data-[follow-up=true]:bg-primary/10" data-selected={isSelected}>
@@ -209,10 +221,15 @@ const ProspectTableRow = React.memo(({
                     <Badge variant={getLeadScoreBadgeVariant(prospect.leadScore)}>{prospect.leadScore}</Badge>
                 ) : (<Badge variant="outline">-</Badge>)}
             </TableCell>
-            <TableCell className="hidden xl:table-cell text-muted-foreground text-xs">
+            <TableCell className={cn("hidden xl:table-cell text-muted-foreground text-xs", activityInfo.isNext && "text-amber-600 dark:text-amber-500 font-medium")}>
                 <TooltipProvider>
                     <Tooltip>
-                        <TooltipTrigger asChild><span className="cursor-help">{getLastActivityText(prospect)}</span></TooltipTrigger>
+                        <TooltipTrigger asChild>
+                            <span className="cursor-help flex items-center gap-1.5">
+                                {activityInfo.isNext && <Clock className="h-3 w-3" />}
+                                {activityInfo.text}
+                            </span>
+                        </TooltipTrigger>
                         <ProspectTimelineTooltip prospect={prospect} />
                     </Tooltip>
                 </TooltipProvider>
