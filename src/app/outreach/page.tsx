@@ -785,7 +785,7 @@ function OutreachPage() {
             if (aActivity.isNext && !bActivity.isNext) return -1;
             if (!aActivity.isNext && bActivity.isNext) return 1;
             if (aActivity.isNext && bActivity.isNext) {
-                return direction === 'asc' ? aActivity.date - bActivity.date : bActivity.date - aActivity.date;
+                return direction === 'asc' ? aActivity.date - bActivity.date : bActivity.date - bActivity.date;
             }
 
             // Priority 3: Past activities sorted by date descending (most recent first)
@@ -1018,8 +1018,8 @@ function OutreachPage() {
         prospect={prospectForComment}
         onCommentAdded={() => {
           if (prospectForComment) {
-            updateProspect(prospectForComment.id, { warmUp: [...(prospectForComment.warmUp || []), {action: 'Left Comment', date: new Date().toISOString() }]})
-            updateProspectInState(prospectForComment.id, { ...prospectForComment, warmUp: [...(prospectForComment.warmUp || []), {action: 'Left Comment', date: new Date().toISOString() }] });
+            updateProspect(prospectForComment.id, { warmUp: [...(prospectForComment.warmUp || []), {id: crypto.randomUUID(), action: 'Left Comment', date: new Date().toISOString() }]})
+            updateProspectInState(prospectForComment.id, { ...prospectForComment, warmUp: [...(prospectForComment.warmUp || []), {id: crypto.randomUUID(), action: 'Left Comment', date: new Date().toISOString() }] });
             fetchProspects();
           }
         }}
@@ -1045,17 +1045,6 @@ function OutreachPage() {
             prospect={editingProspect} 
             onSave={handleSaveProspect} 
             onCancel={() => { setIsEditFormOpen(false); setEditingProspect(undefined);}} 
-            onGenerateComment={() => {
-              if (editingProspect) {
-                handleOpenCommentGenerator(editingProspect);
-              }
-            }}
-            onViewConversation={() => {
-              if (editingProspect) {
-                handleOpenConversationModal(editingProspect);
-              }
-            }}
-            onWarmUpActivityLogged={fetchProspects}
           />
         </DialogContent>
       </Dialog>
@@ -1384,4 +1373,5 @@ export default function OutreachPageWrapper() {
         </Suspense>
     )
 }
+
 

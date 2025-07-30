@@ -179,7 +179,7 @@ export function WarmUpDialog({
                       <Button size="sm" onClick={handleEnableWarming}>Enable Warming Up Status</Button>
                   </div>
               )}
-              <div className="flex gap-2 mb-4 flex-wrap">
+              <div className="grid grid-cols-2 gap-2 mb-4">
                 {actionButtons.map(btn => (
                   <TooltipProvider key={btn.name}>
                     <Tooltip>
