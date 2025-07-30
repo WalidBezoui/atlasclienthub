@@ -245,13 +245,13 @@ const ProspectTableRow = React.memo(({
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                             <DropdownMenuGroup>
-                                <DropdownMenuItem onClick={() => onWarmUp(prospect)}><Flame className="mr-2 h-4 w-4" />Warm Up</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => onWarmUp(prospect)}><Flame className="mr-2 h-4 w-4"/>Warm Up</DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => onEdit(prospect)}><Edit className="mr-2 h-4 w-4" /> Edit Details</DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => onViewConversation(prospect)}><MessagesSquare className="mr-2 h-4 w-4" /> Manage Conversation</DropdownMenuItem>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
-                                        <div className={cn(!prospect.status.startsWith("Ready") && "cursor-not-allowed w-full")}>
-                                            <DropdownMenuItem disabled={!prospect.status.startsWith("Ready")} className={cn(!prospect.status.startsWith("Ready") && "cursor-not-allowed")} onClick={() => prospect.status.startsWith("Ready") && onStartAudit(prospect)} >
+                                        <div className={cn(!prospect.status.startsWith("Ready")} && "cursor-not-allowed w-full")}>
+                                            <DropdownMenuItem disabled={!prospect.status.startsWith("Ready")} className={cn(!prospect.status.startsWith("Ready")} && "cursor-not-allowed")} onClick={() => prospect.status.startsWith("Ready") && onStartAudit(prospect)} >
                                                 <GraduationCap className="mr-2 h-4 w-4" /> Create Audit
                                             </DropdownMenuItem>
                                         </div>

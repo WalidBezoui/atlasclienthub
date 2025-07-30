@@ -426,4 +426,3 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
     </Dialog>
   );
 }
-

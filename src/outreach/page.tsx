@@ -3,7 +3,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, Suspense, useRef, useMemo } from 'react';
-import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, Bot, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileText, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare, Save, FileQuestion, GraduationCap, MoreHorizontal, Wrench, Telescope, Users, CheckSquare, ArrowUpDown, Check, Flame } from 'lucide-react';
+import { Send, PlusCircle, Edit, Trash2, Search, Filter, ChevronDown, AlertTriangle, Bot, Loader2, Briefcase, Globe, Link as LinkIcon, Target, AlertCircle, MessageSquare, Info, Settings2, Sparkles, HelpCircle, BarChart3, RefreshCw, Palette, FileText, Star, Calendar, MessageCircle, FileUp, ListTodo, MessageSquareText, MessagesSquare, Save, FileQuestion, GraduationCap, MoreHorizontal, Wrench, Telescope, Users, CheckSquare, ArrowUpDown, Check, Flame, Clock } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import * as papa from 'papaparse';
 import { Button } from '@/components/ui/button';
@@ -753,36 +753,43 @@ function OutreachPage() {
     const { key, direction } = sortConfig;
     if (!key) return filteredProspects;
 
-    const getLastActivity = (prospect: OutreachProspect): number => {
+    const getActivityDate = (prospect: OutreachProspect): { date: number, isNext: boolean } => {
+        // For "Warming Up", the sort date is the next scheduled action
         if (prospect.status === 'Warming Up') {
             const lastActivity = prospect.warmUp?.[(prospect.warmUp?.length || 0) - 1];
             if (lastActivity?.nextActionDue) {
-                try { return new Date(lastActivity.nextActionDue).getTime(); } catch { /* fallthrough */ }
+                try {
+                    return { date: new Date(lastActivity.nextActionDue).getTime(), isNext: true };
+                } catch { /* fallthrough */ }
             }
         }
+        // For all others, the sort date is the most recent past activity
         const dates = [
             prospect.createdAt,
             prospect.lastContacted,
             ...(prospect.statusHistory?.map(h => h.date) || [])
         ].filter(d => d).map(d => new Date(d!).getTime());
-        return Math.max(0, ...dates);
+        return { date: Math.max(0, ...dates), isNext: false };
     };
 
     return [...filteredProspects].sort((a, b) => {
+        // Priority 1: Follow-up needed
         if (a.followUpNeeded && !b.followUpNeeded) return -1;
         if (!a.followUpNeeded && b.followUpNeeded) return 1;
 
         if (key === 'lastActivity') {
-            const aTime = getLastActivity(a);
-            const bTime = getLastActivity(b);
-            const comparison = (a.status === 'Warming Up' ? aTime : bTime) - (b.status === 'Warming Up' ? bTime : aTime);
-            if (a.status === 'Warming Up' && b.status !== 'Warming Up') return -1;
-            if (a.status !== 'Warming Up' && b.status === 'Warming Up') return 1;
-             if (a.status === 'Warming Up' && b.status === 'Warming Up') {
-                 return direction === 'asc' ? aTime - bTime : bTime - aTime;
-             }
+            const aActivity = getActivityDate(a);
+            const bActivity = getActivityDate(b);
 
-            return direction === 'desc' ? bTime - aTime : aTime - bTime;
+            // Priority 2: Upcoming actions (isNext) sorted by date ascending (soonest first)
+            if (aActivity.isNext && !bActivity.isNext) return -1;
+            if (!aActivity.isNext && bActivity.isNext) return 1;
+            if (aActivity.isNext && bActivity.isNext) {
+                return direction === 'asc' ? aActivity.date - bActivity.date : bActivity.date - aActivity.date;
+            }
+
+            // Priority 3: Past activities sorted by date descending (most recent first)
+            return direction === 'desc' ? bActivity.date - aActivity.date : aActivity.date - bActivity.date;
         }
 
         const aValue = a[key as keyof OutreachProspect];
@@ -1011,8 +1018,8 @@ function OutreachPage() {
         prospect={prospectForComment}
         onCommentAdded={() => {
           if (prospectForComment) {
-            updateProspect(prospectForComment.id, { warmUp: [...(prospectForComment.warmUp || []), {action: 'Left Comment', date: new Date().toISOString() }]})
-            updateProspectInState(prospectForComment.id, { ...prospectForComment, warmUp: [...(prospectForComment.warmUp || []), {action: 'Left Comment', date: new Date().toISOString() }] });
+            updateProspect(prospectForComment.id, { warmUp: [...(prospectForComment.warmUp || []), {id: crypto.randomUUID(), action: 'Left Comment', date: new Date().toISOString() }]})
+            updateProspectInState(prospectForComment.id, { ...prospectForComment, warmUp: [...(prospectForComment.warmUp || []), {id: crypto.randomUUID(), action: 'Left Comment', date: new Date().toISOString() }] });
             fetchProspects();
           }
         }}
@@ -1366,3 +1373,4 @@ export default function OutreachPageWrapper() {
         </Suspense>
     )
 }
+
