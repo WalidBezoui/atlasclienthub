@@ -11,9 +11,10 @@ import { OUTREACH_LEAD_STAGE_OPTIONS } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuGroup, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from '../ui/dropdown-menu';
 import { Button } from '../ui/button';
-import { MoreHorizontal, Edit, MessagesSquare, GraduationCap, Bot, MessageCircle, FileQuestion, Trash2, Star, Users, Flame } from 'lucide-react';
+import { MoreHorizontal, Edit, MessagesSquare, GraduationCap, Bot, MessageCircle, FileQuestion, Trash2, Star, Users, Flame, Clock } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import { Progress } from '../ui/progress';
+import { formatDistanceToNow } from 'date-fns';
 
 interface ProspectMobileCardProps {
   prospect: OutreachProspect;
@@ -69,6 +70,8 @@ const ProspectMobileCard = React.memo(({
       const uniqueActions = new Set(activities.map(a => a.action));
       return (uniqueActions.size / 4) * 100;
     };
+
+    const lastWarmUpActivity = prospect.warmUp?.[(prospect.warmUp?.length || 0) - 1];
 
     const getLeadScoreBadgeVariant = (score: number | null | undefined): "default" | "secondary" | "destructive" => {
         if (score === null || score === undefined) return "secondary";
@@ -142,12 +145,27 @@ const ProspectMobileCard = React.memo(({
                 </DropdownMenu>
             </div>
             {prospect.status === 'Warming Up' ? (
-                <div className="mt-3 space-y-1">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-muted-foreground font-medium">Warm-up Progress</span>
-                    <span className="font-semibold">{calculateWarmUpProgress(prospect)}%</span>
+                <div className="mt-3 space-y-2">
+                  <div>
+                    <div className="flex justify-between items-center text-xs mb-1">
+                      <span className="text-muted-foreground font-medium">Warm-up Progress</span>
+                      <span className="font-semibold">{calculateWarmUpProgress(prospect)}%</span>
+                    </div>
+                    <Progress value={calculateWarmUpProgress(prospect)} className="h-1.5" />
                   </div>
-                  <Progress value={calculateWarmUpProgress(prospect)} className="h-1.5" />
+                   {lastWarmUpActivity && (
+                     <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                        <div className="bg-muted/50 p-1.5 rounded-md">
+                            Last: <span className="font-semibold text-foreground">{lastWarmUpActivity.action}</span>
+                        </div>
+                         {lastWarmUpActivity.nextActionDue && (
+                            <div className="bg-muted/50 p-1.5 rounded-md flex items-center gap-1">
+                                <Clock className="h-3 w-3 text-amber-600"/>
+                                Next: <span className="font-semibold text-foreground">{formatDistanceToNow(new Date(lastWarmUpActivity.nextActionDue), { addSuffix: true })}</span>
+                            </div>
+                        )}
+                    </div>
+                  )}
                 </div>
             ) : (
                 <div className="grid grid-cols-3 gap-2 text-center mt-3 text-xs">
