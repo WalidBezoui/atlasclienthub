@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState } from 'react';
@@ -61,7 +62,7 @@ const checklistItems = [
 type RapidProspectDialogProps = {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (prospectData: Omit<OutreachProspect, 'id' | 'userId'>, andGenerateScript?: boolean) => void;
+  onSave: (prospectData: Omit<OutreachProspect, 'id' | 'userId'>, options?: { andGenerateScript?: boolean; andWarmUp?: boolean; }) => void;
 };
 
 export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDialogProps) {
@@ -163,7 +164,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
     }
   };
 
-  const handleSave = (andGenerateScript: boolean = false) => {
+  const handleSave = (options: { andGenerateScript?: boolean; andWarmUp?: boolean } = {}) => {
     if (!analysisResult || !fetchedMetrics) return;
     
     setIsLoading(true); // Reuse isLoading as isSaving
@@ -171,7 +172,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
     const newProspect: Omit<OutreachProspect, 'id' | 'userId'> = {
       name: handleWithoutAt,
       instagramHandle: handleWithoutAt,
-      status: andGenerateScript ? 'To Contact' : 'Warming Up',
+      status: options.andGenerateScript ? 'To Contact' : 'Warming Up',
       followerCount: fetchedMetrics.followerCount ?? null,
       postCount: fetchedMetrics.postCount ?? null,
       avgLikes: fetchedMetrics.avgLikes ?? null,
@@ -212,7 +213,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
       warmUp: [],
     };
     
-    onSave(newProspect, andGenerateScript);
+    onSave(newProspect, options);
     handleClose();
     setIsLoading(false);
   };
@@ -398,11 +399,11 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
         <DialogFooter className="mt-auto shrink-0 border-t pt-4 flex-col sm:flex-row gap-2">
           <Button variant="outline" className="w-full sm:w-auto" onClick={() => setStep('questions')}><ArrowLeft className="mr-2 h-4 w-4" /> Re-assess</Button>
           <div className="flex w-full sm:w-auto gap-2">
-            <Button className="flex-1" onClick={() => handleSave(false)} disabled={isLoading}>
+            <Button className="flex-1" onClick={() => handleSave({ andWarmUp: true })} disabled={isLoading}>
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}
                Save
             </Button>
-            <Button className="flex-1" onClick={() => handleSave(true)} disabled={isLoading}>
+            <Button className="flex-1" onClick={() => handleSave({ andGenerateScript: true })} disabled={isLoading}>
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Bot className="mr-2 h-4 w-4" />}
                Add & Script
             </Button>

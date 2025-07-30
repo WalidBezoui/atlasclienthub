@@ -289,7 +289,7 @@ function OutreachPage() {
   };
 
 
-  const handleSaveProspect = useCallback(async (prospectData: Omit<OutreachProspect, 'id'|'userId'> | OutreachProspect, andGenerateScript?: boolean) => {
+  const handleSaveProspect = useCallback(async (prospectData: Omit<OutreachProspect, 'id'|'userId'> | OutreachProspect, options?: { andGenerateScript?: boolean; andWarmUp?: boolean }) => {
      if (!user) {
         toast({title: "Authentication Error", description: "You must be logged in.", variant: "destructive"});
         return;
@@ -306,13 +306,18 @@ function OutreachPage() {
             toast({ title: "Success", description: `Prospect ${prospectData.name} added.` });
         }
         
-        fetchProspects();
+        await fetchProspects(); // Use await to ensure list is updated
+        
         setIsEditFormOpen(false);
         setIsRapidAddOpen(false);
         setEditingProspect(undefined);
         
-        if (andGenerateScript) {
+        if (options?.andGenerateScript) {
             handleGenerateScript(savedProspect, 'Cold Outreach DM');
+        } else if (options?.andWarmUp) {
+            // Find the just-added prospect from the updated list to ensure we have the correct data
+            const newProspect = prospects.find(p => p.id === savedProspect.id) || savedProspect;
+            handleOpenWarmUpDialog(newProspect);
         }
 
     } catch (error: any) {
@@ -1373,5 +1378,6 @@ export default function OutreachPageWrapper() {
         </Suspense>
     )
 }
+
 
 
