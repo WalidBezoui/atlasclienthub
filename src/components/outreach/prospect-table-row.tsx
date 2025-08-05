@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React from 'react';
@@ -136,21 +137,17 @@ const ProspectTableRow = React.memo(({
             }
         }
 
-        const lastStatusEvent = prospect.statusHistory?.[prospect.statusHistory.length - 1];
-        let lastEventDateString: string | undefined | null = lastStatusEvent?.date;
-        if (prospect.lastContacted) {
-            if (!lastEventDateString || new Date(prospect.lastContacted) > new Date(lastEventDateString)) {
-                lastEventDateString = prospect.lastContacted;
-            }
-        }
-        if (!lastEventDateString) {
-            lastEventDateString = prospect.createdAt;
-        }
-        if (!lastEventDateString) return { text: '-', isNext: false };
+        const dates = [
+            prospect.createdAt,
+            prospect.lastContacted,
+            ...(prospect.statusHistory?.map(h => h.date) || [])
+        ].filter(d => d).map(d => new Date(d!).getTime());
+        
+        const mostRecentDate = Math.max(0, ...dates);
+        if (mostRecentDate === 0) return { text: '-', isNext: false };
+
         try {
-            const lastEventDate = new Date(lastEventDateString);
-            if (isNaN(lastEventDate.getTime())) return { text: '-', isNext: false };
-            return { text: formatDistanceToNow(lastEventDate, { addSuffix: true }), isNext: false };
+            return { text: `${formatDistanceToNow(new Date(mostRecentDate), { addSuffix: true })}`, isNext: false };
         } catch { return { text: '-', isNext: false }; }
     };
     

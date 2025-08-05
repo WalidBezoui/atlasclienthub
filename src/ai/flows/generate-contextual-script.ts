@@ -1,4 +1,5 @@
 
+
 'use server';
 /**
  * @fileOverview Generates contextual scripts based on client or content information.
@@ -11,7 +12,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import type { BusinessType, PainPoint, Goal, LeadSource, OfferInterest, TonePreference, ProspectLocation, AccountStage } from '@/lib/types';
+import type { BusinessType, PainPoint, Goal, LeadSource, OfferInterest, TonePreference, ProspectLocation, AccountStage, WarmUpActivity } from '@/lib/types';
 import { BUSINESS_TYPES, PAIN_POINTS, GOALS, LEAD_SOURCES, OFFER_INTERESTS, TONE_PREFERENCES, PROSPECT_LOCATIONS, ACCOUNT_STAGES, OUTREACH_LEAD_STAGE_OPTIONS } from '@/lib/types';
 
 
@@ -23,6 +24,7 @@ const GenerateContextualScriptInputSchema = z.object({
     "Send Reminder",
     "Soft Close",
     "Generate Next Reply",
+    "Conversation Starter",
   ]).describe("The type of script to generate."),
 
   // Section 1: Basic Prospect Info (from guide)
@@ -63,6 +65,10 @@ const GenerateContextualScriptInputSchema = z.object({
   offerInterest: z.array(z.enum(OFFER_INTERESTS)).nullable().optional().describe("What the prospect has shown interest in, if they've replied."),
   tonePreference: z.enum(TONE_PREFERENCES).nullable().optional().describe("The preferred tone for the generated script (Friendly, Confident, Creative)."),
   offerType: z.string().describe("The specific offer being made, e.g., 'Free 3-point audit + visual tips'.").default("Free 3-point audit + visual tips"),
+  
+  // New "Become Inevitable" Context
+  isInevitableMethod: z.boolean().nullable().optional().describe("Whether this prospect is part of the 'Become Inevitable' 10-day warm-up method."),
+  warmUpActivities: z.array(z.string()).nullable().optional().describe("List of completed warm-up activities (e.g., 'Liked Posts', 'Left Comment')."),
 
   // Business Type (from existing, relevant for context)
   businessType: z.enum(BUSINESS_TYPES).nullable().optional().describe("The type of business the prospect runs."),
@@ -106,6 +112,10 @@ Your task is to craft the perfect, personalized Instagram DM in ENGLISH based on
 - **Lead Status**: {{leadStatus}}
 {{#if lastMessageSnippet}}- **Last Message from Them**: "{{lastMessageSnippet}}"{{/if}}
 - **Conversation History**: {{#if conversationHistory}}{{{conversationHistory}}}{{else}}No history.{{/if}}
+{{#if isInevitableMethod}}
+- **Outreach Method**: "Become Inevitable" (10-Day Warm-Up)
+- **Warm-Up Actions Completed**: {{#if warmUpActivities}}{{#each warmUpActivities}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}{{else}}None yet{{/if}}
+{{/if}}
 
 ---
 **SCRIPT GENERATION RULES**
@@ -126,6 +136,13 @@ Your task is to craft the perfect, personalized Instagram DM in ENGLISH based on
      - **Angle for Business:** Focus on how premium visuals can increase perceived value and drive more sales. Example: "I noticed a couple of quick opportunities to potentially boost engagement and make your branding even more impactful for sales."
      {{/if}}
    - **Soft CTA:** End with a short, frictionless question to get permission. Example: "Would you be open to me sending them over? No strings attached, of course."
+
+**IF "Conversation Starter":**
+   - **Context:** This script is for the "Private Engagement" phase of the warm-up method, to be sent after they've engaged with your comment.
+   - **Tone:** Very casual, friendly, and low-pressure.
+   - **Acknowledge their Engagement:** Start by acknowledging their like/reply. Example: "Hey {{clientName}}, thanks for the love on my comment!" or "Appreciate the reply!"
+   - **Bridge to a Question:** Connect their post to a genuine, open-ended question. Example: "That post about [topic] was great. Made me wonder, what's the biggest challenge you see with [related area]?"
+   - **NO PITCHING.** The goal is just to start a real conversation.
 
 **IF "Warm Follow-Up DM" or "Send Reminder":**
    - Be gentle and non-pushy. Refer back to the last interaction and briefly reiterate the value of the "{{offerType}}".
@@ -167,6 +184,8 @@ const generateContextualScriptFlow = ai.defineFlow(
       isCreator: input.businessType === "Creator / Influencer",
       isPersonalBrand: input.businessType === "Personal Brand (coach, consultant)",
       isBusiness: !["Creator / Influencer", "Personal Brand (coach, consultant)"].includes(input.businessType || ''),
+      isInevitableMethod: input.status === 'Warming Up', // Set flag based on status
+      warmUpActivities: input.warmUp?.map(activity => activity.action) || [],
     };
 
     const {output} = await prompt(promptInput, { config: { temperature: 0.8, maxOutputTokens: 500 }});
