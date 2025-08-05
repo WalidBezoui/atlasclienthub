@@ -518,6 +518,7 @@ function OutreachPage() {
         carouselOffered: prospect.carouselOffered || false,
         nextStep: prospect.nextStep?.trim() || null,
         conversationHistory: prospect.conversationHistory?.trim() || null,
+        isInevitableMethod: prospect.status === 'Warming Up' && prospect.warmUp && prospect.warmUp.length > 2,
     };
     
     setCurrentScriptGenerationInput(input);
@@ -793,7 +794,7 @@ function OutreachPage() {
             if (aActivity.isNext && !bActivity.isNext) return -1;
             if (!aActivity.isNext && bActivity.isNext) return 1;
             if (aActivity.isNext && bActivity.isNext) {
-                return direction === 'asc' ? aActivity.date - bActivity.date : bActivity.date - bActivity.date;
+                return direction === 'asc' ? aActivity.date - bActivity.date : bActivity.date - aActivity.date;
             }
 
             // Priority 3: Past activities sorted by date descending (most recent first)
@@ -990,6 +991,16 @@ function OutreachPage() {
     setEditingProspect(prospect);
     setIsWarmUpOpen(true);
   };
+  
+  const handleCommentAdded = async (updatedProspect: OutreachProspect) => {
+    updateProspectInState(updatedProspect.id, updatedProspect);
+
+    // If the warm-up dialog is open for this prospect, update its state too
+    if (editingProspect && editingProspect.id === updatedProspect.id) {
+        setEditingProspect(updatedProspect);
+    }
+    await fetchProspects();
+  };
 
 
   return (
@@ -1014,10 +1025,9 @@ function OutreachPage() {
         isOpen={isWarmUpOpen}
         onClose={() => setIsWarmUpOpen(false)}
         prospect={editingProspect}
-        onActivityLogged={async (updatedProspect) => {
-            updateProspectInState(updatedProspect.id, updatedProspect);
-            // Re-fetch all prospects to ensure sort order and other dependent data is correct
-            await fetchProspects();
+        onActivityLogged={(updatedProspect) => {
+          updateProspectInState(updatedProspect.id, updatedProspect);
+          fetchProspects();
         }}
         onGenerateComment={handleOpenCommentGenerator}
         onViewConversation={handleOpenConversationModal}
@@ -1028,15 +1038,7 @@ function OutreachPage() {
         isOpen={isCommentGeneratorOpen}
         onClose={() => setIsCommentGeneratorOpen(false)}
         prospect={prospectForComment}
-        onCommentAdded={async () => {
-          await fetchProspects();
-          if (prospectForComment) {
-              setEditingProspect(prev => prev && prev.id === prospectForComment.id 
-                  ? prospects.find(p => p.id === prospectForComment.id)
-                  : prev
-              );
-          }
-        }}
+        onCommentAdded={handleCommentAdded}
       />
 
       <DiscoveryDialog

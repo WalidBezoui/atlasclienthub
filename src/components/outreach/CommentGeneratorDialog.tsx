@@ -23,7 +23,7 @@ interface CommentGeneratorDialogProps {
   isOpen: boolean;
   onClose: () => void;
   prospect: OutreachProspect | null;
-  onCommentAdded: () => void;
+  onCommentAdded: (updatedProspect: OutreachProspect) => void;
 }
 
 const commentTypeIcons: Record<CommentType, React.ElementType> = {
@@ -134,13 +134,15 @@ export function CommentGeneratorDialog({ isOpen, onClose, prospect, onCommentAdd
       id: crypto.randomUUID(),
       action: 'Left Comment',
       date: new Date().toISOString(),
+      nextActionDue: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
     };
     const updatedWarmUp = [...(prospect.warmUp || []), newWarmUpActivity];
+    const updatedProspectData = { ...prospect, comments: updatedComments, warmUp: updatedWarmUp };
     
     try {
       await updateProspect(prospect.id, { comments: updatedComments, warmUp: updatedWarmUp });
       toast({ title: 'Comment Saved & Activity Logged!', description: `The comment has been logged for ${prospect.name}.` });
-      onCommentAdded();
+      onCommentAdded(updatedProspectData);
       handleClose();
     } catch (error: any) {
       toast({ title: 'Save Failed', description: error.message, variant: 'destructive' });
