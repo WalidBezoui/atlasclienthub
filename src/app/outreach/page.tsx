@@ -296,28 +296,31 @@ function OutreachPage() {
     }
     try {
         let savedProspect: OutreachProspect;
+        let docId: string;
         if ('id' in prospectData && prospectData.id) {
+            docId = prospectData.id;
             await updateProspect(prospectData.id, prospectData as Partial<OutreachProspect>);
             savedProspect = { ...prospects.find(p => p.id === prospectData.id)!, ...prospectData };
             toast({ title: "Success", description: `Prospect ${prospectData.name} updated.` });
         } else {
-            const docId = await addProspect(prospectData as Omit<OutreachProspect, 'id'|'userId' | 'createdAt'>);
+            docId = await addProspect(prospectData as Omit<OutreachProspect, 'id'|'userId' | 'createdAt'>);
             savedProspect = { id: docId, userId: user.uid, ...prospectData, createdAt: new Date().toISOString() };
             toast({ title: "Success", description: `Prospect ${prospectData.name} added.` });
         }
         
-        await fetchProspects(); // Use await to ensure list is updated
+        await fetchProspects(); // Use await to ensure list is updated before next action
         
         setIsEditFormOpen(false);
         setIsRapidAddOpen(false);
         setEditingProspect(undefined);
         
+        // Find the prospect from the newly fetched list to ensure we have the most up-to-date version
+        const finalProspect = await getProspects().then(all => all.find(p => p.id === docId) || savedProspect);
+
         if (options?.andGenerateScript) {
-            handleGenerateScript(savedProspect, 'Cold Outreach DM');
+            handleGenerateScript(finalProspect, 'Cold Outreach DM');
         } else if (options?.andWarmUp) {
-            // Find the just-added prospect from the updated list to ensure we have the correct data
-            const newProspect = prospects.find(p => p.id === savedProspect.id) || savedProspect;
-            handleOpenWarmUpDialog(newProspect);
+            handleOpenWarmUpDialog(finalProspect);
         }
 
     } catch (error: any) {
@@ -1011,7 +1014,11 @@ function OutreachPage() {
         isOpen={isWarmUpOpen}
         onClose={() => setIsWarmUpOpen(false)}
         prospect={editingProspect}
-        onActivityLogged={fetchProspects}
+        onActivityLogged={async (updatedProspect) => {
+            updateProspectInState(updatedProspect.id, updatedProspect);
+            // Re-fetch all prospects to ensure sort order and other dependent data is correct
+            await fetchProspects();
+        }}
         onGenerateComment={handleOpenCommentGenerator}
         onViewConversation={handleOpenConversationModal}
         onStatusChange={handleStatusChange}
@@ -1021,7 +1028,15 @@ function OutreachPage() {
         isOpen={isCommentGeneratorOpen}
         onClose={() => setIsCommentGeneratorOpen(false)}
         prospect={prospectForComment}
-        onCommentAdded={fetchProspects}
+        onCommentAdded={async () => {
+          await fetchProspects();
+          if (prospectForComment) {
+              setEditingProspect(prev => prev && prev.id === prospectForComment.id 
+                  ? prospects.find(p => p.id === prospectForComment.id)
+                  : prev
+              );
+          }
+        }}
       />
 
       <DiscoveryDialog
@@ -1372,7 +1387,5 @@ export default function OutreachPageWrapper() {
         </Suspense>
     )
 }
-
-
 
 

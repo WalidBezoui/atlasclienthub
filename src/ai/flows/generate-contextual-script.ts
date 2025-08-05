@@ -66,7 +66,7 @@ const GenerateContextualScriptInputSchema = z.object({
   tonePreference: z.enum(TONE_PREFERENCES).nullable().optional().describe("The preferred tone for the generated script (Friendly, Confident, Creative)."),
   offerType: z.string().describe("The specific offer being made, e.g., 'Free 3-point audit + visual tips'.").default("Free 3-point audit + visual tips"),
   
-  // New "Become Inevitable" Context
+  // "Become Inevitable" Context
   isInevitableMethod: z.boolean().nullable().optional().describe("Whether this prospect is part of the 'Become Inevitable' 10-day warm-up method."),
   warmUpActivities: z.array(z.string()).nullable().optional().describe("List of completed warm-up activities (e.g., 'Liked Posts', 'Left Comment')."),
 
@@ -184,8 +184,8 @@ const generateContextualScriptFlow = ai.defineFlow(
       isCreator: input.businessType === "Creator / Influencer",
       isPersonalBrand: input.businessType === "Personal Brand (coach, consultant)",
       isBusiness: !["Creator / Influencer", "Personal Brand (coach, consultant)"].includes(input.businessType || ''),
-      isInevitableMethod: input.status === 'Warming Up', // Set flag based on status
-      warmUpActivities: input.warmUp?.map(activity => activity.action) || [],
+      isInevitableMethod: input.leadStatus === 'Warming Up', // Set flag based on status
+      warmUpActivities: input.warmUpActivities || [],
     };
 
     const {output} = await prompt(promptInput, { config: { temperature: 0.8, maxOutputTokens: 500 }});

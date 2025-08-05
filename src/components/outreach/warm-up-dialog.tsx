@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -29,7 +30,7 @@ interface WarmUpDialogProps {
   isOpen: boolean;
   onClose: () => void;
   prospect: OutreachProspect | null | undefined;
-  onActivityLogged: () => void;
+  onActivityLogged: (updatedProspect: OutreachProspect) => void;
   onGenerateComment: (prospect: OutreachProspect) => void;
   onViewConversation: (prospect: OutreachProspect) => void;
   onStatusChange: (id: string, newStatus: OutreachLeadStage) => void;
@@ -70,10 +71,11 @@ export function WarmUpDialog({
     const updatedWarmUp = [...(currentProspect.warmUp || []), newActivity];
 
     try {
+      const updatedProspectData = { ...currentProspect, warmUp: updatedWarmUp };
       await updateProspect(currentProspect.id, { warmUp: updatedWarmUp });
-      setCurrentProspect(prev => prev ? { ...prev, warmUp: updatedWarmUp } : null);
+      setCurrentProspect(updatedProspectData);
       toast({ title: 'Activity Logged', description: `${action} has been recorded.` });
-      onActivityLogged();
+      onActivityLogged(updatedProspectData);
     } catch (error: any) {
       toast({ title: 'Error', description: error.message || "Could not log activity.", variant: "destructive" });
     } finally {
@@ -85,12 +87,13 @@ export function WarmUpDialog({
     if (!currentProspect || !activityToDelete) return;
     
     const updatedWarmUp = (currentProspect.warmUp || []).filter(activity => activity.id !== activityToDelete.id);
+    const updatedProspectData = { ...currentProspect, warmUp: updatedWarmUp };
     
     try {
       await updateProspect(currentProspect.id, { warmUp: updatedWarmUp });
-      setCurrentProspect(prev => prev ? { ...prev, warmUp: updatedWarmUp } : null);
+      setCurrentProspect(updatedProspectData);
       toast({ title: 'Activity Removed', description: `The activity has been deleted.` });
-      onActivityLogged();
+      onActivityLogged(updatedProspectData);
     } catch (error: any) {
       toast({ title: 'Error', description: error.message || "Could not delete activity.", variant: "destructive" });
     } finally {
