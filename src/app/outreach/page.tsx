@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import type { OutreachProspect, OutreachLeadStage, StatusHistoryItem } from '@/lib/types';
+import type { OutreachProspect, OutreachLeadStage, StatusHistoryItem, WarmUpActivity } from '@/lib/types';
 import { OUTREACH_LEAD_STAGE_OPTIONS } from '@/lib/types';
 import {
   Dialog,
@@ -518,7 +518,7 @@ function OutreachPage() {
         carouselOffered: prospect.carouselOffered || false,
         nextStep: prospect.nextStep?.trim() || null,
         conversationHistory: prospect.conversationHistory?.trim() || null,
-        isInevitableMethod: prospect.status === 'Warming Up' && prospect.warmUp && prospect.warmUp.length > 2,
+        isInevitableMethod: prospect.status === 'Warming Up' && prospect.warmUp && (prospect.warmUp?.length || 0) >= 3,
     };
     
     setCurrentScriptGenerationInput(input);
@@ -898,6 +898,15 @@ function OutreachPage() {
     setIsEditFormOpen(true);
   };
   
+  const handleCommentAdded = (updatedProspect: OutreachProspect) => {
+    updateProspectInState(updatedProspect.id, updatedProspect);
+
+    // If the warm-up dialog is open for this prospect, update its state too
+    if (editingProspect && editingProspect.id === updatedProspect.id) {
+        setEditingProspect(updatedProspect);
+    }
+  };
+
   const handleOpenCommentGenerator = (prospect: OutreachProspect) => {
     setProspectForComment(prospect);
     setIsCommentGeneratorOpen(true);
@@ -913,12 +922,33 @@ function OutreachPage() {
     if (!currentProspectForConversation || !isConversationDirty) return;
     setIsSavingConversation(true);
     try {
-      const updates = { 
+      const isFirstMessage = !currentProspectForConversation.conversationHistory;
+      
+      const newWarmUp: WarmUpActivity = {
+        id: crypto.randomUUID(),
+        action: 'Replied to Story',
+        date: new Date().toISOString(),
+      };
+      
+      const updates: Partial<OutreachProspect> = {
         conversationHistory: conversationHistoryContent,
         lastContacted: new Date().toISOString()
       };
+
+      if (isFirstMessage && currentProspectForConversation.status === 'Warming Up') {
+        updates.warmUp = [...(currentProspectForConversation.warmUp || []), newWarmUp];
+      }
+
       await updateProspect(currentProspectForConversation.id, updates);
-      updateProspectInState(currentProspectForConversation.id, updates);
+
+      const updatedProspectInList = { ...currentProspectForConversation, ...updates };
+      updateProspectInState(currentProspectForConversation.id, updatedProspectInList);
+      
+      // If the warm-up dialog is open, update its state directly
+      if (editingProspect && editingProspect.id === currentProspectForConversation.id) {
+        setEditingProspect(updatedProspectInList);
+      }
+      
       toast({ title: 'Conversation Saved', description: `History for ${currentProspectForConversation.name} updated.` });
       setIsConversationModalOpen(false);
       setCurrentProspectForConversation(null);
@@ -992,16 +1022,6 @@ function OutreachPage() {
     setIsWarmUpOpen(true);
   };
   
-  const handleCommentAdded = async (updatedProspect: OutreachProspect) => {
-    updateProspectInState(updatedProspect.id, updatedProspect);
-
-    // If the warm-up dialog is open for this prospect, update its state too
-    if (editingProspect && editingProspect.id === updatedProspect.id) {
-        setEditingProspect(updatedProspect);
-    }
-    await fetchProspects();
-  };
-
 
   return (
     <div className="space-y-6">
@@ -1027,7 +1047,7 @@ function OutreachPage() {
         prospect={editingProspect}
         onActivityLogged={(updatedProspect) => {
           updateProspectInState(updatedProspect.id, updatedProspect);
-          fetchProspects();
+          setEditingProspect(updatedProspect);
         }}
         onGenerateComment={handleOpenCommentGenerator}
         onViewConversation={handleOpenConversationModal}
