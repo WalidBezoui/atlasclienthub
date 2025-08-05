@@ -12,7 +12,7 @@ import { Loader2, Wand2, Copy, Save, Lightbulb, HelpCircle, Heart, BookOpen, Cli
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import type { OutreachProspect, GeneratedComment, CommentType } from '@/lib/types';
+import type { OutreachProspect, GeneratedComment, CommentType, WarmUpActivity } from '@/lib/types';
 import { COMMENT_TYPES } from '@/lib/types';
 import { generateComment, GenerateCommentInput } from '@/ai/flows/generate-comment';
 import { updateProspect } from '@/lib/firebase/services';
@@ -127,12 +127,18 @@ export function CommentGeneratorDialog({ isOpen, onClose, prospect, onCommentAdd
       commentType: commentType,
       generatedAt: new Date().toISOString(),
     };
-
     const updatedComments = [...(prospect.comments || []), newComment];
+
+    const newWarmUpActivity: WarmUpActivity = {
+      id: crypto.randomUUID(),
+      action: 'Left Comment',
+      date: new Date().toISOString(),
+    };
+    const updatedWarmUp = [...(prospect.warmUp || []), newWarmUpActivity];
     
     try {
-      await updateProspect(prospect.id, { comments: updatedComments });
-      toast({ title: 'Comment Saved!', description: `The comment has been logged for ${prospect.name}.` });
+      await updateProspect(prospect.id, { comments: updatedComments, warmUp: updatedWarmUp });
+      toast({ title: 'Comment Saved & Activity Logged!', description: `The comment has been logged for ${prospect.name}.` });
       onCommentAdded();
       handleClose();
     } catch (error: any) {

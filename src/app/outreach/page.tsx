@@ -1021,13 +1021,7 @@ function OutreachPage() {
         isOpen={isCommentGeneratorOpen}
         onClose={() => setIsCommentGeneratorOpen(false)}
         prospect={prospectForComment}
-        onCommentAdded={() => {
-          if (prospectForComment) {
-            updateProspect(prospectForComment.id, { warmUp: [...(prospectForComment.warmUp || []), {id: crypto.randomUUID(), action: 'Left Comment', date: new Date().toISOString() }]})
-            updateProspectInState(prospectForComment.id, { ...prospectForComment, warmUp: [...(prospectForComment.warmUp || []), {id: crypto.randomUUID(), action: 'Left Comment', date: new Date().toISOString() }] });
-            fetchProspects();
-          }
-        }}
+        onCommentAdded={fetchProspects}
       />
 
       <DiscoveryDialog
@@ -1378,6 +1372,7 @@ export default function OutreachPageWrapper() {
         </Suspense>
     )
 }
+
 
 
 
