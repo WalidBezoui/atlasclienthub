@@ -9,8 +9,7 @@ import { Loader2, Flame, Eye, Heart, MessageCircle as MessageCircleIcon, Message
 import type { OutreachProspect, WarmUpActivity, WarmUpAction, OutreachLeadStage } from '@/lib/types';
 import { updateProspect } from '@/lib/firebase/services';
 import { Progress } from '@/components/ui/progress';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format, addDays } from 'date-fns';
 import {
@@ -23,7 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Separator } from '../ui/separator';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { cn } from '@/lib/utils';
 
 interface WarmUpDialogProps {
