@@ -233,19 +233,15 @@ export function CommentGeneratorDialog({ isOpen, onClose, prospect, onCommentAdd
               <TabsContent value="result" className="mt-0 space-y-4">
                 <div className="space-y-2">
                   <Label className="font-semibold">Generated Comment</Label>
-                  <div className="relative">
+                   <div className="relative">
+                     {isLoading && <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10 rounded-md"><Loader2 className="h-6 w-6 animate-spin"/></div>}
                     <Textarea
                       value={generatedComment || (isLoading ? 'AI is thinking...' : "Your generated comment will appear here.")}
                       onChange={(e) => setGeneratedComment(e.target.value)}
                       className="h-40 resize-none text-sm"
                       readOnly={isLoading}
+                      placeholder="Your generated comment will appear here..."
                     />
-                     {isLoading && <div className="absolute inset-0 flex items-center justify-center bg-background/50"><Loader2 className="h-6 w-6 animate-spin"/></div>}
-                     {generatedComment && !isLoading && (
-                        <Button size="icon" variant="ghost" className="absolute top-2 right-2 h-7 w-7" onClick={handleCopyToClipboard}>
-                            {isCopied ? <ClipboardCheck className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-                        </Button>
-                      )}
                   </div>
                 </div>
                  {generatedComment && !isLoading && (
@@ -262,9 +258,15 @@ export function CommentGeneratorDialog({ isOpen, onClose, prospect, onCommentAdd
                             onChange={(e) => setCustomInstructions(e.target.value)}
                           />
                         </div>
-                        <Button onClick={() => handleGenerate(true)} className="w-full" variant="secondary">
-                           <RefreshCw className="mr-2 h-4 w-4" /> Regenerate
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            <Button onClick={() => handleGenerate(true)} className="w-full" variant="secondary" disabled={isLoading}>
+                               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />} Regenerate
+                            </Button>
+                             <Button size="icon" variant="outline" onClick={handleCopyToClipboard}>
+                                {isCopied ? <ClipboardCheck className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                                <span className="sr-only">Copy</span>
+                            </Button>
+                        </div>
                       </AccordionContent>
                     </AccordionItem>
                   </Accordion>
