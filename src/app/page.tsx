@@ -168,7 +168,7 @@ export default function DashboardPage() {
                 <Link href="/audits"><ListChecks className="mr-2 h-4 w-4" /> View Audits</Link>
             </Button>
             <Button asChild>
-                <Link href="/outreach/new"><PlusCircle className="mr-2 h-4 w-4" /> Add Prospect</Link>
+                <Link href="/outreach"><Send className="mr-2 h-4 w-4" /> Go to Outreach</Link>
             </Button>
           </div>
         }

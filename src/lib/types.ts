@@ -175,7 +175,7 @@ export type InstagramAudit = {
 
 export type Optional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
 
-export type AgendaItemType = 'FOLLOW_UP' | 'SEND_QUALIFIER' | 'WARM_UP_ACTION';
+export type AgendaItemType = 'FOLLOW_UP' | 'WARM_UP_ACTION' | 'SEND_QUALIFIER';
 
 export type AgendaItem = {
   type: AgendaItemType;
