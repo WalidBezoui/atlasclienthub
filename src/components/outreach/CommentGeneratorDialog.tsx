@@ -1,15 +1,15 @@
 
-
 'use client';
 
 import React, { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Wand2, Copy, Save, Lightbulb, HelpCircle, Heart, BookOpen, ClipboardCheck, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Loader2, Wand2, Copy, Save, Lightbulb, HelpCircle, Heart, BookOpen, ClipboardCheck, ArrowRight, ArrowLeft, RefreshCw } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -18,6 +18,7 @@ import { COMMENT_TYPES } from '@/lib/types';
 import { generateComment, GenerateCommentInput } from '@/ai/flows/generate-comment';
 import { updateProspect } from '@/lib/firebase/services';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 interface CommentGeneratorDialogProps {
   isOpen: boolean;
@@ -44,6 +45,7 @@ export function CommentGeneratorDialog({ isOpen, onClose, prospect, onCommentAdd
   const [postDescription, setPostDescription] = useState('');
   const [commentType, setCommentType] = useState<CommentType>('Value-add');
   const [generatedComment, setGeneratedComment] = useState('');
+  const [customInstructions, setCustomInstructions] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
@@ -55,6 +57,7 @@ export function CommentGeneratorDialog({ isOpen, onClose, prospect, onCommentAdd
     setPostDescription('');
     setCommentType('Value-add');
     setGeneratedComment('');
+    setCustomInstructions('');
     setIsLoading(false);
     setIsSaving(false);
     setIsCopied(false);
@@ -78,26 +81,29 @@ export function CommentGeneratorDialog({ isOpen, onClose, prospect, onCommentAdd
     return contextParts.filter(Boolean).join('\n');
   }, [prospect]);
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (isRegeneration = false) => {
     if (!prospect || !postDescription.trim()) {
       toast({ title: 'Missing Information', description: 'Please describe the post to comment on.', variant: 'destructive' });
       return;
     }
     
     setIsLoading(true);
-    setGeneratedComment('');
-    setActiveTab('result');
+    if (!isRegeneration) {
+        setGeneratedComment('');
+        setActiveTab('result');
+    }
 
     const input: GenerateCommentInput = {
       prospectContext: prospectContextString,
       postDescription,
       commentType,
+      customInstructions: customInstructions || undefined,
     };
     
     try {
       const result = await generateComment(input);
       setGeneratedComment(result.comment);
-      toast({ title: 'Comment Generated!', description: 'Review your new comment below.' });
+      toast({ title: isRegeneration ? 'Comment Regenerated!' : 'Comment Generated!', description: 'Review your new comment below.' });
     } catch (error: any) {
       toast({ title: 'Generation Failed', description: error.message, variant: 'destructive' });
     } finally {
@@ -227,20 +233,42 @@ export function CommentGeneratorDialog({ isOpen, onClose, prospect, onCommentAdd
               <TabsContent value="result" className="mt-0 space-y-4">
                 <div className="space-y-2">
                   <Label className="font-semibold">Generated Comment</Label>
-                  <div className="relative h-64">
+                  <div className="relative">
                     <Textarea
-                      readOnly
                       value={generatedComment || (isLoading ? 'AI is thinking...' : "Your generated comment will appear here.")}
-                      className="h-full resize-none text-sm"
+                      onChange={(e) => setGeneratedComment(e.target.value)}
+                      className="h-40 resize-none text-sm"
+                      readOnly={isLoading}
                     />
                      {isLoading && <div className="absolute inset-0 flex items-center justify-center bg-background/50"><Loader2 className="h-6 w-6 animate-spin"/></div>}
-                     {generatedComment && (
+                     {generatedComment && !isLoading && (
                         <Button size="icon" variant="ghost" className="absolute top-2 right-2 h-7 w-7" onClick={handleCopyToClipboard}>
                             {isCopied ? <ClipboardCheck className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                         </Button>
                       )}
                   </div>
                 </div>
+                 {generatedComment && !isLoading && (
+                  <Accordion type="single" collapsible className="w-full">
+                    <AccordionItem value="item-1" className="border-b-0">
+                      <AccordionTrigger className="text-sm p-2 hover:no-underline rounded-md hover:bg-muted/50">Regeneration Options</AccordionTrigger>
+                      <AccordionContent className="space-y-3 pt-2">
+                        <div>
+                          <Label htmlFor="custom-instructions" className="text-xs font-medium">Custom Instructions</Label>
+                          <Input
+                            id="custom-instructions"
+                            placeholder="e.g., 'Make it funnier', 'add an emoji'"
+                            value={customInstructions}
+                            onChange={(e) => setCustomInstructions(e.target.value)}
+                          />
+                        </div>
+                        <Button onClick={() => handleGenerate(true)} className="w-full" variant="secondary">
+                           <RefreshCw className="mr-2 h-4 w-4" /> Regenerate
+                        </Button>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                )}
               </TabsContent>
             </div>
           </ScrollArea>
@@ -267,7 +295,7 @@ export function CommentGeneratorDialog({ isOpen, onClose, prospect, onCommentAdd
               </Button>
             )}
             {activeTab === 'style' && (
-              <Button onClick={handleGenerate} disabled={isLoading || !postDescription.trim()}>
+              <Button onClick={() => handleGenerate()} disabled={isLoading || !postDescription.trim()}>
                 {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
                 Generate
               </Button>

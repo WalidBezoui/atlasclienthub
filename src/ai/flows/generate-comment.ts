@@ -18,6 +18,7 @@ const GenerateCommentInputSchema = z.object({
   prospectContext: ProspectContextSchema,
   postDescription: z.string().describe("A description of the Instagram post to comment on."),
   commentType: z.enum(COMMENT_TYPES).describe("The desired style of the comment."),
+  customInstructions: z.string().optional().describe("Optional, user-provided instructions to refine the comment generation, like 'make it shorter' or 'add an emoji'."),
 });
 export type GenerateCommentInput = z.infer<typeof GenerateCommentInputSchema>;
 
@@ -61,6 +62,11 @@ Here's how to approach each style:
 *   **Compliment:** Give a specific, detailed compliment. Instead of "Nice design," say "The way you used the mustard yellow to highlight the key stats in slide 3 is brilliant. Really makes the data pop."
 *   **Story-based:** Briefly relate their post to a personal experience or observation. This builds rapport and shows you're on the same wavelength. Example: "This reminds me of when I first started my agency. I made the exact same mistake with my pricing. This advice would have saved me months of struggle!"
 
+---
+{{#if customInstructions}}
+**IMPORTANT USER INSTRUCTIONS:** The user has provided specific guidance for this comment. Prioritize these instructions:
+"{{{customInstructions}}}"
+{{/if}}
 ---
 Now, generate the comment based on all the information provided.
 `,
