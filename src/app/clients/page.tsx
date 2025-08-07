@@ -62,7 +62,7 @@ const ClientMobileCard = ({ client, onEdit, onDelete }: { client: Client, onEdit
             <div className="flex justify-between items-start gap-4">
                 <div className="flex-1 min-w-0">
                     <p className="font-semibold truncate">{client.name}</p>
-                    <p className="text-sm text-muted-foreground truncate flex items-center gap-1.5"><ShoppingBag className="h-3 w-3" />{client.companyName}</p>
+                    <p className="text-sm text-muted-foreground truncate flex items-center gap-1.5"><ShoppingBag className="h-3 w-3" />{client.companyName || 'N/A'}</p>
                     <p className="text-sm text-muted-foreground truncate flex items-center gap-1.5"><Mail className="h-3 w-3" />{client.contactEmail}</p>
                     {client.contactPhone && <p className="text-sm text-muted-foreground truncate flex items-center gap-1.5"><Phone className="h-3 w-3" />{client.contactPhone}</p>}
                 </div>
@@ -410,6 +410,7 @@ export default function ClientsPage() {
                   <div className="text-center py-10 flex flex-col items-center justify-center">
                       <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
                       <p className="font-semibold">No clients found.</p>
+                      <p className="text-sm text-muted-foreground">Try adjusting your search or filters.</p>
                   </div>
               )}
           </div>

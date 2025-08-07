@@ -171,7 +171,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
     const newProspect: Omit<OutreachProspect, 'id' | 'userId'> = {
       name: handleWithoutAt,
       instagramHandle: handleWithoutAt,
-      status: options.andGenerateScript ? 'To Contact' : 'Warming Up',
+      status: options.andWarmUp ? 'Warming Up' : 'To Contact',
       followerCount: fetchedMetrics.followerCount ?? null,
       postCount: fetchedMetrics.postCount ?? null,
       avgLikes: fetchedMetrics.avgLikes ?? null,
@@ -331,7 +331,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
                  <h3 className="font-semibold text-lg text-center mb-2">Manual Assessment for {instagramHandle}</h3>
                  
                  <div>
-                    <Label className="font-semibold flex items-center mb-2"><HelpCircle className="mr-2 h-4 w-4 text-amber-600" />{currentQuestion.label}</Label>
+                    <Label className="font-semibold flex items-center mb-2">{currentQuestion.label}</Label>
                     {currentQuestion.component}
                  </div>
               </div>

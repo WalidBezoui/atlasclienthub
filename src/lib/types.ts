@@ -189,5 +189,5 @@ export type MonthlyActivity = {
   clients: number;
   outreach: number;
   audits: number;
-  prospects?: number;
+  prospects: number;
 };

@@ -205,6 +205,7 @@ export default function AuditsPage() {
                     <div className="h-24 text-center flex flex-col items-center justify-center">
                         <AlertTriangle className="w-10 h-10 text-muted-foreground mb-2" />
                         <p className="font-semibold">No audits found.</p>
+                        <p className="text-sm text-muted-foreground">Try adjusting your search or filters.</p>
                     </div>
                 )}
             </div>

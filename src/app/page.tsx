@@ -1,5 +1,4 @@
 
-
 'use client';
 import React, { useEffect, useState, useCallback } from 'react';
 import { LayoutDashboard, Users, Send, ListChecks, PlusCircle, TrendingUp, CheckSquare, Rocket, HelpCircle, BarChart3, Building, Flame } from 'lucide-react';
@@ -24,17 +23,14 @@ const initialOverviewData = {
   activeClients: 0,
   auditsInProgress: 0,
   outreachToday: 0,
-  outreachThisWeek: 0,
-  outreachSentThisMonth: 0,
-  newLeadsThisMonth: 0,
-  coldProspects: 0,
+  awaitingReply: 0,
   prospectsAddedThisMonth: 0,
 };
 
-const initialChartData: MonthlyActivity[] = Array(6).fill(null).map((_, i) => ({ month: format(subMonths(new Date(), 5 - i), 'MMM'), clients: 0, outreach: 0, audits: 0 }));
+const initialChartData: MonthlyActivity[] = Array(6).fill(null).map((_, i) => ({ month: format(subMonths(new Date(), 5 - i), 'MMM'), clients: 0, outreach: 0, audits: 0, prospects: 0 }));
 
 const chartConfig = {
-  clients: { label: "Clients", color: "hsl(var(--chart-1))", icon: Building },
+  prospects: { label: "Prospects", color: "hsl(var(--chart-1))", icon: TrendingUp },
   outreach: { label: "Outreach", color: "hsl(var(--chart-2))", icon: Send },
   audits: { label: "Audits", color: "hsl(var(--chart-3))", icon: ListChecks },
 } satisfies ChartConfig;
@@ -155,7 +151,7 @@ export default function DashboardPage() {
     { metric: 'Active Clients', value: overviewData.activeClients, icon: Users, color: 'text-green-500', bgColor: 'bg-green-100 dark:bg-green-900/50' },
     { metric: 'Outreach Today', value: overviewData.outreachToday, icon: Rocket, color: 'text-blue-500', bgColor: 'bg-blue-100 dark:bg-blue-900/50' },
     { metric: 'New Prospects', value: overviewData.prospectsAddedThisMonth, icon: TrendingUp, color: 'text-yellow-500', bgColor: 'bg-yellow-100 dark:bg-yellow-900/50' },
-    { metric: 'Awaiting Reply', value: overviewData.coldProspects, icon: HelpCircle, color: 'text-purple-500', bgColor: 'bg-purple-100 dark:bg-purple-900/50' },
+    { metric: 'Awaiting Reply', value: overviewData.awaitingReply, icon: HelpCircle, color: 'text-purple-500', bgColor: 'bg-purple-100 dark:bg-purple-900/50' },
   ];
 
   if (!isClient || authLoading || isLoadingData) {
@@ -196,10 +192,10 @@ export default function DashboardPage() {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="font-headline">Activity Overview</CardTitle>
-            <CardDescription>Monthly client, outreach, and audit trends for the current year.</CardDescription>
+            <CardDescription>Monthly prospects, outreach, and audit trends for the past 6 months.</CardDescription>
           </CardHeader>
           <CardContent>
-            {chartData.some(d => d.clients > 0 || d.outreach > 0 || d.audits > 0) ? (
+            {chartData.some(d => d.prospects || d.outreach || d.audits) ? (
               <ChartContainer config={chartConfig} className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={chartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
@@ -207,7 +203,7 @@ export default function DashboardPage() {
                     <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
                     <ChartTooltip cursor={{ fill: "hsl(var(--muted)/0.3)" }} content={<ChartTooltipContent indicator="dot" />} />
                     <Legend />
-                    <Bar dataKey="clients" fill="var(--color-clients)" radius={[4, 4, 0, 0]} name="Clients" />
+                    <Bar dataKey="prospects" fill="var(--color-prospects)" radius={[4, 4, 0, 0]} name="Prospects" />
                     <Bar dataKey="outreach" fill="var(--color-outreach)" radius={[4, 4, 0, 0]} name="Outreach" />
                     <Bar dataKey="audits" fill="var(--color-audits)" radius={[4, 4, 0, 0]} name="Audits" />
                   </BarChart>

@@ -525,22 +525,17 @@ export const getDashboardOverview = async (): Promise<{
   activeClients: number;
   auditsInProgress: number;
   outreachToday: number;
-  outreachThisWeek: number;
-  outreachSentThisMonth: number;
-  newLeadsThisMonth: number;
-  coldProspects: number;
+  awaitingReply: number;
   prospectsAddedThisMonth: number;
 }> => {
   const userId = getCurrentUserId();
-  if (!userId) return { activeClients: 0, auditsInProgress: 0, outreachToday: 0, outreachThisWeek: 0, outreachSentThisMonth: 0, newLeadsThisMonth: 0, coldProspects: 0, prospectsAddedThisMonth: 0 };
+  if (!userId) return { activeClients: 0, auditsInProgress: 0, outreachToday: 0, awaitingReply: 0, prospectsAddedThisMonth: 0 };
 
   const now = new Date();
 
   // Boundaries
   const todayStartTimestamp = Timestamp.fromDate(startOfDay(now));
   const todayEndTimestamp = Timestamp.fromDate(endOfDay(now));
-  const weekStartTimestamp = Timestamp.fromDate(startOfWeek(now));
-  const weekEndTimestamp = Timestamp.fromDate(endOfWeek(now));
   const monthStartTimestamp = Timestamp.fromDate(startOfMonth(now));
   const monthEndTimestamp = Timestamp.fromDate(endOfMonth(now));
 
@@ -549,38 +544,21 @@ export const getDashboardOverview = async (): Promise<{
   const auditsQuery = query(auditsCollection, where('userId', '==', userId), where('status', '==', 'In Progress'));
 
   const outreachTodayQuery = query(prospectsCollection, where('userId', '==', userId), where('lastContacted', '>=', todayStartTimestamp), where('lastContacted', '<=', todayEndTimestamp));
-  const outreachThisWeekQuery = query(prospectsCollection, where('userId', '==', userId), where('lastContacted', '>=', weekStartTimestamp), where('lastContacted', '<=', weekEndTimestamp));
-  const outreachSentThisMonthQuery = query(prospectsCollection, where('userId', '==', userId), where('lastContacted', '>=', monthStartTimestamp), where('lastContacted', '<=', monthEndTimestamp));
   const prospectsAddedThisMonthQuery = query(prospectsCollection, where('userId', '==', userId), where('createdAt', '>=', monthStartTimestamp), where('createdAt', '<=', monthEndTimestamp));
 
-
-  // For new leads, consider any positive engagement this month as a "lead"
-  const newLeadsThisMonthQuery = query(prospectsCollection,
-    where('userId', '==', userId),
-    where('status', 'in', ['Interested', 'Replied', 'Ready for Audit', 'Closed - Won']),
-    where('lastContacted', '>=', monthStartTimestamp),
-    where('lastContacted', '<=', monthEndTimestamp)
-  );
-
-  const coldProspectsQuery = query(prospectsCollection, where('userId', '==', userId), where('status', '==', 'Cold'));
+  const awaitingReplyQuery = query(prospectsCollection, where('userId', '==', userId), where('status', 'in', ['Cold', 'Warm', 'Qualifier Sent']));
 
   const [
     clientsSnapshot,
     auditsSnapshot,
     outreachTodaySnapshot,
-    outreachThisWeekSnapshot,
-    outreachSentThisMonthSnapshot,
-    newLeadsSnapshot,
-    coldProspectsSnapshot,
+    awaitingReplySnapshot,
     prospectsAddedSnapshot,
   ] = await Promise.all([
     getCountFromServer(clientsQuery),
     getCountFromServer(auditsQuery),
     getCountFromServer(outreachTodayQuery),
-    getCountFromServer(outreachThisWeekQuery),
-    getCountFromServer(outreachSentThisMonthQuery),
-    getCountFromServer(newLeadsThisMonthQuery),
-    getCountFromServer(coldProspectsQuery),
+    getCountFromServer(awaitingReplyQuery),
     getCountFromServer(prospectsAddedThisMonthQuery),
   ]);
 
@@ -588,10 +566,7 @@ export const getDashboardOverview = async (): Promise<{
     activeClients: clientsSnapshot.data().count,
     auditsInProgress: auditsSnapshot.data().count,
     outreachToday: outreachTodaySnapshot.data().count,
-    outreachThisWeek: outreachThisWeekSnapshot.data().count,
-    outreachSentThisMonth: outreachSentThisMonthSnapshot.data().count,
-    newLeadsThisMonth: newLeadsSnapshot.data().count,
-    coldProspects: coldProspectsSnapshot.data().count,
+    awaitingReply: awaitingReplySnapshot.data().count,
     prospectsAddedThisMonth: prospectsAddedSnapshot.data().count,
   };
 };
@@ -705,7 +680,7 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
                 description: `Warm up: ${nextAction}`,
                 dueDate: lastActivity.nextActionDue,
             });
-            processedIds.add(prospect.id);
+            processedIds.add(doc.id);
         });
 
 
