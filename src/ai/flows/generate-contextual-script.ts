@@ -185,7 +185,7 @@ const generateContextualScriptFlow = ai.defineFlow(
       isPersonalBrand: input.businessType === "Personal Brand (coach, consultant)",
       isBusiness: !["Creator / Influencer", "Personal Brand (coach, consultant)"].includes(input.businessType || ''),
       isInevitableMethod: input.leadStatus === 'Warming Up', // Set flag based on status
-      warmUpActivities: input.warmUpActivities || [],
+      warmUpActivities: input.warmUp?.map(activity => activity.action) || [],
     };
 
     const {output} = await prompt(promptInput, { config: { temperature: 0.8, maxOutputTokens: 500 }});
@@ -197,3 +197,5 @@ const generateContextualScriptFlow = ai.defineFlow(
     return { script: output.script };
   }
 );
+
+    
