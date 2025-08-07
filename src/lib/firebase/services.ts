@@ -523,51 +523,36 @@ export const deleteAudit = async (id: string): Promise<void> => {
 // --- Dashboard Services ---
 export const getDashboardOverview = async (): Promise<{
   activeClients: number;
-  auditsInProgress: number;
-  outreachToday: number;
-  awaitingReply: number;
-  prospectsAddedThisMonth: number;
+  prospectsInWarmUp: number;
+  followUpsDue: number;
+  auditsReady: number;
 }> => {
   const userId = getCurrentUserId();
-  if (!userId) return { activeClients: 0, auditsInProgress: 0, outreachToday: 0, awaitingReply: 0, prospectsAddedThisMonth: 0 };
-
-  const now = new Date();
-
-  // Boundaries
-  const todayStartTimestamp = Timestamp.fromDate(startOfDay(now));
-  const todayEndTimestamp = Timestamp.fromDate(endOfDay(now));
-  const monthStartTimestamp = Timestamp.fromDate(startOfMonth(now));
-  const monthEndTimestamp = Timestamp.fromDate(endOfMonth(now));
+  if (!userId) return { activeClients: 0, prospectsInWarmUp: 0, followUpsDue: 0, auditsReady: 0 };
 
   // Queries
-  const clientsQuery = query(clientsCollection, where('userId', '==', userId), where('status', '==', 'Active'));
-  const auditsQuery = query(auditsCollection, where('userId', '==', userId), where('status', '==', 'In Progress'));
-
-  const outreachTodayQuery = query(prospectsCollection, where('userId', '==', userId), where('lastContacted', '>=', todayStartTimestamp), where('lastContacted', '<=', todayEndTimestamp));
-  const prospectsAddedThisMonthQuery = query(prospectsCollection, where('userId', '==', userId), where('createdAt', '>=', monthStartTimestamp), where('createdAt', '<=', monthEndTimestamp));
-
-  const awaitingReplyQuery = query(prospectsCollection, where('userId', '==', userId), where('status', 'in', ['Cold', 'Warm', 'Qualifier Sent']));
+  const activeClientsQuery = query(clientsCollection, where('userId', '==', userId), where('status', '==', 'Active'));
+  const warmingUpQuery = query(prospectsCollection, where('userId', '==', userId), where('status', '==', 'Warming Up'));
+  const followUpQuery = query(prospectsCollection, where('userId', '==', userId), where('followUpNeeded', '==', true));
+  const readyForAuditQuery = query(prospectsCollection, where('userId', '==', userId), where('status', '==', 'Ready for Audit'));
 
   const [
     clientsSnapshot,
-    auditsSnapshot,
-    outreachTodaySnapshot,
-    awaitingReplySnapshot,
-    prospectsAddedSnapshot,
+    warmingUpSnapshot,
+    followUpSnapshot,
+    auditsReadySnapshot,
   ] = await Promise.all([
-    getCountFromServer(clientsQuery),
-    getCountFromServer(auditsQuery),
-    getCountFromServer(outreachTodayQuery),
-    getCountFromServer(awaitingReplyQuery),
-    getCountFromServer(prospectsAddedThisMonthQuery),
+    getCountFromServer(activeClientsQuery),
+    getCountFromServer(warmingUpQuery),
+    getCountFromServer(followUpQuery),
+    getCountFromServer(readyForAuditQuery),
   ]);
 
   return {
     activeClients: clientsSnapshot.data().count,
-    auditsInProgress: auditsSnapshot.data().count,
-    outreachToday: outreachTodaySnapshot.data().count,
-    awaitingReply: awaitingReplySnapshot.data().count,
-    prospectsAddedThisMonth: prospectsAddedSnapshot.data().count,
+    prospectsInWarmUp: warmingUpSnapshot.data().count,
+    followUpsDue: followUpSnapshot.data().count,
+    auditsReady: auditsReadySnapshot.data().count,
   };
 };
 
@@ -576,10 +561,10 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
     if (!userId) return [];
 
     const now = new Date();
-    const todayTimestamp = Timestamp.fromDate(endOfDay(now));
+    const todayEnd = endOfDay(now);
     let agendaItems: AgendaItem[] = [];
     const processedIds = new Set<string>();
-    const AGENDA_LIMIT = 10;
+    const AGENDA_LIMIT = 5;
 
     // Priority 1: Overdue or due today follow-ups
     const followUpQuery = query(
@@ -606,20 +591,10 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
         limit(AGENDA_LIMIT * 2) // Fetch more to filter client-side
     );
 
-    // Priority 4: New prospects to contact
-    const toContactQuery = query(
-        prospectsCollection,
-        where('userId', '==', userId),
-        where('status', '==', 'To Contact'),
-        orderBy('createdAt', 'desc'),
-        limit(AGENDA_LIMIT)
-    );
-
-    const [followUpSnapshot, needsQualifierSnapshot, warmingUpSnapshot, toContactSnapshot] = await Promise.all([
+    const [followUpSnapshot, needsQualifierSnapshot, warmingUpSnapshot] = await Promise.all([
         getDocs(followUpQuery),
         getDocs(needsQualifierQuery),
         getDocs(warmingUpQuery),
-        getDocs(toContactQuery)
     ]);
 
     // Process in order of priority
@@ -627,7 +602,7 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
         if (agendaItems.length >= AGENDA_LIMIT || processedIds.has(doc.id)) return;
         const prospect = doc.data() as OutreachProspect;
         const dueDate = prospect.followUpDate ? new Date(prospect.followUpDate) : new Date();
-        if (dueDate <= endOfDay(now)) {
+        if (dueDate <= todayEnd) {
             agendaItems.push({
                 type: 'FOLLOW_UP',
                 prospect: { id: doc.id, name: prospect.name, instagramHandle: prospect.instagramHandle, status: prospect.status },
@@ -663,7 +638,7 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
             if (agendaItems.length >= AGENDA_LIMIT || processedIds.has(prospect.id)) return;
             
             const lastActivity = prospect.warmUp?.[prospect.warmUp.length - 1];
-            if (!lastActivity?.nextActionDue || new Date(lastActivity.nextActionDue) > endOfDay(now)) {
+            if (!lastActivity?.nextActionDue || new Date(lastActivity.nextActionDue) > todayEnd) {
                 return; // Skip if no next action is due or it's in the future
             }
 
@@ -677,23 +652,11 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
             agendaItems.push({
                 type: 'WARM_UP_ACTION',
                 prospect: { id: prospect.id, name: prospect.name, instagramHandle: prospect.instagramHandle, status: prospect.status },
-                description: `Warm up: ${nextAction}`,
+                description: `Next action: ${nextAction}`,
                 dueDate: lastActivity.nextActionDue,
             });
-            processedIds.add(doc.id);
+            processedIds.add(prospect.id);
         });
-
-
-    toContactSnapshot.forEach(doc => {
-        if (agendaItems.length >= AGENDA_LIMIT || processedIds.has(doc.id)) return;
-        const prospect = doc.data() as OutreachProspect;
-        agendaItems.push({
-            type: 'INITIAL_CONTACT',
-            prospect: { id: doc.id, name: prospect.name, instagramHandle: prospect.instagramHandle, status: prospect.status },
-            description: "New prospect, ready for first contact."
-        });
-        processedIds.add(doc.id);
-    });
 
     return agendaItems;
 };

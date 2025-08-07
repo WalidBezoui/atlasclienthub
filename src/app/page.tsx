@@ -1,7 +1,7 @@
 
 'use client';
 import React, { useEffect, useState, useCallback } from 'react';
-import { LayoutDashboard, Users, Send, ListChecks, PlusCircle, TrendingUp, CheckSquare, Rocket, HelpCircle, BarChart3, Building, Flame } from 'lucide-react';
+import { LayoutDashboard, Users, Flame, UserCheck, PlusCircle, BarChart3, CheckSquare, Clock, FileQuestion, Send, UserRound, ListChecks } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
@@ -9,39 +9,39 @@ import Link from 'next/link';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip as ChartTooltip, Legend } from 'recharts';
 import { ChartConfig, ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import { useAuth } from '@/hooks/useAuth';
-import { useRouter } from 'next/navigation';
 import { getDashboardOverview, getMonthlyActivityData, getDailyAgendaItems } from '@/lib/firebase/services';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
-import type { MonthlyActivity, AgendaItem, OutreachProspect } from '@/lib/types';
+import type { MonthlyActivity, AgendaItem } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { format, subMonths, formatDistanceToNow, isPast } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { FileQuestion, Clock } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 const initialOverviewData = {
   activeClients: 0,
-  auditsInProgress: 0,
-  outreachToday: 0,
-  awaitingReply: 0,
-  prospectsAddedThisMonth: 0,
+  prospectsInWarmUp: 0,
+  followUpsDue: 0,
+  auditsReady: 0,
 };
 
 const initialChartData: MonthlyActivity[] = Array(6).fill(null).map((_, i) => ({ month: format(subMonths(new Date(), 5 - i), 'MMM'), clients: 0, outreach: 0, audits: 0, prospects: 0 }));
 
 const chartConfig = {
-  prospects: { label: "Prospects", color: "hsl(var(--chart-1))", icon: TrendingUp },
-  outreach: { label: "Outreach", color: "hsl(var(--chart-2))", icon: Send },
-  audits: { label: "Audits", color: "hsl(var(--chart-3))", icon: ListChecks },
+  prospects: { label: "New Prospects", color: "hsl(var(--chart-1))" },
+  outreach: { label: "Outreach", color: "hsl(var(--chart-2))" },
+  audits: { label: "Audits", color: "hsl(var(--chart-3))" },
 } satisfies ChartConfig;
 
+
 const AgendaItemCard = ({ item }: { item: AgendaItem }) => {
+    const router = useRouter();
     const { type, prospect, dueDate, description: itemDescription } = item;
     let icon, title, description, badgeText, link;
     let badgeVariant: "default" | "secondary" | "outline" | "destructive" = "default";
 
     const prospectIdentifier = prospect.instagramHandle || prospect.name;
-    link = `/outreach?q=${encodeURIComponent(prospectIdentifier)}`;
+    const outreachLink = `/outreach?q=${encodeURIComponent(prospectIdentifier)}`;
 
     switch (type) {
         case 'FOLLOW_UP':
@@ -51,6 +51,7 @@ const AgendaItemCard = ({ item }: { item: AgendaItem }) => {
             const isOverdue = dueDate && isPast(new Date(dueDate));
             badgeText = dueDate ? `Due ${formatDistanceToNow(new Date(dueDate), { addSuffix: true })}` : 'Follow up';
             badgeVariant = isOverdue ? 'destructive' : 'secondary';
+            link = outreachLink;
             break;
         case 'WARM_UP_ACTION':
             icon = <Flame className="h-5 w-5 text-destructive" />;
@@ -58,7 +59,7 @@ const AgendaItemCard = ({ item }: { item: AgendaItem }) => {
             description = itemDescription || 'Continue warm-up sequence.';
             badgeText = 'Warming Up';
             badgeVariant = 'secondary';
-            link = `/outreach`; // General link, user can find the prospect
+            link = outreachLink;
             break;
         case 'SEND_QUALIFIER':
             icon = <FileQuestion className="h-5 w-5 text-purple-500" />;
@@ -66,31 +67,28 @@ const AgendaItemCard = ({ item }: { item: AgendaItem }) => {
             description = itemDescription || `Prospect replied and is interested.`;
             badgeText = 'Needs Qualifier';
             badgeVariant = 'default';
-            break;
-        case 'INITIAL_CONTACT':
-            icon = <Send className="h-5 w-5 text-blue-500" />;
-            title = `Initial outreach to ${prospect.name}`;
-            description = itemDescription || `New prospect ready for contact.`;
-            badgeText = 'To Contact';
-            badgeVariant = 'outline';
+            link = outreachLink;
             break;
         default:
             return null;
     }
 
+    const handleActionClick = (e: React.MouseEvent) => {
+        e.preventDefault();
+        router.push(link);
+    };
+
     return (
-        <Link href={link} className="block group">
-            <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors cursor-pointer">
-                <div className="flex items-center gap-4 min-w-0">
-                    <div className="p-2 rounded-full bg-background group-hover:bg-primary/10">{icon}</div>
-                    <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm group-hover:text-primary truncate">{title}</p>
-                        <p className="text-xs text-muted-foreground truncate">{description}</p>
-                    </div>
+        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors cursor-pointer" onClick={handleActionClick}>
+            <div className="flex items-center gap-4 min-w-0">
+                <div className="p-2 rounded-full bg-background group-hover:bg-primary/10">{icon}</div>
+                <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm group-hover:text-primary truncate">{title}</p>
+                    <p className="text-xs text-muted-foreground truncate">{description}</p>
                 </div>
-                {badgeText && <Badge variant={badgeVariant} className="hidden sm:inline-flex">{badgeText}</Badge>}
             </div>
-        </Link>
+            {badgeText && <Badge variant={badgeVariant} className="hidden sm:inline-flex">{badgeText}</Badge>}
+        </div>
     );
 };
 
@@ -103,8 +101,8 @@ const DashboardSkeleton = () => (
             ))}
         </div>
         <div className="grid gap-6 grid-cols-1 xl:grid-cols-3">
-             <Card className="xl:col-span-2"><CardHeader><CardTitle>Activity Overview</CardTitle></CardHeader><CardContent><Skeleton className="h-[300px] w-full"/></CardContent></Card>
-            <Card><CardHeader><CardTitle>Daily Agenda</CardTitle><CardDescription>Your prioritized list of outreach tasks for today.</CardDescription></CardHeader>
+            <Card className="xl:col-span-2"><CardHeader><CardTitle>Activity Overview</CardTitle></CardHeader><CardContent><Skeleton className="h-[300px] w-full"/></CardContent></Card>
+            <Card><CardHeader><CardTitle>Daily Briefing</CardTitle><CardDescription>Your prioritized list of outreach tasks for today.</CardDescription></CardHeader>
             <CardContent className="space-y-2">
                 {Array(3).fill(0).map((_, index) => <Skeleton key={index} className="h-16 w-full" />)}
             </CardContent>
@@ -115,7 +113,6 @@ const DashboardSkeleton = () => (
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
   const [isClient, setIsClient] = useState(false);
   const [overviewData, setOverviewData] = useState(initialOverviewData);
   const [chartData, setChartData] = useState<MonthlyActivity[]>(initialChartData);
@@ -149,9 +146,9 @@ export default function DashboardPage() {
 
   const displayOverviewData = [
     { metric: 'Active Clients', value: overviewData.activeClients, icon: Users, color: 'text-green-500', bgColor: 'bg-green-100 dark:bg-green-900/50' },
-    { metric: 'Outreach Today', value: overviewData.outreachToday, icon: Rocket, color: 'text-blue-500', bgColor: 'bg-blue-100 dark:bg-blue-900/50' },
-    { metric: 'New Prospects', value: overviewData.prospectsAddedThisMonth, icon: TrendingUp, color: 'text-yellow-500', bgColor: 'bg-yellow-100 dark:bg-yellow-900/50' },
-    { metric: 'Awaiting Reply', value: overviewData.awaitingReply, icon: HelpCircle, color: 'text-purple-500', bgColor: 'bg-purple-100 dark:bg-purple-900/50' },
+    { metric: 'In Warm-up', value: overviewData.prospectsInWarmUp, icon: Flame, color: 'text-destructive', bgColor: 'bg-red-100 dark:bg-red-900/50' },
+    { metric: 'Follow-ups Due', value: overviewData.followUpsDue, icon: Clock, color: 'text-yellow-500', bgColor: 'bg-yellow-100 dark:bg-yellow-900/50' },
+    { metric: 'Ready for Audit', value: overviewData.auditsReady, icon: UserCheck, color: 'text-blue-500', bgColor: 'bg-blue-100 dark:bg-blue-900/50' },
   ];
 
   if (!isClient || authLoading || isLoadingData) {
@@ -162,13 +159,18 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Dashboard"
-        description="Welcome back! Here's your smart overview for today."
+        title="Agency Command Center"
+        description="Your daily briefing for outreach and client management."
         icon={LayoutDashboard}
         actions={
-          <Link href="/outreach" passHref>
-            <Button><PlusCircle className="mr-2 h-4 w-4" /> Add Prospect</Button>
-          </Link>
+          <div className="flex gap-2">
+            <Button variant="outline" asChild>
+                <Link href="/audits"><ListChecks className="mr-2 h-4 w-4" /> View Audits</Link>
+            </Button>
+            <Button asChild>
+                <Link href="/outreach/new"><PlusCircle className="mr-2 h-4 w-4" /> Add Prospect</Link>
+            </Button>
+          </div>
         }
       />
 
@@ -191,8 +193,8 @@ export default function DashboardPage() {
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle className="font-headline">Activity Overview</CardTitle>
-            <CardDescription>Monthly prospects, outreach, and audit trends for the past 6 months.</CardDescription>
+            <CardTitle className="font-headline">Monthly Growth</CardTitle>
+            <CardDescription>New prospects, outreach, and audits performed over the past 6 months.</CardDescription>
           </CardHeader>
           <CardContent>
             {chartData.some(d => d.prospects || d.outreach || d.audits) ? (
@@ -203,7 +205,7 @@ export default function DashboardPage() {
                     <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
                     <ChartTooltip cursor={{ fill: "hsl(var(--muted)/0.3)" }} content={<ChartTooltipContent indicator="dot" />} />
                     <Legend />
-                    <Bar dataKey="prospects" fill="var(--color-prospects)" radius={[4, 4, 0, 0]} name="Prospects" />
+                    <Bar dataKey="prospects" fill="var(--color-prospects)" radius={[4, 4, 0, 0]} name="New Prospects" />
                     <Bar dataKey="outreach" fill="var(--color-outreach)" radius={[4, 4, 0, 0]} name="Outreach" />
                     <Bar dataKey="audits" fill="var(--color-audits)" radius={[4, 4, 0, 0]} name="Audits" />
                   </BarChart>
@@ -221,7 +223,7 @@ export default function DashboardPage() {
         
         <Card>
           <CardHeader>
-            <CardTitle className="font-headline flex items-center"><ListChecks className="mr-3 h-5 w-5 text-primary" />Daily Agenda</CardTitle>
+            <CardTitle className="font-headline flex items-center"><ListChecks className="mr-3 h-5 w-5 text-primary" />Daily Briefing</CardTitle>
             <CardDescription>Your prioritized list of tasks for today.</CardDescription>
           </CardHeader>
           <CardContent>
