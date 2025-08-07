@@ -79,7 +79,7 @@ const AgendaItemCard = ({ item }: { item: AgendaItem }) => {
     };
 
     return (
-        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors cursor-pointer" onClick={handleActionClick}>
+        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors cursor-pointer group" onClick={handleActionClick}>
             <div className="flex items-center gap-4 min-w-0">
                 <div className="p-2 rounded-full bg-background group-hover:bg-primary/10">{icon}</div>
                 <div className="flex-1 min-w-0">
