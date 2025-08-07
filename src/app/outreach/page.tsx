@@ -519,6 +519,7 @@ function OutreachPage() {
         nextStep: prospect.nextStep?.trim() || null,
         conversationHistory: prospect.conversationHistory?.trim() || null,
         isInevitableMethod: prospect.status === 'Warming Up' && prospect.warmUp && (prospect.warmUp?.length || 0) >= 3,
+        warmUpActivities: prospect.warmUp?.map(activity => activity.action) || [],
     };
     
     setCurrentScriptGenerationInput(input);
@@ -1022,6 +1023,14 @@ function OutreachPage() {
     setIsWarmUpOpen(true);
   };
   
+  const handleWarmUpActivityLogged = (updatedProspect: OutreachProspect) => {
+    updateProspectInState(updatedProspect.id, updatedProspect);
+    // If the warm-up dialog is open for this prospect, update its state too
+    if (editingProspect && editingProspect.id === updatedProspect.id) {
+        setEditingProspect(updatedProspect);
+    }
+  };
+
 
   return (
     <div className="space-y-6">
@@ -1045,10 +1054,7 @@ function OutreachPage() {
         isOpen={isWarmUpOpen}
         onClose={() => setIsWarmUpOpen(false)}
         prospect={editingProspect}
-        onActivityLogged={(updatedProspect) => {
-          updateProspectInState(updatedProspect.id, updatedProspect);
-          setEditingProspect(updatedProspect);
-        }}
+        onActivityLogged={handleWarmUpActivityLogged}
         onGenerateComment={handleOpenCommentGenerator}
         onViewConversation={handleOpenConversationModal}
         onStatusChange={handleStatusChange}
@@ -1409,5 +1415,3 @@ export default function OutreachPageWrapper() {
         </Suspense>
     )
 }
-
-

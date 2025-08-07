@@ -1,6 +1,5 @@
 
 
-
 export type ClientStatus = "Active" | "On Hold" | "Past";
 export type Client = {
   id: string;
@@ -31,7 +30,7 @@ export type Goal = typeof GOALS[number];
 export const PROSPECT_LOCATIONS = ["Morocco", "Global", "Other"] as const;
 export type ProspectLocation = typeof PROSPECT_LOCATIONS[number];
 
-export const LEAD_SOURCES = ["IG comment", "Hashtag", "Explore", "DM Reply", "Referral", "Website", "LinkedIn", "Discovery Tool", "Other"] as const;
+export const LEAD_SOURCES = ["IG comment", "Hashtag", "Explore", "DM Reply", "Referral", "Website", "LinkedIn", "Discovery Tool", "Rapid Add", "Other"] as const;
 export type LeadSource = typeof LEAD_SOURCES[number];
 
 export const OFFER_INTERESTS = ["Requested Audit", "Asked for Pricing", "Wants Branding/Post Creation", "Wants IG Strategy", "No Reply"] as const;
@@ -40,12 +39,9 @@ export type OfferInterest = typeof OFFER_INTERESTS[number];
 export const TONE_PREFERENCES = ["Friendly & casual", "Confident & professional", "Creative & bold"] as const;
 export type TonePreference = typeof TONE_PREFERENCES[number];
 
-export const SCRIPT_LANGUAGES = ["English", "French", "Arabic", "Moroccan Darija"] as const;
-export type ScriptLanguage = typeof SCRIPT_LANGUAGES[number];
-
 // Refined Lead Stages for Outreach
-export type OutreachLeadStage = "To Contact" | "Cold" | "Warm" | "Replied" | "Interested" | "Qualifier Sent" | "Ready for Audit" | "Audit Delivered" | "Closed - Won" | "Closed - Lost" | "Not Interested";
-export const OUTREACH_LEAD_STAGE_OPTIONS: OutreachLeadStage[] = ["To Contact", "Cold", "Warm", "Replied", "Interested", "Qualifier Sent", "Ready for Audit", "Audit Delivered", "Closed - Won", "Closed - Lost", "Not Interested"];
+export type OutreachLeadStage = "To Contact" | "Warming Up" | "Cold" | "Warm" | "Replied" | "Interested" | "Qualifier Sent" | "Ready for Audit" | "Audit Delivered" | "Closed - Won" | "Closed - Lost" | "Not Interested";
+export const OUTREACH_LEAD_STAGE_OPTIONS: OutreachLeadStage[] = ["To Contact", "Warming Up", "Cold", "Warm", "Replied", "Interested", "Qualifier Sent", "Ready for Audit", "Audit Delivered", "Closed - Won", "Closed - Lost", "Not Interested"];
 
 export const COMMENT_TYPES = ["Value-add", "Question", "Compliment", "Story-based"] as const;
 export type CommentType = typeof COMMENT_TYPES[number];
@@ -61,6 +57,16 @@ export type GeneratedComment = {
 export type StatusHistoryItem = {
   status: OutreachLeadStage | 'Added';
   date: string; // ISO date string
+};
+
+export type WarmUpAction = 'Liked Posts' | 'Viewed Story' | 'Left Comment' | 'Replied to Story';
+
+export type WarmUpActivity = {
+  id: string; // Use a unique ID for each activity to allow deletion
+  action: WarmUpAction;
+  date: string; // ISO string
+  nextActionDue?: string; // ISO string for when the next action should be scheduled
+  note?: string; // e.g., the comment text
 };
 
 export type QualificationData = {
@@ -144,6 +150,9 @@ export type OutreachProspect = {
   // New Scoring & Qualification Fields
   leadScore?: number | null;
   qualificationData?: QualificationData | null;
+  
+  // New Warm-up Tracking Fields
+  warmUp?: WarmUpActivity[];
 };
 
 
@@ -166,12 +175,13 @@ export type InstagramAudit = {
 
 export type Optional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
 
-export type AgendaItemType = 'FOLLOW_UP' | 'INITIAL_CONTACT' | 'SEND_QUALIFIER';
+export type AgendaItemType = 'FOLLOW_UP' | 'WARM_UP_ACTION' | 'SEND_QUALIFIER';
 
 export type AgendaItem = {
   type: AgendaItemType;
   prospect: Pick<OutreachProspect, 'id' | 'name' | 'instagramHandle' | 'status'>;
   dueDate?: string;
+  description?: string; // Add description for more context
 };
 
 export type MonthlyActivity = {
@@ -179,7 +189,5 @@ export type MonthlyActivity = {
   clients: number;
   outreach: number;
   audits: number;
-  prospects?: number;
+  prospects: number;
 };
-
-    

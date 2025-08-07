@@ -68,6 +68,7 @@ const ProspectMobileCard = React.memo(({
     const calculateWarmUpProgress = (prospect: OutreachProspect): number => {
       const activities = prospect.warmUp || [];
       const uniqueActions = new Set(activities.map(a => a.action));
+      // There are 4 unique actions in the warm-up sequence.
       return (uniqueActions.size / 4) * 100;
     };
 

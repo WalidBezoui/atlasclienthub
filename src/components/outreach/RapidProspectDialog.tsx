@@ -17,7 +17,6 @@ import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
 import { Checkbox } from '../ui/checkbox';
-import { WarmUpDialog } from './warm-up-dialog';
 
 type Step = 'initial' | 'fetching' | 'questions' | 'analyzing' | 'results';
 
@@ -73,8 +72,6 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
   const [strategicGapAnswer, setStrategicGapAnswer] = useState<string[]>([]);
 
   const [isLoading, setIsLoading] = useState(false);
-  const [isWarmUpOpen, setIsWarmUpOpen] = useState(false);
-  const [prospectForWarmUp, setProspectForWarmUp] = useState<OutreachProspect | null>(null);
 
   const { toast } = useToast();
 
@@ -90,8 +87,6 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
     setCtaAnswer([]);
     setStrategicGapAnswer([]);
     setIsLoading(false);
-    setIsWarmUpOpen(false);
-    setProspectForWarmUp(null);
   };
 
   const handleClose = () => {
