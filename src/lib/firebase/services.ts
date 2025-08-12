@@ -18,7 +18,7 @@ import {
   limit,
   arrayUnion,
 } from 'firebase/firestore';
-import { subMonths, format, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isToday } from 'date-fns';
+import { subMonths, format, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, isToday } from 'date-fns';
 
 import type { Client, InstagramAudit, OutreachProspect, MonthlyActivity, OutreachLeadStage, AgendaItem, StatusHistoryItem, WarmUpActivity } from '@/lib/types';
 
@@ -655,7 +655,7 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
                 description: `Next action: ${nextAction}`,
                 dueDate: lastActivity.nextActionDue,
             });
-            processedIds.add(prospect.id);
+            processedIds.add(doc.id);
         });
 
     return agendaItems;

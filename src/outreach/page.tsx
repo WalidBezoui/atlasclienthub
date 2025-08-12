@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import type { OutreachProspect, OutreachLeadStage, StatusHistoryItem } from '@/lib/types';
+import type { OutreachProspect, OutreachLeadStage, StatusHistoryItem, WarmUpActivity } from '@/lib/types';
 import { OUTREACH_LEAD_STAGE_OPTIONS } from '@/lib/types';
 import {
   Dialog,
@@ -289,30 +289,38 @@ function OutreachPage() {
   };
 
 
-  const handleSaveProspect = useCallback(async (prospectData: Omit<OutreachProspect, 'id'|'userId'> | OutreachProspect, andGenerateScript?: boolean) => {
+  const handleSaveProspect = useCallback(async (prospectData: Omit<OutreachProspect, 'id'|'userId'> | OutreachProspect, options?: { andGenerateScript?: boolean; andWarmUp?: boolean }) => {
      if (!user) {
         toast({title: "Authentication Error", description: "You must be logged in.", variant: "destructive"});
         return;
     }
     try {
         let savedProspect: OutreachProspect;
+        let docId: string;
         if ('id' in prospectData && prospectData.id) {
+            docId = prospectData.id;
             await updateProspect(prospectData.id, prospectData as Partial<OutreachProspect>);
             savedProspect = { ...prospects.find(p => p.id === prospectData.id)!, ...prospectData };
             toast({ title: "Success", description: `Prospect ${prospectData.name} updated.` });
         } else {
-            const docId = await addProspect(prospectData as Omit<OutreachProspect, 'id'|'userId' | 'createdAt'>);
+            docId = await addProspect(prospectData as Omit<OutreachProspect, 'id'|'userId' | 'createdAt'>);
             savedProspect = { id: docId, userId: user.uid, ...prospectData, createdAt: new Date().toISOString() };
             toast({ title: "Success", description: `Prospect ${prospectData.name} added.` });
         }
         
-        fetchProspects();
+        await fetchProspects(); // Use await to ensure list is updated before next action
+        
         setIsEditFormOpen(false);
         setIsRapidAddOpen(false);
         setEditingProspect(undefined);
         
-        if (andGenerateScript) {
-            handleGenerateScript(savedProspect, 'Cold Outreach DM');
+        // Find the prospect from the newly fetched list to ensure we have the most up-to-date version
+        const finalProspect = await getProspects().then(all => all.find(p => p.id === docId) || savedProspect);
+
+        if (options?.andGenerateScript) {
+            handleGenerateScript(finalProspect, 'Cold Outreach DM');
+        } else if (options?.andWarmUp) {
+            handleOpenWarmUpDialog(finalProspect);
         }
 
     } catch (error: any) {
@@ -487,7 +495,8 @@ function OutreachPage() {
         prospectLocation: prospect.prospectLocation || null,
         clientIndustry: prospect.industry?.trim() || null,
         visualStyle: prospect.visualStyle?.trim() || null, 
-        bioSummary: prospect.bioSummary?.trim() || null, 
+        bioSummary: prospect.bioSummary?.trim() || null,
+        uniqueNote: prospect.uniqueNote?.trim() || null,
         businessType: prospect.businessType || null,
         businessTypeOther: prospect.businessTypeOther?.trim() || null,
         accountStage: prospect.accountStage || null,
@@ -510,6 +519,8 @@ function OutreachPage() {
         carouselOffered: prospect.carouselOffered || false,
         nextStep: prospect.nextStep?.trim() || null,
         conversationHistory: prospect.conversationHistory?.trim() || null,
+        isInevitableMethod: prospect.status === 'Warming Up' && prospect.warmUp && (prospect.warmUp?.length || 0) >= 3,
+        warmUpActivities: prospect.warmUp?.map(activity => activity.action) || [],
     };
     
     setCurrentScriptGenerationInput(input);
@@ -520,6 +531,7 @@ function OutreachPage() {
       const currentHistory = prospect.conversationHistory || '';
       const newHistory = `${currentHistory}${currentHistory ? '\n\n' : ''}Me: ${scriptContent}`.trim();
       const contactDate = new Date().toISOString();
+      const warmUpActivities = new Set(prospect.warmUp?.map(a => a.action));
 
       const updates: Partial<OutreachProspect> = {
           conversationHistory: newHistory,
@@ -528,6 +540,16 @@ function OutreachPage() {
       };
 
       let newStatus: OutreachLeadStage | undefined;
+      // Auto-complete warm up if generating script and it's not done
+      if (!warmUpActivities.has('Replied to Story') && prospect.status === 'Warming Up') {
+        const newWarmUpActivity: WarmUpActivity = {
+            id: crypto.randomUUID(),
+            action: 'Replied to Story',
+            date: new Date().toISOString(),
+        };
+        updates.warmUp = [...(prospect.warmUp || []), newWarmUpActivity];
+      }
+
       if (prospect.status === 'To Contact' && scriptType === 'Cold Outreach DM') {
           newStatus = 'Cold';
       } else if (prospect.status === 'Cold' && (scriptType.includes('Follow-Up') || scriptType.includes('Reminder'))) {
@@ -647,7 +669,8 @@ function OutreachPage() {
         prospectLocation: prospect.prospectLocation || null,
         clientIndustry: prospect.industry?.trim() || null,
         visualStyle: prospect.visualStyle?.trim() || null, 
-        bioSummary: prospect.bioSummary?.trim() || null, 
+        bioSummary: prospect.bioSummary?.trim() || null,
+        uniqueNote: prospect.uniqueNote?.trim() || null, 
         businessType: prospect.businessType || null,
         businessTypeOther: prospect.businessTypeOther?.trim() || null,
         accountStage: prospect.accountStage || null,
@@ -889,6 +912,15 @@ function OutreachPage() {
     setIsEditFormOpen(true);
   };
   
+  const handleCommentAdded = (updatedProspect: OutreachProspect) => {
+    updateProspectInState(updatedProspect.id, updatedProspect);
+
+    // If the warm-up dialog is open for this prospect, update its state too
+    if (editingProspect && editingProspect.id === updatedProspect.id) {
+        setEditingProspect(updatedProspect);
+    }
+  };
+
   const handleOpenCommentGenerator = (prospect: OutreachProspect) => {
     setProspectForComment(prospect);
     setIsCommentGeneratorOpen(true);
@@ -904,12 +936,34 @@ function OutreachPage() {
     if (!currentProspectForConversation || !isConversationDirty) return;
     setIsSavingConversation(true);
     try {
-      const updates = { 
+      const isFirstMessage = !currentProspectForConversation.conversationHistory;
+      const warmUpActivities = new Set(currentProspectForConversation.warmUp?.map(a => a.action));
+      
+      const newWarmUpActivity: WarmUpActivity = {
+        id: crypto.randomUUID(),
+        action: 'Replied to Story',
+        date: new Date().toISOString(),
+      };
+      
+      const updates: Partial<OutreachProspect> = {
         conversationHistory: conversationHistoryContent,
         lastContacted: new Date().toISOString()
       };
+
+      if ((isFirstMessage || !warmUpActivities.has('Replied to Story')) && currentProspectForConversation.status === 'Warming Up') {
+        updates.warmUp = [...(currentProspectForConversation.warmUp || []), newWarmUpActivity];
+      }
+
       await updateProspect(currentProspectForConversation.id, updates);
-      updateProspectInState(currentProspectForConversation.id, updates);
+
+      const updatedProspectInList = { ...currentProspectForConversation, ...updates };
+      updateProspectInState(currentProspectForConversation.id, updatedProspectInList);
+      
+      // If the warm-up dialog is open, update its state directly
+      if (editingProspect && editingProspect.id === currentProspectForConversation.id) {
+        setEditingProspect(updatedProspectInList);
+      }
+      
       toast({ title: 'Conversation Saved', description: `History for ${currentProspectForConversation.name} updated.` });
       setIsConversationModalOpen(false);
       setCurrentProspectForConversation(null);
@@ -982,6 +1036,14 @@ function OutreachPage() {
     setEditingProspect(prospect);
     setIsWarmUpOpen(true);
   };
+  
+  const handleWarmUpActivityLogged = (updatedProspect: OutreachProspect) => {
+    updateProspectInState(updatedProspect.id, updatedProspect);
+    // If the warm-up dialog is open for this prospect, update its state too
+    if (editingProspect && editingProspect.id === updatedProspect.id) {
+        setEditingProspect(updatedProspect);
+    }
+  };
 
 
   return (
@@ -1006,7 +1068,7 @@ function OutreachPage() {
         isOpen={isWarmUpOpen}
         onClose={() => setIsWarmUpOpen(false)}
         prospect={editingProspect}
-        onActivityLogged={fetchProspects}
+        onActivityLogged={handleWarmUpActivityLogged}
         onGenerateComment={handleOpenCommentGenerator}
         onViewConversation={handleOpenConversationModal}
         onStatusChange={handleStatusChange}
@@ -1016,13 +1078,7 @@ function OutreachPage() {
         isOpen={isCommentGeneratorOpen}
         onClose={() => setIsCommentGeneratorOpen(false)}
         prospect={prospectForComment}
-        onCommentAdded={() => {
-          if (prospectForComment) {
-            updateProspect(prospectForComment.id, { warmUp: [...(prospectForComment.warmUp || []), {id: crypto.randomUUID(), action: 'Left Comment', date: new Date().toISOString() }]})
-            updateProspectInState(prospectForComment.id, { ...prospectForComment, warmUp: [...(prospectForComment.warmUp || []), {id: crypto.randomUUID(), action: 'Left Comment', date: new Date().toISOString() }] });
-            fetchProspects();
-          }
-        }}
+        onCommentAdded={handleCommentAdded}
       />
 
       <DiscoveryDialog
@@ -1373,4 +1429,5 @@ export default function OutreachPageWrapper() {
         </Suspense>
     )
 }
+
 

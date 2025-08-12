@@ -36,6 +36,8 @@ const GenerateContextualScriptInputSchema = z.object({
   clientIndustry: z.string().nullable().optional().describe("The client's industry (e.g., Skincare, Clothing, Coach)."),
   visualStyle: z.string().nullable().optional().describe("Notes on the prospect's visual style (e.g., Luxe, clean, messy, vibrant...)."),
   bioSummary: z.string().nullable().optional().describe("A summary of the prospect's Instagram bio for reference."),
+  uniqueNote: z.string().nullable().optional().describe("A unique, specific, and true observation about their page to be used for a compliment."),
+
 
   // Business Stage & Metrics (from guide)
   accountStage: z.enum(ACCOUNT_STAGES).nullable().optional().describe("The prospect's business stage (New, Growing, Established)."), // Maps to Business Stage
@@ -82,7 +84,7 @@ export type GenerateContextualScriptInput = z.infer<typeof GenerateContextualScr
 
 
 const GenerateContextualScriptOutputSchema = z.object({
-  script: z.string().describe('The generated script in English.'),
+  script: z.string().describe('The generated script in French.'),
 });
 export type GenerateContextualScriptOutput = z.infer<typeof GenerateContextualScriptOutputSchema>;
 
@@ -98,7 +100,7 @@ const prompt = ai.definePrompt({
   output: {schema: GenerateContextualScriptOutputSchema},
   prompt: `You are an expert Instagram outreach copywriter for a creative studio called "${SENDER_STUDIO_NAME}", which specializes in social media, content creation, and Instagram strategy.
 
-Your task is to craft the perfect, personalized Instagram DM in ENGLISH based on the prospect details below.
+Your task is to craft the perfect, personalized Instagram DM based on the prospect details below.
 
 ---
 **PROSPECT DETAILS & CONTEXT:**
@@ -123,19 +125,18 @@ Your task is to craft the perfect, personalized Instagram DM in ENGLISH based on
 **1. SCRIPT TYPE: "{{scriptType}}"**
 
 **IF "Cold Outreach DM":**
-   - **Compliment:** Start with a sincere, specific compliment about their page or product. Show you've actually looked.
-   - **The "Exclusive Mission" Angle:** Introduce "${SENDER_STUDIO_NAME}" as a creative studio on a mission to elevate a few **hand-picked brands** we genuinely admire. This creates exclusivity.
-   - **Intrigue & Vague Value:** Instead of a generic audit, offer specific but un-detailed insights to build curiosity.
-     {{#if isCreator}}
-     - **Angle for Creator:** Focus on how better branding can attract higher-quality brand deals and build a stronger community. Example: "I noticed a couple of quick opportunities to potentially make your personal brand even more impactful and monetizable."
-     {{/if}}
-     {{#if isPersonalBrand}}
-     - **Angle for Personal Brand:** Focus on converting followers into high-ticket clients and building authority. Example: "I noticed a couple of quick opportunities to potentially elevate your visual brand and turn more followers into qualified inquiries."
-     {{/if}}
-     {{#if isBusiness}}
-     - **Angle for Business:** Focus on how premium visuals can increase perceived value and drive more sales. Example: "I noticed a couple of quick opportunities to potentially boost engagement and make your branding even more impactful for sales."
-     {{/if}}
-   - **Soft CTA:** End with a short, frictionless question to get permission. Example: "Would you be open to me sending them over? No strings attached, of course."
+   - **Language:** The response MUST be in FRENCH.
+   - **Template:** Use the following template and fill in the bracketed sections.
+   
+     "{{businessName}} 👋
+     J’ai beaucoup aimé [élément précis et vrai que tu as remarqué sur leur page].
+     Chez Atlas Social Studio, on travaille uniquement avec un petit nombre de marques que nous admirons vraiment — et ta page a clairement retenu notre attention.
+     En la parcourant, j’ai repéré quelques opportunités simples mais efficaces pour booster ton engagement et rendre ton branding encore plus impactant pour les ventes.
+     Veux-tu que je te les envoie ? Sans aucune obligation, bien sûr."
+
+   - **Filling the template:**
+     - For \`[élément précis et vrai que tu as remarqué sur leur page]\`, use the provided \`uniqueNote\` if available. If it's not available, you MUST create a specific, sincere, and concrete compliment based on the prospect's details (business type, industry, visual style). DO NOT use generic compliments like "your content" or "your page". Be specific, e.g., "la palette de couleurs sur votre dernier post" or "la qualité de vos photos de produits".
+   - **Maintain Consistency:** The rest of the template must remain identical to maintain the effect of scarcity and consistency.
 
 **IF "Conversation Starter":**
    - **Context:** This script is for the "Private Engagement" phase of the warm-up method, to be sent after they've engaged with your comment.
@@ -166,7 +167,7 @@ Your task is to craft the perfect, personalized Instagram DM in ENGLISH based on
 {{/if}}
 
 ---
-Now, generate the script in ENGLISH only.
+Now, generate the script.
 `,
 });
 
@@ -185,7 +186,7 @@ const generateContextualScriptFlow = ai.defineFlow(
       isPersonalBrand: input.businessType === "Personal Brand (coach, consultant)",
       isBusiness: !["Creator / Influencer", "Personal Brand (coach, consultant)"].includes(input.businessType || ''),
       isInevitableMethod: input.leadStatus === 'Warming Up', // Set flag based on status
-      warmUpActivities: input.warmUp?.map(activity => activity.action) || [],
+      warmUpActivities: input.warmUp || [],
     };
 
     const {output} = await prompt(promptInput, { config: { temperature: 0.8, maxOutputTokens: 500 }});
@@ -197,5 +198,4 @@ const generateContextualScriptFlow = ai.defineFlow(
     return { script: output.script };
   }
 );
-
     
