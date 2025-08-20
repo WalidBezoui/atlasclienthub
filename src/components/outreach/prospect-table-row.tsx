@@ -13,7 +13,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuGroup,
 import { Edit, Trash2, MoreHorizontal, Link as LinkIcon, Bot, MessageCircle, MessagesSquare, GraduationCap, FileQuestion, Loader2, Star, Languages, Flame, UserPlus, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
-import type { OutreachProspect, OutreachLeadStage } from '@/lib/types';
+import type { OutreachProspect, OutreachLeadStage, WarmUpAction } from '@/lib/types';
 import { OUTREACH_LEAD_STAGE_OPTIONS } from '@/lib/types';
 import { Separator } from '../ui/separator';
 import { Progress } from '../ui/progress';
@@ -114,10 +114,8 @@ const ProspectTableRow = React.memo(({
     };
     
     const calculateWarmUpProgress = (prospect: OutreachProspect): number => {
-      const activities = prospect.warmUp || [];
-      const uniqueActions = new Set(activities.map(a => a.action));
-      // There are 4 unique actions in the warm-up sequence.
-      return (uniqueActions.size / 4) * 100;
+      const activities = new Set((prospect.warmUp || []).map(a => a.action));
+      return (activities.size / 4) * 100;
     };
 
 
@@ -130,12 +128,14 @@ const ProspectTableRow = React.memo(({
 
     const getActivityText = (prospect: OutreachProspect): { text: string, isNext: boolean } => {
         if (prospect.status === 'Warming Up') {
-            const lastActivity = prospect.warmUp?.[(prospect.warmUp?.length || 0) - 1];
-            if (lastActivity?.nextActionDue) {
-                try {
-                    return { text: `Next action ${formatDistanceToNow(new Date(lastActivity.nextActionDue), { addSuffix: true })}`, isNext: true };
-                } catch { /* fallthrough */ }
-            }
+            const activities = new Set((prospect.warmUp || []).map(a => a.action));
+            let nextAction: WarmUpAction | 'Done' = 'Liked Posts';
+            if (activities.has('Liked Posts')) nextAction = 'Viewed Story';
+            if (activities.has('Viewed Story')) nextAction = 'Left Comment';
+            if (activities.has('Left Comment')) nextAction = 'Replied to Story';
+            if (activities.has('Replied to Story')) nextAction = 'Done';
+            
+            return { text: `Next: ${nextAction === 'Done' ? 'Send DM' : nextAction}`, isNext: true };
         }
 
         const dates = [

@@ -12,7 +12,7 @@ import { updateProspect } from '@/lib/firebase/services';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { format, addDays } from 'date-fns';
+import { format } from 'date-fns';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,6 +36,13 @@ interface WarmUpDialogProps {
   onStatusChange: (id: string, newStatus: OutreachLeadStage) => void;
 }
 
+const warmUpSteps: { action: WarmUpAction; title: string; description: string; icon: React.ElementType }[] = [
+    { action: 'Liked Posts', title: 'Silent Engagement: Likes', description: 'Like a few recent, relevant posts.', icon: Heart },
+    { action: 'Viewed Story', title: 'Silent Engagement: Stories', description: 'View their stories to show up in their list.', icon: Eye },
+    { action: 'Left Comment', title: 'Value Engagement', description: 'Leave a high-value, non-salesy comment.', icon: MessageCircleIcon },
+    { action: 'Replied to Story', title: 'Private Engagement', description: 'Reply to a story to start a private conversation.', icon: MessageSquare },
+];
+
 export function WarmUpDialog({ 
   isOpen, 
   onClose, 
@@ -48,6 +55,7 @@ export function WarmUpDialog({
   const [currentProspect, setCurrentProspect] = useState<OutreachProspect | null | undefined>(prospect);
   const [isLoading, setIsLoading] = useState(false);
   const [activityToDelete, setActivityToDelete] = useState<WarmUpActivity | null>(null);
+  const [showCompleteConfirmation, setShowCompleteConfirmation] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -59,14 +67,10 @@ export function WarmUpDialog({
     setIsLoading(true);
     
     const now = new Date();
-    // Schedule next action 1-2 days from now
-    const nextActionDue = addDays(now, Math.random() > 0.5 ? 1 : 2).toISOString();
-
     const newActivity: WarmUpActivity = { 
       id: crypto.randomUUID(), 
       action, 
       date: now.toISOString(),
-      nextActionDue: nextActionDue,
     };
     const updatedWarmUp = [...(currentProspect.warmUp || []), newActivity];
 
@@ -76,6 +80,13 @@ export function WarmUpDialog({
       setCurrentProspect(updatedProspectData);
       toast({ title: 'Activity Logged', description: `${action} has been recorded.` });
       onActivityLogged(updatedProspectData);
+
+      // Check if all steps are complete
+      const completedActions = new Set(updatedWarmUp.map(a => a.action));
+      if (completedActions.size === warmUpSteps.length) {
+          setShowCompleteConfirmation(true);
+      }
+
     } catch (error: any) {
       toast({ title: 'Error', description: error.message || "Could not log activity.", variant: "destructive" });
     } finally {
@@ -107,48 +118,80 @@ export function WarmUpDialog({
       setCurrentProspect(prev => prev ? { ...prev, status: 'Warming Up' } : null);
     }
   };
+  
+  const handleAdvanceStatus = () => {
+    if(currentProspect) {
+        onStatusChange(currentProspect.id, 'Cold');
+        toast({ title: "Status Advanced!", description: `${currentProspect.name} is now ready for outreach.` });
+    }
+    setShowCompleteConfirmation(false);
+  };
 
-  const activities = currentProspect?.warmUp || [];
-  const hasLiked = activities.some(a => a.action === 'Liked Posts');
-  const hasViewedStory = activities.some(a => a.action === 'Viewed Story');
-  const hasCommented = activities.some(a => a.action === 'Left Comment');
-  const hasReplied = activities.some(a => a.action === 'Replied to Story');
-
-  const progress = (hasLiked + hasViewedStory + hasCommented + hasReplied) * 25;
+  const completedActions = new Set((currentProspect?.warmUp || []).map(a => a.action));
+  const progress = (completedActions.size / warmUpSteps.length) * 100;
   const isWarmingUp = currentProspect?.status === 'Warming Up';
+  
+  let nextAction: WarmUpAction | null = null;
+  for (const step of warmUpSteps) {
+      if (!completedActions.has(step.action)) {
+          nextAction = step.action;
+          break;
+      }
+  }
+
 
   const StepCard = ({
     stepNumber,
     title,
     description,
-    children,
+    action,
+    icon: Icon,
     isComplete,
+    isNext
   }: {
     stepNumber: number;
     title: string;
     description: string;
-    children: React.ReactNode;
+    action: WarmUpAction;
+    icon: React.ElementType;
     isComplete: boolean;
-  }) => (
-    <div className="flex items-start gap-4">
+    isNext: boolean;
+  }) => {
+    const isClickable = isWarmingUp && !isLoading && !isComplete;
+    let button;
+    switch(action) {
+      case 'Left Comment':
+        button = <Button variant="outline" size="sm" className="w-full" onClick={() => onGenerateComment(currentProspect!)} disabled={!isClickable}><Icon className="mr-2 h-4 w-4"/>Leave Comment</Button>;
+        break;
+      case 'Replied to Story':
+        button = <Button variant="outline" size="sm" className="w-full" onClick={() => onViewConversation(currentProspect!)} disabled={!isClickable}><Icon className="mr-2 h-4 w-4"/>Reply to Story / Start DM</Button>;
+        break;
+      default:
+        button = <Button variant="outline" size="sm" className="w-full" onClick={() => handleLogActivity(action)} disabled={!isClickable}><Icon className="mr-2 h-4 w-4"/>Log '{title}'</Button>;
+    }
+
+    return (
+    <div className={cn("flex items-start gap-4 transition-opacity", !isNext && !isComplete && "opacity-50")}>
       <div className="flex flex-col items-center">
         <div className={cn(
-          "h-8 w-8 rounded-full flex items-center justify-center border-2",
-          isComplete ? "bg-primary border-primary text-primary-foreground" : "bg-muted border-border"
+          "h-8 w-8 rounded-full flex items-center justify-center border-2 transition-colors",
+          isComplete ? "bg-primary border-primary text-primary-foreground" : 
+          isNext ? "bg-primary/20 border-primary" :
+          "bg-muted border-border"
         )}>
-          {isComplete ? <Check className="h-5 w-5" /> : <span className="font-bold">{stepNumber}</span>}
+          {isComplete ? <Check className="h-5 w-5" /> : <span className={cn("font-bold", isNext && "text-primary")}>{stepNumber}</span>}
         </div>
-        {stepNumber < 3 && <div className="w-0.5 h-16 bg-border mt-1"></div>}
+        {stepNumber < warmUpSteps.length && <div className="w-0.5 h-16 bg-border mt-1"></div>}
       </div>
       <div className="flex-1 mt-1">
         <h4 className="font-semibold">{title}</h4>
         <p className="text-xs text-muted-foreground mb-3">{description}</p>
-        <div className={cn("space-y-2", isComplete && "opacity-60 pointer-events-none")}>
-            {children}
+        <div className={cn(isComplete && "opacity-60 pointer-events-none")}>
+            {button}
         </div>
       </div>
     </div>
-  );
+  )};
 
   return (
     <>
@@ -164,6 +207,23 @@ export function WarmUpDialog({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteActivity}>Delete</AlertDialogAction>
           </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+       <AlertDialog open={showCompleteConfirmation} onOpenChange={setShowCompleteConfirmation}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Warm-Up Complete!</AlertDialogTitle>
+                <AlertDialogDescription>
+                    You have completed all warm-up steps for {currentProspect?.name}. Do you want to advance their status to "Cold" to begin outreach?
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Not Now</AlertDialogCancel>
+                <AlertDialogAction onClick={handleAdvanceStatus}>
+                    <ArrowRight className="mr-2 h-4 w-4" /> Advance Status
+                </AlertDialogAction>
+            </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
@@ -183,7 +243,7 @@ export function WarmUpDialog({
               <CardHeader className="pb-4">
                 <div className="flex justify-between items-center">
                     <CardTitle className="text-base">Warm-Up Progress</CardTitle>
-                    <span className="font-bold text-lg">{progress}%</span>
+                    <span className="font-bold text-lg">{Math.round(progress)}%</span>
                 </div>
                 <Progress value={progress} className="mt-2 h-2" />
               </CardHeader>
@@ -199,18 +259,18 @@ export function WarmUpDialog({
               )}
 
             <div className="space-y-0">
-               <StepCard stepNumber={1} title="Silent Engagement" description="Make your name a familiar, non-threatening presence." isComplete={hasLiked && hasViewedStory}>
-                 <div className="grid grid-cols-2 gap-2">
-                    <Button variant="outline" size="sm" onClick={() => handleLogActivity('Liked Posts')} disabled={!isWarmingUp || isLoading || hasLiked}><Heart className="mr-2 h-4 w-4"/>Like Posts</Button>
-                    <Button variant="outline" size="sm" onClick={() => handleLogActivity('Viewed Story')} disabled={!isWarmingUp || isLoading || hasViewedStory}><Eye className="mr-2 h-4 w-4"/>View Story</Button>
-                 </div>
-               </StepCard>
-               <StepCard stepNumber={2} title="Value Engagement" description="Establish yourself as an expert peer who adds value." isComplete={hasCommented}>
-                 <Button variant="outline" size="sm" className="w-full" onClick={() => onGenerateComment(currentProspect!)} disabled={!isWarmingUp || isLoading || hasCommented}><MessageCircleIcon className="mr-2 h-4 w-4"/>Leave Comment</Button>
-               </StepCard>
-               <StepCard stepNumber={3} title="Private Engagement" description="Move the interaction to the DMs in a warm way." isComplete={hasReplied}>
-                <Button variant="outline" size="sm" className="w-full" onClick={() => onViewConversation(currentProspect!)} disabled={!isWarmingUp || isLoading || hasReplied}><MessageSquare className="mr-2 h-4 w-4"/>Reply to Story / Start DM</Button>
-               </StepCard>
+               {warmUpSteps.map((step, index) => (
+                   <StepCard
+                    key={step.action}
+                    stepNumber={index + 1}
+                    title={step.title}
+                    description={step.description}
+                    action={step.action}
+                    icon={step.icon}
+                    isComplete={completedActions.has(step.action)}
+                    isNext={nextAction === step.action}
+                   />
+               ))}
             </div>
             
              <Accordion type="single" collapsible>
@@ -219,8 +279,8 @@ export function WarmUpDialog({
                     <AccordionContent>
                          <ScrollArea className="h-32 border bg-muted/30 rounded-md p-2">
                             <div className="space-y-2 text-xs">
-                            {activities.length > 0 ? (
-                                activities.slice().reverse().map((activity) => (
+                            {(currentProspect?.warmUp || []).length > 0 ? (
+                                (currentProspect?.warmUp || []).slice().reverse().map((activity) => (
                                 <div key={activity.id} className="flex justify-between items-center p-1.5 bg-background rounded-md group">
                                     <p className="font-medium">{activity.action}</p>
                                     <div className="flex items-center gap-2">
