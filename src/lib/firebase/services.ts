@@ -593,7 +593,7 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
 
     const [followUpSnapshot, needsQualifierSnapshot, warmingUpSnapshot] = await Promise.all([
         getDocs(followUpQuery),
-        getDocs(needsQualifierSnapshot),
+        getDocs(needsQualifierQuery),
         getDocs(warmingUpQuery),
     ]);
 
