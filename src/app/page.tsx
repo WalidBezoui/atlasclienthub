@@ -2,7 +2,7 @@
 
 'use client';
 import React, { useEffect, useState, useCallback } from 'react';
-import { LayoutDashboard, Users, Flame, UserCheck, PlusCircle, BarChart3, CheckSquare, Clock, FileQuestion, Send, UserRound, ListChecks, ArrowRight, UserPlus, Eye, MessageCircle } from 'lucide-react';
+import { LayoutDashboard, Users, Flame, UserCheck, PlusCircle, BarChart3, CheckSquare, Clock, FileQuestion, Send, UserRound, ListChecks, ArrowRight, UserPlus, Eye, MessageCircle, MoreVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
@@ -12,13 +12,20 @@ import { ChartConfig, ChartContainer, ChartTooltipContent } from '@/components/u
 import { useAuth } from '@/hooks/useAuth';
 import { getDashboardOverview, getMonthlyActivityData, getDailyAgendaItems, getWarmUpPipelineData } from '@/lib/firebase/services';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
-import type { MonthlyActivity, AgendaItem, WarmUpPipelineData } from '@/lib/types';
+import type { MonthlyActivity, AgendaItem, WarmUpPipelineData, WarmUpPipelineItem } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
-import { format, subMonths, formatDistanceToNow, isPast } from 'date-fns';
+import { format, subMonths, formatDistanceToNow, isPast, isToday } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { Separator } from '@/components/ui/separator';
+import { Progress } from '@/components/ui/progress';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const initialOverviewData = {
   activeClients: 0,
@@ -31,9 +38,7 @@ const initialChartData: MonthlyActivity[] = Array(6).fill(null).map((_, i) => ({
 
 const initialWarmUpData: WarmUpPipelineData = {
     totalInWarmUp: 0,
-    justStarted: [],
-    inProgress: [],
-    nearingEnd: []
+    pipeline: [],
 };
 
 const chartConfig = {
@@ -119,6 +124,52 @@ const DashboardSkeleton = () => (
         </div>
     </div>
 );
+
+const WarmUpPipelineCard = ({ item }: { item: WarmUpPipelineItem }) => {
+  const router = useRouter();
+  const outreachLink = `/outreach?q=${encodeURIComponent(item.instagramHandle || item.name)}`;
+
+  const getUrgencyBadge = (): { text: string; variant: "destructive" | "secondary" | "outline" } => {
+    if (!item.nextActionDue) return { text: "Next", variant: "secondary" };
+    const dueDate = new Date(item.nextActionDue);
+    if (isPast(dueDate) && !isToday(dueDate)) return { text: "Overdue", variant: "destructive" };
+    if (isToday(dueDate)) return { text: "Due Today", variant: "destructive" };
+    return { text: `Due ${formatDistanceToNow(dueDate, { addSuffix: true })}`, variant: "outline" };
+  };
+
+  const { text, variant } = getUrgencyBadge();
+
+  return (
+    <div className="p-3 bg-card border rounded-lg shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex justify-between items-start">
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold truncate text-sm">{item.name}</p>
+          <p className="text-xs text-muted-foreground truncate">@{item.instagramHandle || 'N/A'}</p>
+        </div>
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7 -mr-2 -mt-1"><MoreVertical className="h-4 w-4"/></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => router.push(outreachLink)}>View on Outreach Page</DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      <div className="mt-2 space-y-1.5">
+        <div className="text-xs flex justify-between items-center">
+            <span className="font-medium text-muted-foreground">Progress</span>
+            <span className="font-semibold">{Math.round(item.progress)}%</span>
+        </div>
+        <Progress value={item.progress} className="h-1.5"/>
+        <div className="text-xs flex justify-between pt-1">
+            <span className="text-muted-foreground">Next: <span className="font-medium text-foreground">{item.nextAction}</span></span>
+            <Badge variant={variant} className="text-xs">{text}</Badge>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
@@ -260,52 +311,23 @@ export default function DashboardPage() {
                 <MessageCircle className="mr-3 h-5 w-5 text-primary" /> Warm-Up Pipeline ({warmUpData.totalInWarmUp})
             </CardTitle>
             <CardDescription>
-                A glance at all prospects currently in your warm-up sequence.
+                A real-time overview of prospects in the warm-up sequence, prioritized by urgency.
             </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="space-y-2">
-                <h4 className="font-semibold text-sm flex items-center">
-                   <UserPlus className="h-4 w-4 mr-2 text-muted-foreground"/> Just Started ({warmUpData.justStarted.length})
-                </h4>
-                <Separator />
-                <div className="space-y-1 text-sm">
-                   {warmUpData.justStarted.length > 0 ? warmUpData.justStarted.map(p => (
-                       <Link href={`/outreach?q=${encodeURIComponent(p.instagramHandle || p.name)}`} key={p.id} className="flex justify-between items-center p-1.5 rounded-md hover:bg-muted group">
-                           <span>{p.name}</span>
-                           <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                       </Link>
-                   )) : <p className="text-xs text-muted-foreground py-2">No prospects in this stage.</p>}
+        <CardContent>
+            {warmUpData.pipeline.length > 0 ? (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {warmUpData.pipeline.map(item => (
+                        <WarmUpPipelineCard key={item.id} item={item} />
+                    ))}
                 </div>
-            </div>
-             <div className="space-y-2">
-                <h4 className="font-semibold text-sm flex items-center">
-                   <Eye className="h-4 w-4 mr-2 text-muted-foreground"/> In Progress ({warmUpData.inProgress.length})
-                </h4>
-                <Separator />
-                <div className="space-y-1 text-sm">
-                   {warmUpData.inProgress.length > 0 ? warmUpData.inProgress.map(p => (
-                       <Link href={`/outreach?q=${encodeURIComponent(p.instagramHandle || p.name)}`} key={p.id} className="flex justify-between items-center p-1.5 rounded-md hover:bg-muted group">
-                           <span>{p.name}</span>
-                           <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                       </Link>
-                   )) : <p className="text-xs text-muted-foreground py-2">No prospects in this stage.</p>}
+            ) : (
+                <div className="text-center py-10 text-muted-foreground">
+                    <Flame className="mx-auto h-12 w-12" />
+                    <p className="mt-4 font-semibold">Warm-up pipeline is empty</p>
+                    <p className="text-sm">Add prospects and set their status to "Warming Up" to see them here.</p>
                 </div>
-            </div>
-             <div className="space-y-2">
-                <h4 className="font-semibold text-sm flex items-center">
-                   <Send className="h-4 w-4 mr-2 text-muted-foreground"/> Nearing End ({warmUpData.nearingEnd.length})
-                </h4>
-                <Separator />
-                 <div className="space-y-1 text-sm">
-                   {warmUpData.nearingEnd.length > 0 ? warmUpData.nearingEnd.map(p => (
-                       <Link href={`/outreach?q=${encodeURIComponent(p.instagramHandle || p.name)}`} key={p.id} className="flex justify-between items-center p-1.5 rounded-md hover:bg-muted group">
-                           <span>{p.name}</span>
-                           <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                       </Link>
-                   )) : <p className="text-xs text-muted-foreground py-2">No prospects in this stage.</p>}
-                </div>
-            </div>
+            )}
         </CardContent>
        </Card>
     </div>

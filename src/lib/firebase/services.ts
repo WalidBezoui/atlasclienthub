@@ -18,9 +18,9 @@ import {
   limit,
   arrayUnion,
 } from 'firebase/firestore';
-import { subMonths, format, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, isToday } from 'date-fns';
+import { subMonths, format, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, isToday, isPast } from 'date-fns';
 
-import type { Client, InstagramAudit, OutreachProspect, MonthlyActivity, OutreachLeadStage, AgendaItem, StatusHistoryItem, WarmUpActivity, WarmUpPipelineData } from '@/lib/types';
+import type { Client, InstagramAudit, OutreachProspect, MonthlyActivity, OutreachLeadStage, AgendaItem, StatusHistoryItem, WarmUpActivity, WarmUpPipelineData, WarmUpAction } from '@/lib/types';
 
 // Generic function to get current user ID
 const getCurrentUserId = (): string | null => {
@@ -643,8 +643,8 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
             }
 
             const actions = new Set(prospect.warmUp?.map(a => a.action));
-            let nextAction = "Like Posts";
-            if (actions.has('Liked Posts')) nextAction = "View Story";
+            let nextAction = "Liked Posts";
+            if (actions.has('Liked Posts')) nextAction = "Viewed Story";
             if (actions.has('Viewed Story')) nextAction = "Left Comment";
             if (actions.has('Left Comment')) nextAction = "Replied to Story";
             if (actions.has('Replied to Story')) return; // All warm up actions complete
@@ -761,46 +761,54 @@ export const getWarmUpPipelineData = async (): Promise<WarmUpPipelineData> => {
   if (!userId) {
     return {
       totalInWarmUp: 0,
-      justStarted: [],
-      inProgress: [],
-      nearingEnd: [],
+      pipeline: [],
     };
   }
 
   const q = query(prospectsCollection, where('userId', '==', userId), where('status', '==', 'Warming Up'));
   const snapshot = await getDocs(q);
 
-  const pipelineData: WarmUpPipelineData = {
-    totalInWarmUp: snapshot.size,
-    justStarted: [],
-    inProgress: [],
-    nearingEnd: [],
-  };
+  const pipeline: WarmUpPipelineData['pipeline'] = [];
 
   snapshot.docs.forEach(doc => {
     const prospect = doc.data() as OutreachProspect;
-    const completedActions = new Set((prospect.warmUp || []).map(a => a.action)).size;
-    const prospectInfo = {
-      id: doc.id,
-      name: prospect.name,
-      instagramHandle: prospect.instagramHandle,
-    };
+    const activities = new Set((prospect.warmUp || []).map(a => a.action));
+    
+    let nextAction: WarmUpAction | 'Done' = 'Liked Posts';
+    if (activities.has('Liked Posts')) nextAction = 'Viewed Story';
+    if (activities.has('Viewed Story')) nextAction = 'Left Comment';
+    if (activities.has('Left Comment')) nextAction = 'Replied to Story';
+    if (activities.has('Replied to Story')) nextAction = 'Done';
+    
+    const lastActivity = prospect.warmUp?.[prospect.warmUp?.length - 1];
 
-    if (completedActions <= 1) {
-      pipelineData.justStarted.push(prospectInfo);
-    } else if (completedActions <= 2) {
-      pipelineData.inProgress.push(prospectInfo);
-    } else {
-      pipelineData.nearingEnd.push(prospectInfo);
-    }
+    pipeline.push({
+        id: doc.id,
+        name: prospect.name,
+        instagramHandle: prospect.instagramHandle,
+        progress: (activities.size / 4) * 100,
+        nextAction: nextAction,
+        nextActionDue: lastActivity?.nextActionDue,
+    });
   });
   
-  // Limit to 5 per category for a clean UI
-  pipelineData.justStarted = pipelineData.justStarted.slice(0, 5);
-  pipelineData.inProgress = pipelineData.inProgress.slice(0, 5);
-  pipelineData.nearingEnd = pipelineData.nearingEnd.slice(0, 5);
+  // Sort by urgency: overdue first, then by due date
+  pipeline.sort((a, b) => {
+    const aDate = a.nextActionDue ? new Date(a.nextActionDue) : new Date();
+    const bDate = b.nextActionDue ? new Date(b.nextActionDue) : new Date();
+    const aIsOverdue = a.nextActionDue ? isPast(aDate) : false;
+    const bIsOverdue = b.nextActionDue ? isPast(bDate) : false;
 
-  return pipelineData;
+    if (aIsOverdue && !bIsOverdue) return -1;
+    if (!aIsOverdue && bIsOverdue) return 1;
+    
+    return aDate.getTime() - bDate.getTime();
+  });
+
+  return {
+    totalInWarmUp: snapshot.size,
+    pipeline: pipeline,
+  };
 };
 
 
@@ -831,3 +839,4 @@ export const updateMissingProspectTimestamps = async (): Promise<number> => {
 
     return updatedCount;
 };
+

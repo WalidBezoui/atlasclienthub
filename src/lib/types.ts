@@ -192,9 +192,16 @@ export type MonthlyActivity = {
   prospects: number;
 };
 
+export type WarmUpPipelineItem = {
+    id: string;
+    name: string;
+    instagramHandle?: string | null;
+    progress: number;
+    nextAction: WarmUpAction | 'Done';
+    nextActionDue?: string; // ISO Date string
+}
+
 export type WarmUpPipelineData = {
   totalInWarmUp: number;
-  justStarted: Pick<OutreachProspect, 'id' | 'name' | 'instagramHandle'>[];
-  inProgress: Pick<OutreachProspect, 'id' | 'name' | 'instagramHandle'>[];
-  nearingEnd: Pick<OutreachProspect, 'id' | 'name' | 'instagramHandle'>[];
+  pipeline: WarmUpPipelineItem[];
 };
