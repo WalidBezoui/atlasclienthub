@@ -40,8 +40,8 @@ export const TONE_PREFERENCES = ["Friendly & casual", "Confident & professional"
 export type TonePreference = typeof TONE_PREFERENCES[number];
 
 // Refined Lead Stages for Outreach
-export type OutreachLeadStage = "To Contact" | "Warming Up" | "Cold" | "Warm" | "Replied" | "Interested" | "Qualifier Sent" | "Ready for Audit" | "Audit Delivered" | "Closed - Won" | "Closed - Lost" | "Not Interested";
-export const OUTREACH_LEAD_STAGE_OPTIONS: OutreachLeadStage[] = ["To Contact", "Warming Up", "Cold", "Warm", "Replied", "Interested", "Qualifier Sent", "Ready for Audit", "Audit Delivered", "Closed - Won", "Closed - Lost", "Not Interested"];
+export type OutreachLeadStage = "To Contact" | "Warming Up" | "Cold" | "Warm" | "Replied" | "Interested" | "Qualifier Sent" | "Ready for Audit" | "Audit Delivered" | "Quote Sent" | "Quote Delivered" | "Closed - Won" | "Closed - Lost" | "Not Interested";
+export const OUTREACH_LEAD_STAGE_OPTIONS: OutreachLeadStage[] = ["To Contact", "Warming Up", "Cold", "Warm", "Replied", "Interested", "Qualifier Sent", "Ready for Audit", "Audit Delivered", "Quote Sent", "Quote Delivered", "Closed - Won", "Closed - Lost", "Not Interested"];
 
 export const COMMENT_TYPES = ["Value-add", "Question", "Compliment", "Story-based"] as const;
 export type CommentType = typeof COMMENT_TYPES[number];

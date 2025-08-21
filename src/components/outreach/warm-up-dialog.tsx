@@ -71,6 +71,7 @@ export function WarmUpDialog({
       id: crypto.randomUUID(), 
       action, 
       date: now.toISOString(),
+      nextActionDue: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(), // Schedule next action in 2 days
     };
     const updatedWarmUp = [...(currentProspect.warmUp || []), newActivity];
 
@@ -83,7 +84,7 @@ export function WarmUpDialog({
 
       // Check if all steps are complete
       const completedActions = new Set(updatedWarmUp.map(a => a.action));
-      if (completedActions.size === warmUpSteps.length) {
+      if (completedActions.size >= warmUpSteps.length) {
           setShowCompleteConfirmation(true);
       }
 
@@ -171,7 +172,7 @@ export function WarmUpDialog({
     }
 
     return (
-    <div className={cn("flex items-start gap-4 transition-opacity", !isNext && !isComplete && "opacity-50")}>
+    <div className={cn("flex items-start gap-4 transition-all", !isNext && !isComplete && "opacity-50", isNext && "bg-primary/5 p-3 rounded-lg -mx-3")}>
       <div className="flex flex-col items-center">
         <div className={cn(
           "h-8 w-8 rounded-full flex items-center justify-center border-2 transition-colors",

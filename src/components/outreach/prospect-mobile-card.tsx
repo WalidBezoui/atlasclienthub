@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React from 'react';
@@ -58,7 +59,7 @@ const ProspectMobileCard = React.memo(({
     const getStatusBadgeVariant = (status: OutreachLeadStage): "default" | "secondary" | "outline" | "destructive" => {
         switch (status) {
             case 'Closed - Won': case 'Audit Delivered': case 'Ready for Audit': case 'Replied': case 'Interested': return 'default';
-            case 'Warming Up': case 'Warm': case 'Qualifier Sent': return 'secondary';
+            case 'Warming Up': case 'Warm': case 'Qualifier Sent': case 'Quote Sent': case 'Quote Delivered': return 'secondary';
             case 'Cold': case 'To Contact': return 'outline';
             case 'Closed - Lost': case 'Not Interested': return 'destructive';
             default: return 'default';
@@ -66,10 +67,9 @@ const ProspectMobileCard = React.memo(({
     };
     
     const calculateWarmUpProgress = (prospect: OutreachProspect): number => {
-      const activities = prospect.warmUp || [];
-      const uniqueActions = new Set(activities.map(a => a.action));
+      const activities = new Set((prospect.warmUp || []).map(a => a.action));
       // There are 4 unique actions in the warm-up sequence.
-      return (uniqueActions.size / 4) * 100;
+      return (activities.size / 4) * 100;
     };
 
     const lastWarmUpActivity = prospect.warmUp?.[(prospect.warmUp?.length || 0) - 1];
