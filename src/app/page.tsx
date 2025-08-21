@@ -32,6 +32,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Dialog, DialogContent, DialogFooter, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ConversationTracker } from '@/components/outreach/conversation-tracker';
 import { generateContextualScript, type GenerateContextualScriptInput } from '@/ai/flows/generate-contextual-script';
+import { WarmUpDialog } from '@/components/outreach/warm-up-dialog';
+import { CommentGeneratorDialog } from '@/components/outreach/CommentGeneratorDialog';
 
 
 const initialOverviewData = {
@@ -138,13 +140,13 @@ const WarmUpDashboardCard = ({
   item,
   onLogActivity,
   onViewConversation,
+  onOpenWarmUpDialog,
 }: {
   item: WarmUpPipelineItem;
   onLogActivity: (prospectId: string, action: WarmUpAction) => void;
   onViewConversation: (prospect: OutreachProspect) => void;
+  onOpenWarmUpDialog: (prospect: WarmUpPipelineItem) => void;
 }) => {
-  const router = useRouter();
-  const outreachLink = `/outreach?q=${encodeURIComponent(item.instagramHandle || item.name)}`;
   
   const getUrgencyBadge = (): { text: string; variant: "destructive" | "secondary" | "outline" } => {
     if (!item.nextActionDue) return { text: "Next", variant: "secondary" };
@@ -174,10 +176,10 @@ const WarmUpDashboardCard = ({
   ];
 
   return (
-    <div className="p-3 bg-card border rounded-lg shadow-sm hover:shadow-md transition-shadow">
+    <div className="p-3 bg-card border rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={() => onOpenWarmUpDialog(item)}>
       <div className="flex justify-between items-start">
-        <div className="flex-1 min-w-0" onClick={() => router.push(outreachLink)}>
-          <p className="font-semibold truncate text-sm hover:underline cursor-pointer">{item.name}</p>
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold truncate text-sm hover:underline">{item.name}</p>
           <p className="text-xs text-muted-foreground truncate">@{item.instagramHandle || 'N/A'}</p>
         </div>
          <TooltipProvider>
@@ -187,6 +189,7 @@ const WarmUpDashboardCard = ({
                      const isNextAction = item.nextAction === action;
 
                      const handleClick = (e: React.MouseEvent) => {
+                        e.stopPropagation();
                         if (isDone) return;
                         if (isDmAction) {
                             handleViewConversationClick(e);
@@ -246,6 +249,14 @@ export default function DashboardPage() {
   const [currentProspectForConversation, setCurrentProspectForConversation] = useState<OutreachProspect | null>(null);
   const [conversationHistoryContent, setConversationHistoryContent] = useState<string | null>(null);
   const [isSavingConversation, setIsSavingConversation] = useState(false);
+  
+  // State for WarmUpDialog
+  const [isWarmUpOpen, setIsWarmUpOpen] = useState(false);
+  const [editingProspect, setEditingProspect] = useState<OutreachProspect | null>(null);
+  
+  // State for CommentGeneratorDialog
+  const [isCommentGeneratorOpen, setIsCommentGeneratorOpen] = useState(false);
+  const [prospectForComment, setProspectForComment] = useState<OutreachProspect | null>(null);
 
   const fetchDashboardData = useCallback(async () => {
     if (!user) return;
@@ -321,7 +332,7 @@ export default function DashboardPage() {
     }
   }, [warmUpData, toast, fetchDashboardData]);
 
-  const handleOpenConversationModal = useCallback(async (prospect: OutreachProspect) => {
+  const handleOpenConversationModal = useCallback(async (prospect: OutreachProspect | WarmUpPipelineItem) => {
     const allProspects = await getProspects();
     const fullProspect = allProspects.find(p => p.id === prospect.id);
     if (fullProspect) {
@@ -418,6 +429,39 @@ export default function DashboardPage() {
     }
   }, [toast]);
   
+  const handleOpenWarmUpDialog = async (item: WarmUpPipelineItem) => {
+    const allProspects = await getProspects();
+    const fullProspect = allProspects.find(p => p.id === item.id);
+    if (fullProspect) {
+      setEditingProspect(fullProspect);
+      setIsWarmUpOpen(true);
+    } else {
+      toast({ title: "Error", description: "Could not load full prospect details.", variant: "destructive" });
+    }
+  };
+  
+  const handleWarmUpActivityLogged = (updatedProspect: OutreachProspect) => {
+    if (editingProspect && editingProspect.id === updatedProspect.id) {
+        setEditingProspect(updatedProspect);
+    }
+    fetchDashboardData();
+  };
+
+  const handleOpenCommentGenerator = (prospect: OutreachProspect) => {
+    setProspectForComment(prospect);
+    setIsCommentGeneratorOpen(true);
+  };
+  
+  const handleStatusChange = async (id: string, newStatus: OutreachLeadStage) => {
+     if (!user) return;
+     try {
+       await updateProspect(id, { status: newStatus });
+       fetchDashboardData();
+     } catch (error) {
+       toast({ title: 'Error updating status', variant: 'destructive' });
+     }
+  };
+
 
   const displayOverviewData = [
     { metric: 'Active Clients', value: overviewData.activeClients, icon: Users, color: 'text-green-500', bgColor: 'bg-green-100 dark:bg-green-900/50' },
@@ -469,6 +513,23 @@ export default function DashboardPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+       <WarmUpDialog
+          isOpen={isWarmUpOpen}
+          onClose={() => setIsWarmUpOpen(false)}
+          prospect={editingProspect}
+          onActivityLogged={handleWarmUpActivityLogged}
+          onGenerateComment={handleOpenCommentGenerator}
+          onViewConversation={handleOpenConversationModal}
+          onStatusChange={handleStatusChange}
+        />
+        
+        <CommentGeneratorDialog
+            isOpen={isCommentGeneratorOpen}
+            onClose={() => setIsCommentGeneratorOpen(false)}
+            prospect={prospectForComment}
+            onCommentAdded={handleWarmUpActivityLogged}
+        />
 
 
        <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
@@ -559,17 +620,17 @@ export default function DashboardPage() {
                     <div className="mt-4">
                         <TabsContent value="urgent">
                             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                                {warmUpData.urgent.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onViewConversation={handleOpenConversationModal} />)}
+                                {warmUpData.urgent.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onViewConversation={handleOpenConversationModal} onOpenWarmUpDialog={handleOpenWarmUpDialog} />)}
                             </div>
                         </TabsContent>
                         <TabsContent value="upcoming">
                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                                {warmUpData.upcoming.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onViewConversation={handleOpenConversationModal} />)}
+                                {warmUpData.upcoming.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onViewConversation={handleOpenConversationModal} onOpenWarmUpDialog={handleOpenWarmUpDialog} />)}
                             </div>
                         </TabsContent>
                         <TabsContent value="justStarted">
                             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                                {warmUpData.justStarted.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onViewConversation={handleOpenConversationModal} />)}
+                                {warmUpData.justStarted.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onViewConversation={handleOpenConversationModal} onOpenWarmUpDialog={handleOpenWarmUpDialog} />)}
                             </div>
                         </TabsContent>
                     </div>
