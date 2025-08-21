@@ -47,9 +47,9 @@ const initialChartData: MonthlyActivity[] = Array(6).fill(null).map((_, i) => ({
 
 const initialWarmUpData: WarmUpPipelineData = {
     totalInWarmUp: 0,
-    urgent: [],
+    overdue: [],
+    dueToday: [],
     upcoming: [],
-    justStarted: [],
 };
 
 const chartConfig = {
@@ -299,9 +299,9 @@ export default function DashboardPage() {
 
     setWarmUpData(prev => ({
       ...prev,
-      urgent: updatePipeline(prev.urgent),
+      overdue: updatePipeline(prev.overdue),
+      dueToday: updatePipeline(prev.dueToday),
       upcoming: updatePipeline(prev.upcoming),
-      justStarted: updatePipeline(prev.justStarted),
     }));
 
     try {
@@ -606,31 +606,31 @@ export default function DashboardPage() {
                 <MessageCircleIcon className="mr-3 h-5 w-5 text-primary" /> Warm-Up Command Center ({warmUpData.totalInWarmUp})
             </CardTitle>
             <CardDescription>
-                A smart, categorized view of your warm-up pipeline with quick actions.
+                A smart, prioritized view of your warm-up pipeline with quick actions.
             </CardDescription>
         </CardHeader>
         <CardContent>
             {warmUpData.totalInWarmUp > 0 ? (
-                <Tabs defaultValue="urgent">
+                <Tabs defaultValue="dueToday">
                     <TabsList className="grid w-full grid-cols-3">
-                        <TabsTrigger value="urgent">Urgent <Badge variant="destructive" className="ml-2">{warmUpData.urgent.length}</Badge></TabsTrigger>
-                        <TabsTrigger value="upcoming">Upcoming <Badge variant="secondary" className="ml-2">{warmUpData.upcoming.length}</Badge></TabsTrigger>
-                        <TabsTrigger value="justStarted">Just Started <Badge variant="outline" className="ml-2">{warmUpData.justStarted.length}</Badge></TabsTrigger>
+                        <TabsTrigger value="dueToday">Due Today <Badge variant="secondary" className="ml-2">{warmUpData.dueToday.length}</Badge></TabsTrigger>
+                        <TabsTrigger value="overdue">Overdue <Badge variant="destructive" className="ml-2">{warmUpData.overdue.length}</Badge></TabsTrigger>
+                        <TabsTrigger value="upcoming">Upcoming <Badge variant="outline" className="ml-2">{warmUpData.upcoming.length}</Badge></TabsTrigger>
                     </TabsList>
                     <div className="mt-4">
-                        <TabsContent value="urgent">
+                         <TabsContent value="dueToday">
                             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                                {warmUpData.urgent.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onViewConversation={handleOpenConversationModal} onOpenWarmUpDialog={handleOpenWarmUpDialog} />)}
+                                {warmUpData.dueToday.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onViewConversation={handleOpenConversationModal} onOpenWarmUpDialog={handleOpenWarmUpDialog} />)}
+                            </div>
+                        </TabsContent>
+                        <TabsContent value="overdue">
+                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                                {warmUpData.overdue.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onViewConversation={handleOpenConversationModal} onOpenWarmUpDialog={handleOpenWarmUpDialog} />)}
                             </div>
                         </TabsContent>
                         <TabsContent value="upcoming">
                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                                 {warmUpData.upcoming.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onViewConversation={handleOpenConversationModal} onOpenWarmUpDialog={handleOpenWarmUpDialog} />)}
-                            </div>
-                        </TabsContent>
-                        <TabsContent value="justStarted">
-                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                                {warmUpData.justStarted.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onViewConversation={handleOpenConversationModal} onOpenWarmUpDialog={handleOpenWarmUpDialog} />)}
                             </div>
                         </TabsContent>
                     </div>

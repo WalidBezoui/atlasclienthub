@@ -204,7 +204,7 @@ export type WarmUpPipelineItem = {
 
 export type WarmUpPipelineData = {
   totalInWarmUp: number;
-  urgent: WarmUpPipelineItem[];
+  overdue: WarmUpPipelineItem[];
+  dueToday: WarmUpPipelineItem[];
   upcoming: WarmUpPipelineItem[];
-  justStarted: WarmUpPipelineItem[];
 };

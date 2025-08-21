@@ -655,7 +655,7 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
                 description: `Next action: ${nextAction}`,
                 dueDate: lastActivity.nextActionDue,
             });
-            processedIds.add(doc.id);
+            processedIds.add(prospect.id);
         });
 
     return agendaItems;
@@ -759,18 +759,20 @@ export const getMonthlyActivityData = async (): Promise<MonthlyActivity[]> => {
 export const getWarmUpPipelineData = async (): Promise<WarmUpPipelineData> => {
   const userId = getCurrentUserId();
   if (!userId) {
-    return { totalInWarmUp: 0, urgent: [], upcoming: [], justStarted: [] };
+    return { totalInWarmUp: 0, overdue: [], dueToday: [], upcoming: [] };
   }
 
   const q = query(prospectsCollection, where('userId', '==', userId), where('status', '==', 'Warming Up'));
   const snapshot = await getDocs(q);
 
-  const todayEnd = endOfDay(new Date());
+  const now = new Date();
+  const todayStart = startOfDay(now);
+  const todayEnd = endOfDay(now);
 
-  const categorizedData: { urgent: any[], upcoming: any[], justStarted: any[] } = {
-    urgent: [],
+  const categorizedData: { overdue: any[], dueToday: any[], upcoming: any[] } = {
+    overdue: [],
+    dueToday: [],
     upcoming: [],
-    justStarted: [],
   };
 
   snapshot.docs.forEach(doc => {
@@ -784,6 +786,8 @@ export const getWarmUpPipelineData = async (): Promise<WarmUpPipelineData> => {
     if (actionsSet.has('Left Comment')) nextAction = 'Replied to Story';
     if (actionsSet.has('Replied to Story')) nextAction = 'Done';
     
+    if (nextAction === 'Done') return; // Skip if all actions are complete
+
     const lastActivity = prospect.warmUp?.[prospect.warmUp.length - 1];
 
     const pipelineItem = {
@@ -798,15 +802,19 @@ export const getWarmUpPipelineData = async (): Promise<WarmUpPipelineData> => {
     
     const dueDate = pipelineItem.nextActionDue ? new Date(pipelineItem.nextActionDue) : null;
     
-    if (pipelineItem.progress === 0 && !dueDate) {
-        categorizedData.justStarted.push(pipelineItem);
-    } else if (dueDate && dueDate <= todayEnd) {
-      categorizedData.urgent.push(pipelineItem);
-    } else if (dueDate) {
-      categorizedData.upcoming.push(pipelineItem);
+    if (!dueDate) {
+        // If no due date, it's considered due today if no actions have been taken
+        if (pipelineItem.progress === 0) {
+           categorizedData.dueToday.push(pipelineItem);
+        } else {
+           categorizedData.upcoming.push(pipelineItem);
+        }
+    } else if (isPast(dueDate) && !isToday(dueDate)) {
+      categorizedData.overdue.push(pipelineItem);
+    } else if (isToday(dueDate)) {
+      categorizedData.dueToday.push(pipelineItem);
     } else {
-      // Catch-all for prospects with some progress but no due date (edge case)
-      categorizedData.justStarted.push(pipelineItem);
+      categorizedData.upcoming.push(pipelineItem);
     }
   });
   
@@ -817,9 +825,9 @@ export const getWarmUpPipelineData = async (): Promise<WarmUpPipelineData> => {
       return aDate - bDate;
   };
 
-  categorizedData.urgent.sort(sortByUrgency);
+  categorizedData.overdue.sort(sortByUrgency);
+  categorizedData.dueToday.sort(sortByUrgency);
   categorizedData.upcoming.sort(sortByUrgency);
-  categorizedData.justStarted.sort(sortByUrgency);
 
   return {
     totalInWarmUp: snapshot.size,
