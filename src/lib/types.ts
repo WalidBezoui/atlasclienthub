@@ -191,3 +191,10 @@ export type MonthlyActivity = {
   audits: number;
   prospects: number;
 };
+
+export type WarmUpPipelineData = {
+  totalInWarmUp: number;
+  justStarted: Pick<OutreachProspect, 'id' | 'name' | 'instagramHandle'>[];
+  inProgress: Pick<OutreachProspect, 'id' | 'name' | 'instagramHandle'>[];
+  nearingEnd: Pick<OutreachProspect, 'id' | 'name' | 'instagramHandle'>[];
+};

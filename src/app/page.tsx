@@ -2,7 +2,7 @@
 
 'use client';
 import React, { useEffect, useState, useCallback } from 'react';
-import { LayoutDashboard, Users, Flame, UserCheck, PlusCircle, BarChart3, CheckSquare, Clock, FileQuestion, Send, UserRound, ListChecks } from 'lucide-react';
+import { LayoutDashboard, Users, Flame, UserCheck, PlusCircle, BarChart3, CheckSquare, Clock, FileQuestion, Send, UserRound, ListChecks, ArrowRight, UserPlus, Eye, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
@@ -10,14 +10,15 @@ import Link from 'next/link';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip as ChartTooltip, Legend } from 'recharts';
 import { ChartConfig, ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import { useAuth } from '@/hooks/useAuth';
-import { getDashboardOverview, getMonthlyActivityData, getDailyAgendaItems } from '@/lib/firebase/services';
+import { getDashboardOverview, getMonthlyActivityData, getDailyAgendaItems, getWarmUpPipelineData } from '@/lib/firebase/services';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
-import type { MonthlyActivity, AgendaItem } from '@/lib/types';
+import type { MonthlyActivity, AgendaItem, WarmUpPipelineData } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { format, subMonths, formatDistanceToNow, isPast } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
+import { Separator } from '@/components/ui/separator';
 
 const initialOverviewData = {
   activeClients: 0,
@@ -27,6 +28,13 @@ const initialOverviewData = {
 };
 
 const initialChartData: MonthlyActivity[] = Array(6).fill(null).map((_, i) => ({ month: format(subMonths(new Date(), 5 - i), 'MMM'), clients: 0, outreach: 0, audits: 0, prospects: 0 }));
+
+const initialWarmUpData: WarmUpPipelineData = {
+    totalInWarmUp: 0,
+    justStarted: [],
+    inProgress: [],
+    nearingEnd: []
+};
 
 const chartConfig = {
   prospects: { label: "New Prospects", color: "hsl(var(--chart-1))" },
@@ -102,11 +110,11 @@ const DashboardSkeleton = () => (
             ))}
         </div>
         <div className="grid gap-6 grid-cols-1 xl:grid-cols-3">
-            <Card className="xl:col-span-2"><CardHeader><CardTitle>Activity Overview</CardTitle></CardHeader><CardContent><Skeleton className="h-[300px] w-full"/></CardContent></Card>
-            <Card><CardHeader><CardTitle>Daily Briefing</CardTitle><CardDescription>Your prioritized list of outreach tasks for today.</CardDescription></CardHeader>
-            <CardContent className="space-y-2">
-                {Array(3).fill(0).map((_, index) => <Skeleton key={index} className="h-16 w-full" />)}
-            </CardContent>
+             <Card className="xl:col-span-2"><CardHeader><CardTitle>Activity Overview</CardTitle></CardHeader><CardContent><Skeleton className="h-[300px] w-full"/></CardContent></Card>
+             <Card><CardHeader><CardTitle>Daily Briefing</CardTitle><CardDescription>Your prioritized list of outreach tasks for today.</CardDescription></CardHeader>
+             <CardContent className="space-y-2">
+                 {Array(3).fill(0).map((_, index) => <Skeleton key={index} className="h-16 w-full" />)}
+             </CardContent>
         </Card>
         </div>
     </div>
@@ -118,19 +126,22 @@ export default function DashboardPage() {
   const [overviewData, setOverviewData] = useState(initialOverviewData);
   const [chartData, setChartData] = useState<MonthlyActivity[]>(initialChartData);
   const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([]);
+  const [warmUpData, setWarmUpData] = useState<WarmUpPipelineData>(initialWarmUpData);
   const [isLoadingData, setIsLoadingData] = useState(true);
 
   const fetchDashboardData = useCallback(async () => {
     if (!user) return;
     try {
-      const [overview, monthlyActivity, dailyAgenda] = await Promise.all([
+      const [overview, monthlyActivity, dailyAgenda, warmUpPipeline] = await Promise.all([
         getDashboardOverview(),
         getMonthlyActivityData(),
         getDailyAgendaItems(),
+        getWarmUpPipelineData(),
       ]);
       setOverviewData(overview);
       setChartData(monthlyActivity.length > 0 ? monthlyActivity : initialChartData);
       setAgendaItems(dailyAgenda);
+      setWarmUpData(warmUpPipeline);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
     } finally {
@@ -190,58 +201,113 @@ export default function DashboardPage() {
           </Card>
         ))}
       </div>
-
-      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="font-headline">Monthly Growth</CardTitle>
-            <CardDescription>New prospects, outreach, and audits performed over the past 6 months.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {chartData.some(d => d.prospects || d.outreach || d.audits) ? (
-              <ChartContainer config={chartConfig} className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
-                    <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
-                    <ChartTooltip cursor={{ fill: "hsl(var(--muted)/0.3)" }} content={<ChartTooltipContent indicator="dot" />} />
-                    <Legend />
-                    <Bar dataKey="prospects" fill="var(--color-prospects)" radius={[4, 4, 0, 0]} name="New Prospects" />
-                    <Bar dataKey="outreach" fill="var(--color-outreach)" radius={[4, 4, 0, 0]} name="Outreach" />
-                    <Bar dataKey="audits" fill="var(--color-audits)" radius={[4, 4, 0, 0]} name="Audits" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </ChartContainer>
-            ) : (
-              <div className="h-[300px] flex flex-col items-center justify-center text-center text-muted-foreground">
-                <BarChart3 className="w-12 h-12 mb-2" />
-                <p className="font-semibold">No activity to display yet</p>
-                <p className="text-xs">Start working to see your progress.</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-headline flex items-center"><ListChecks className="mr-3 h-5 w-5 text-primary" />Daily Briefing</CardTitle>
-            <CardDescription>Your prioritized list of tasks for today.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {agendaItems.length > 0 ? (
-              <div className="space-y-2">
-                {agendaItems.map((item, index) => <AgendaItemCard key={`${item.prospect.id}-${index}`} item={item} />)}
-              </div>
-            ) : (
-              <div className="text-center py-10 text-muted-foreground">
-                <CheckSquare className="mx-auto h-12 w-12 text-green-500" />
-                <p className="mt-4 font-semibold">You're all caught up!</p>
-                <p className="text-sm">No high-priority items on your agenda.</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      
+       <div className="grid gap-6 grid-cols-1 lg:grid-cols-5">
+           <Card className="lg:col-span-3">
+              <CardHeader>
+                <CardTitle className="font-headline">Monthly Growth</CardTitle>
+                <CardDescription>New prospects, outreach, and audits performed over the past 6 months.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {chartData.some(d => d.prospects || d.outreach || d.audits) ? (
+                  <ChartContainer config={chartConfig} className="h-[300px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={chartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
+                        <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
+                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
+                        <ChartTooltip cursor={{ fill: "hsl(var(--muted)/0.3)" }} content={<ChartTooltipContent indicator="dot" />} />
+                        <Legend />
+                        <Bar dataKey="prospects" fill="var(--color-prospects)" radius={[4, 4, 0, 0]} name="New Prospects" />
+                        <Bar dataKey="outreach" fill="var(--color-outreach)" radius={[4, 4, 0, 0]} name="Outreach" />
+                        <Bar dataKey="audits" fill="var(--color-audits)" radius={[4, 4, 0, 0]} name="Audits" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </ChartContainer>
+                ) : (
+                  <div className="h-[300px] flex flex-col items-center justify-center text-center text-muted-foreground">
+                    <BarChart3 className="w-12 h-12 mb-2" />
+                    <p className="font-semibold">No activity to display yet</p>
+                    <p className="text-xs">Start working to see your progress.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle className="font-headline flex items-center"><ListChecks className="mr-3 h-5 w-5 text-primary" />Daily Briefing</CardTitle>
+                <CardDescription>Your prioritized list of tasks for today.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {agendaItems.length > 0 ? (
+                  <div className="space-y-2">
+                    {agendaItems.map((item, index) => <AgendaItemCard key={`${item.prospect.id}-${index}`} item={item} />)}
+                  </div>
+                ) : (
+                  <div className="text-center py-10 text-muted-foreground">
+                    <CheckSquare className="mx-auto h-12 w-12 text-green-500" />
+                    <p className="mt-4 font-semibold">You're all caught up!</p>
+                    <p className="text-sm">No high-priority items on your agenda.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+       </div>
+       
+       <Card>
+        <CardHeader>
+            <CardTitle className="font-headline flex items-center">
+                <MessageCircle className="mr-3 h-5 w-5 text-primary" /> Warm-Up Pipeline ({warmUpData.totalInWarmUp})
+            </CardTitle>
+            <CardDescription>
+                A glance at all prospects currently in your warm-up sequence.
+            </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="space-y-2">
+                <h4 className="font-semibold text-sm flex items-center">
+                   <UserPlus className="h-4 w-4 mr-2 text-muted-foreground"/> Just Started ({warmUpData.justStarted.length})
+                </h4>
+                <Separator />
+                <div className="space-y-1 text-sm">
+                   {warmUpData.justStarted.length > 0 ? warmUpData.justStarted.map(p => (
+                       <Link href={`/outreach?q=${encodeURIComponent(p.instagramHandle || p.name)}`} key={p.id} className="flex justify-between items-center p-1.5 rounded-md hover:bg-muted group">
+                           <span>{p.name}</span>
+                           <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                       </Link>
+                   )) : <p className="text-xs text-muted-foreground py-2">No prospects in this stage.</p>}
+                </div>
+            </div>
+             <div className="space-y-2">
+                <h4 className="font-semibold text-sm flex items-center">
+                   <Eye className="h-4 w-4 mr-2 text-muted-foreground"/> In Progress ({warmUpData.inProgress.length})
+                </h4>
+                <Separator />
+                <div className="space-y-1 text-sm">
+                   {warmUpData.inProgress.length > 0 ? warmUpData.inProgress.map(p => (
+                       <Link href={`/outreach?q=${encodeURIComponent(p.instagramHandle || p.name)}`} key={p.id} className="flex justify-between items-center p-1.5 rounded-md hover:bg-muted group">
+                           <span>{p.name}</span>
+                           <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                       </Link>
+                   )) : <p className="text-xs text-muted-foreground py-2">No prospects in this stage.</p>}
+                </div>
+            </div>
+             <div className="space-y-2">
+                <h4 className="font-semibold text-sm flex items-center">
+                   <Send className="h-4 w-4 mr-2 text-muted-foreground"/> Nearing End ({warmUpData.nearingEnd.length})
+                </h4>
+                <Separator />
+                 <div className="space-y-1 text-sm">
+                   {warmUpData.nearingEnd.length > 0 ? warmUpData.nearingEnd.map(p => (
+                       <Link href={`/outreach?q=${encodeURIComponent(p.instagramHandle || p.name)}`} key={p.id} className="flex justify-between items-center p-1.5 rounded-md hover:bg-muted group">
+                           <span>{p.name}</span>
+                           <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                       </Link>
+                   )) : <p className="text-xs text-muted-foreground py-2">No prospects in this stage.</p>}
+                </div>
+            </div>
+        </CardContent>
+       </Card>
     </div>
   );
 }

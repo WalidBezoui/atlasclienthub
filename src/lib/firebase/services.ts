@@ -20,7 +20,7 @@ import {
 } from 'firebase/firestore';
 import { subMonths, format, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, isToday } from 'date-fns';
 
-import type { Client, InstagramAudit, OutreachProspect, MonthlyActivity, OutreachLeadStage, AgendaItem, StatusHistoryItem, WarmUpActivity } from '@/lib/types';
+import type { Client, InstagramAudit, OutreachProspect, MonthlyActivity, OutreachLeadStage, AgendaItem, StatusHistoryItem, WarmUpActivity, WarmUpPipelineData } from '@/lib/types';
 
 // Generic function to get current user ID
 const getCurrentUserId = (): string | null => {
@@ -755,6 +755,54 @@ export const getMonthlyActivityData = async (): Promise<MonthlyActivity[]> => {
   });
   return correctlyOrderedActivityData;
 };
+
+export const getWarmUpPipelineData = async (): Promise<WarmUpPipelineData> => {
+  const userId = getCurrentUserId();
+  if (!userId) {
+    return {
+      totalInWarmUp: 0,
+      justStarted: [],
+      inProgress: [],
+      nearingEnd: [],
+    };
+  }
+
+  const q = query(prospectsCollection, where('userId', '==', userId), where('status', '==', 'Warming Up'));
+  const snapshot = await getDocs(q);
+
+  const pipelineData: WarmUpPipelineData = {
+    totalInWarmUp: snapshot.size,
+    justStarted: [],
+    inProgress: [],
+    nearingEnd: [],
+  };
+
+  snapshot.docs.forEach(doc => {
+    const prospect = doc.data() as OutreachProspect;
+    const completedActions = new Set((prospect.warmUp || []).map(a => a.action)).size;
+    const prospectInfo = {
+      id: doc.id,
+      name: prospect.name,
+      instagramHandle: prospect.instagramHandle,
+    };
+
+    if (completedActions <= 1) {
+      pipelineData.justStarted.push(prospectInfo);
+    } else if (completedActions <= 2) {
+      pipelineData.inProgress.push(prospectInfo);
+    } else {
+      pipelineData.nearingEnd.push(prospectInfo);
+    }
+  });
+  
+  // Limit to 5 per category for a clean UI
+  pipelineData.justStarted = pipelineData.justStarted.slice(0, 5);
+  pipelineData.inProgress = pipelineData.inProgress.slice(0, 5);
+  pipelineData.nearingEnd = pipelineData.nearingEnd.slice(0, 5);
+
+  return pipelineData;
+};
+
 
 export const updateMissingProspectTimestamps = async (): Promise<number> => {
     const userId = getCurrentUserId();
