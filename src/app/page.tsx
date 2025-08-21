@@ -132,6 +132,9 @@ const WarmUpPipelineCard = ({ item }: { item: WarmUpPipelineItem }) => {
   const getUrgencyBadge = (): { text: string; variant: "destructive" | "secondary" | "outline" } => {
     if (!item.nextActionDue) return { text: "Next", variant: "secondary" };
     const dueDate = new Date(item.nextActionDue);
+    if (isNaN(dueDate.getTime())) { // Check if the date is valid
+      return { text: "Next", variant: "secondary" };
+    }
     if (isPast(dueDate) && !isToday(dueDate)) return { text: "Overdue", variant: "destructive" };
     if (isToday(dueDate)) return { text: "Due Today", variant: "destructive" };
     return { text: `Due ${formatDistanceToNow(dueDate, { addSuffix: true })}`, variant: "outline" };
