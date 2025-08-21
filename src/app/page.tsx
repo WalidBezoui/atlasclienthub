@@ -2,7 +2,7 @@
 
 'use client';
 import React, { useEffect, useState, useCallback } from 'react';
-import { LayoutDashboard, Users, Flame, UserCheck, PlusCircle, BarChart3, CheckSquare, Clock, FileQuestion, Send, UserRound, ListChecks, ArrowRight, UserPlus, Eye, MessageCircle, MoreVertical } from 'lucide-react';
+import { LayoutDashboard, Users, Flame, UserCheck, PlusCircle, BarChart3, CheckSquare, Clock, FileQuestion, Send, UserRound, ListChecks, ArrowRight, UserPlus, Eye, MessageCircle as MessageCircleIcon, MoreVertical, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
@@ -10,9 +10,9 @@ import Link from 'next/link';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip as ChartTooltip, Legend } from 'recharts';
 import { ChartConfig, ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import { useAuth } from '@/hooks/useAuth';
-import { getDashboardOverview, getMonthlyActivityData, getDailyAgendaItems, getWarmUpPipelineData } from '@/lib/firebase/services';
+import { getDashboardOverview, getMonthlyActivityData, getDailyAgendaItems, getWarmUpPipelineData, updateProspect } from '@/lib/firebase/services';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
-import type { MonthlyActivity, AgendaItem, WarmUpPipelineData, WarmUpPipelineItem } from '@/lib/types';
+import type { MonthlyActivity, AgendaItem, WarmUpPipelineData, WarmUpPipelineItem, WarmUpAction, OutreachProspect, WarmUpActivity } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { format, subMonths, formatDistanceToNow, isPast, isToday } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -26,6 +26,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/hooks/use-toast';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
 
 const initialOverviewData = {
   activeClients: 0,
@@ -38,7 +42,9 @@ const initialChartData: MonthlyActivity[] = Array(6).fill(null).map((_, i) => ({
 
 const initialWarmUpData: WarmUpPipelineData = {
     totalInWarmUp: 0,
-    pipeline: [],
+    urgent: [],
+    upcoming: [],
+    justStarted: [],
 };
 
 const chartConfig = {
@@ -125,16 +131,21 @@ const DashboardSkeleton = () => (
     </div>
 );
 
-const WarmUpPipelineCard = ({ item }: { item: WarmUpPipelineItem }) => {
+const WarmUpDashboardCard = ({
+  item,
+  onLogActivity,
+}: {
+  item: WarmUpPipelineItem;
+  onLogActivity: (prospectId: string, action: WarmUpAction) => void;
+}) => {
   const router = useRouter();
   const outreachLink = `/outreach?q=${encodeURIComponent(item.instagramHandle || item.name)}`;
+  const { toast } = useToast();
 
   const getUrgencyBadge = (): { text: string; variant: "destructive" | "secondary" | "outline" } => {
     if (!item.nextActionDue) return { text: "Next", variant: "secondary" };
     const dueDate = new Date(item.nextActionDue);
-    if (isNaN(dueDate.getTime())) { // Check if the date is valid
-      return { text: "Next", variant: "secondary" };
-    }
+    if (isNaN(dueDate.getTime())) return { text: "Next", variant: "secondary" };
     if (isPast(dueDate) && !isToday(dueDate)) return { text: "Overdue", variant: "destructive" };
     if (isToday(dueDate)) return { text: "Due Today", variant: "destructive" };
     return { text: `Due ${formatDistanceToNow(dueDate, { addSuffix: true })}`, variant: "outline" };
@@ -142,21 +153,40 @@ const WarmUpPipelineCard = ({ item }: { item: WarmUpPipelineItem }) => {
 
   const { text, variant } = getUrgencyBadge();
 
+  const handleQuickAction = (e: React.MouseEvent, action: WarmUpAction) => {
+    e.stopPropagation();
+    onLogActivity(item.id, action);
+  };
+  
+  const quickActionIcons: { action: WarmUpAction, icon: React.ElementType, tooltip: string }[] = [
+      { action: 'Liked Posts', icon: Heart, tooltip: "Log 'Liked Posts'" },
+      { action: 'Viewed Story', icon: Eye, tooltip: "Log 'Viewed Story'"},
+  ];
+
   return (
     <div className="p-3 bg-card border rounded-lg shadow-sm hover:shadow-md transition-shadow">
       <div className="flex justify-between items-start">
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold truncate text-sm">{item.name}</p>
+        <div className="flex-1 min-w-0" onClick={() => router.push(outreachLink)}>
+          <p className="font-semibold truncate text-sm hover:underline cursor-pointer">{item.name}</p>
           <p className="text-xs text-muted-foreground truncate">@{item.instagramHandle || 'N/A'}</p>
         </div>
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7 -mr-2 -mt-1"><MoreVertical className="h-4 w-4"/></Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => router.push(outreachLink)}>View on Outreach Page</DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
+         <TooltipProvider>
+            <div className="flex items-center gap-1">
+                 {quickActionIcons.map(({action, icon: Icon, tooltip}) => {
+                     const isDone = item.completedActions.includes(action);
+                     return (
+                         <Tooltip key={action}>
+                             <TooltipTrigger asChild>
+                                <Button variant={isDone ? 'secondary' : 'ghost'} size="icon" className="h-7 w-7" onClick={(e) => !isDone && handleQuickAction(e, action)} disabled={isDone}>
+                                    <Icon className={cn("h-4 w-4", isDone && 'text-muted-foreground')} />
+                                </Button>
+                             </TooltipTrigger>
+                             <TooltipContent><p>{isDone ? `Already logged '${action}'` : tooltip}</p></TooltipContent>
+                         </Tooltip>
+                     );
+                 })}
+            </div>
+        </TooltipProvider>
       </div>
       <div className="mt-2 space-y-1.5">
         <div className="text-xs flex justify-between items-center">
@@ -182,6 +212,7 @@ export default function DashboardPage() {
   const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([]);
   const [warmUpData, setWarmUpData] = useState<WarmUpPipelineData>(initialWarmUpData);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const { toast } = useToast();
 
   const fetchDashboardData = useCallback(async () => {
     if (!user) return;
@@ -209,6 +240,55 @@ export default function DashboardPage() {
         fetchDashboardData();
     }
   }, [user, authLoading, fetchDashboardData]);
+  
+  const handleLogWarmUpActivity = useCallback(async (prospectId: string, action: WarmUpAction) => {
+    const originalWarmUpData = { ...warmUpData };
+    
+    const updatePipeline = (pipeline: WarmUpPipelineItem[]) => pipeline.map(item => {
+        if (item.id === prospectId && !item.completedActions.includes(action)) {
+            const newCompletedActions = [...item.completedActions, action];
+            const newProgress = (newCompletedActions.length / 4) * 100;
+            return { ...item, completedActions: newCompletedActions, progress: newProgress };
+        }
+        return item;
+    });
+
+    setWarmUpData(prev => ({
+      ...prev,
+      urgent: updatePipeline(prev.urgent),
+      upcoming: updatePipeline(prev.upcoming),
+      justStarted: updatePipeline(prev.justStarted),
+    }));
+
+    try {
+        const prospectDoc = await getDoc(doc(db, 'prospects', prospectId));
+        if (!prospectDoc.exists()) throw new Error("Prospect not found");
+
+        const prospectData = prospectDoc.data() as OutreachProspect;
+        const existingWarmUp = prospectData.warmUp || [];
+        
+        if (existingWarmUp.some(a => a.action === action)) {
+            toast({ title: 'Activity already logged.', variant: 'default' });
+            return;
+        }
+
+        const newActivity: WarmUpActivity = { 
+            id: crypto.randomUUID(), 
+            action, 
+            date: new Date().toISOString(),
+            nextActionDue: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+        };
+        
+        await updateProspect(prospectId, { warmUp: [...existingWarmUp, newActivity] });
+        toast({ title: "Activity Logged!", description: `'${action}' recorded.` });
+        // Optionally re-fetch for perfect consistency, though optimistic UI is faster
+        fetchDashboardData();
+    } catch (error: any) {
+        toast({ title: "Logging Failed", description: error.message, variant: 'destructive' });
+        // Revert UI on failure
+        setWarmUpData(originalWarmUpData);
+    }
+  }, [warmUpData, toast, fetchDashboardData]);
 
   const displayOverviewData = [
     { metric: 'Active Clients', value: overviewData.activeClients, icon: Users, color: 'text-green-500', bgColor: 'bg-green-100 dark:bg-green-900/50' },
@@ -311,19 +391,38 @@ export default function DashboardPage() {
        <Card>
         <CardHeader>
             <CardTitle className="font-headline flex items-center">
-                <MessageCircle className="mr-3 h-5 w-5 text-primary" /> Warm-Up Pipeline ({warmUpData.totalInWarmUp})
+                <MessageCircleIcon className="mr-3 h-5 w-5 text-primary" /> Warm-Up Command Center ({warmUpData.totalInWarmUp})
             </CardTitle>
             <CardDescription>
-                A real-time overview of prospects in the warm-up sequence, prioritized by urgency.
+                A smart, categorized view of your warm-up pipeline with quick actions.
             </CardDescription>
         </CardHeader>
         <CardContent>
-            {warmUpData.pipeline.length > 0 ? (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {warmUpData.pipeline.map(item => (
-                        <WarmUpPipelineCard key={item.id} item={item} />
-                    ))}
-                </div>
+            {warmUpData.totalInWarmUp > 0 ? (
+                <Tabs defaultValue="urgent">
+                    <TabsList className="grid w-full grid-cols-3">
+                        <TabsTrigger value="urgent">Urgent <Badge variant="destructive" className="ml-2">{warmUpData.urgent.length}</Badge></TabsTrigger>
+                        <TabsTrigger value="upcoming">Upcoming <Badge variant="secondary" className="ml-2">{warmUpData.upcoming.length}</Badge></TabsTrigger>
+                        <TabsTrigger value="justStarted">Just Started <Badge variant="outline" className="ml-2">{warmUpData.justStarted.length}</Badge></TabsTrigger>
+                    </TabsList>
+                    <div className="mt-4">
+                        <TabsContent value="urgent">
+                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                                {warmUpData.urgent.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} />)}
+                            </div>
+                        </TabsContent>
+                        <TabsContent value="upcoming">
+                           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                                {warmUpData.upcoming.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} />)}
+                            </div>
+                        </TabsContent>
+                        <TabsContent value="justStarted">
+                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                                {warmUpData.justStarted.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} />)}
+                            </div>
+                        </TabsContent>
+                    </div>
+                </Tabs>
             ) : (
                 <div className="text-center py-10 text-muted-foreground">
                     <Flame className="mx-auto h-12 w-12" />

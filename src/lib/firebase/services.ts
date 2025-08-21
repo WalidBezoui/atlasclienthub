@@ -655,7 +655,7 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
                 description: `Next action: ${nextAction}`,
                 dueDate: lastActivity.nextActionDue,
             });
-            processedIds.add(doc.id);
+            processedIds.add(prospect.id);
         });
 
     return agendaItems;
@@ -759,55 +759,68 @@ export const getMonthlyActivityData = async (): Promise<MonthlyActivity[]> => {
 export const getWarmUpPipelineData = async (): Promise<WarmUpPipelineData> => {
   const userId = getCurrentUserId();
   if (!userId) {
-    return {
-      totalInWarmUp: 0,
-      pipeline: [],
-    };
+    return { totalInWarmUp: 0, urgent: [], upcoming: [], justStarted: [] };
   }
 
   const q = query(prospectsCollection, where('userId', '==', userId), where('status', '==', 'Warming Up'));
   const snapshot = await getDocs(q);
 
-  const pipeline: WarmUpPipelineData['pipeline'] = [];
+  const todayEnd = endOfDay(new Date());
+
+  const categorizedData: { urgent: any[], upcoming: any[], justStarted: any[] } = {
+    urgent: [],
+    upcoming: [],
+    justStarted: [],
+  };
 
   snapshot.docs.forEach(doc => {
     const prospect = doc.data() as OutreachProspect;
-    const activities = new Set((prospect.warmUp || []).map(a => a.action));
+    const completedActions = (prospect.warmUp || []).map(a => a.action);
+    const actionsSet = new Set(completedActions);
     
     let nextAction: WarmUpAction | 'Done' = 'Liked Posts';
-    if (activities.has('Liked Posts')) nextAction = 'Viewed Story';
-    if (activities.has('Viewed Story')) nextAction = 'Left Comment';
-    if (activities.has('Left Comment')) nextAction = 'Replied to Story';
-    if (activities.has('Replied to Story')) nextAction = 'Done';
+    if (actionsSet.has('Liked Posts')) nextAction = 'Viewed Story';
+    if (actionsSet.has('Viewed Story')) nextAction = 'Left Comment';
+    if (actionsSet.has('Left Comment')) nextAction = 'Replied to Story';
+    if (actionsSet.has('Replied to Story')) nextAction = 'Done';
     
-    const lastActivity = prospect.warmUp?.[prospect.warmUp?.length - 1];
+    const lastActivity = prospect.warmUp?.[prospect.warmUp.length - 1];
 
-    pipeline.push({
+    const pipelineItem = {
         id: doc.id,
         name: prospect.name,
         instagramHandle: prospect.instagramHandle,
-        progress: (activities.size / 4) * 100,
+        progress: (actionsSet.size / 4) * 100,
         nextAction: nextAction,
-        nextActionDue: lastActivity?.nextActionDue,
-    });
+        nextActionDue: convertTimestampToISO(lastActivity?.nextActionDue),
+        completedActions: completedActions,
+    };
+    
+    const dueDate = pipelineItem.nextActionDue ? new Date(pipelineItem.nextActionDue) : null;
+    
+    if (dueDate && dueDate <= todayEnd) {
+      categorizedData.urgent.push(pipelineItem);
+    } else if (dueDate) {
+      categorizedData.upcoming.push(pipelineItem);
+    } else {
+      categorizedData.justStarted.push(pipelineItem);
+    }
   });
   
-  // Sort by urgency: overdue first, then by due date
-  pipeline.sort((a, b) => {
-    const aDate = a.nextActionDue ? new Date(a.nextActionDue) : new Date();
-    const bDate = b.nextActionDue ? new Date(b.nextActionDue) : new Date();
-    const aIsOverdue = a.nextActionDue ? isPast(aDate) : false;
-    const bIsOverdue = b.nextActionDue ? isPast(bDate) : false;
+  // Sort each category by urgency
+  const sortByUrgency = (a: any, b: any) => {
+      const aDate = a.nextActionDue ? new Date(a.nextActionDue).getTime() : Infinity;
+      const bDate = b.nextActionDue ? new Date(b.nextActionDue).getTime() : Infinity;
+      return aDate - bDate;
+  };
 
-    if (aIsOverdue && !bIsOverdue) return -1;
-    if (!aIsOverdue && bIsOverdue) return 1;
-    
-    return aDate.getTime() - bDate.getTime();
-  });
+  categorizedData.urgent.sort(sortByUrgency);
+  categorizedData.upcoming.sort(sortByUrgency);
+  categorizedData.justStarted.sort(sortByUrgency);
 
   return {
     totalInWarmUp: snapshot.size,
-    pipeline: pipeline,
+    ...categorizedData,
   };
 };
 
@@ -839,4 +852,3 @@ export const updateMissingProspectTimestamps = async (): Promise<number> => {
 
     return updatedCount;
 };
-

@@ -199,9 +199,12 @@ export type WarmUpPipelineItem = {
     progress: number;
     nextAction: WarmUpAction | 'Done';
     nextActionDue?: string; // ISO Date string
+    completedActions: WarmUpAction[];
 }
 
 export type WarmUpPipelineData = {
   totalInWarmUp: number;
-  pipeline: WarmUpPipelineItem[];
+  urgent: WarmUpPipelineItem[];
+  upcoming: WarmUpPipelineItem[];
+  justStarted: WarmUpPipelineItem[];
 };
