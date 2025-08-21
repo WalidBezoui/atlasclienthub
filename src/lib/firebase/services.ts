@@ -593,7 +593,7 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
 
     const [followUpSnapshot, needsQualifierSnapshot, warmingUpSnapshot] = await Promise.all([
         getDocs(followUpQuery),
-        getDocs(needsQualifierQuery),
+        getDocs(needsQualifierSnapshot),
         getDocs(warmingUpQuery),
     ]);
 
@@ -798,11 +798,14 @@ export const getWarmUpPipelineData = async (): Promise<WarmUpPipelineData> => {
     
     const dueDate = pipelineItem.nextActionDue ? new Date(pipelineItem.nextActionDue) : null;
     
-    if (dueDate && dueDate <= todayEnd) {
+    if (pipelineItem.progress === 0 && !dueDate) {
+        categorizedData.justStarted.push(pipelineItem);
+    } else if (dueDate && dueDate <= todayEnd) {
       categorizedData.urgent.push(pipelineItem);
     } else if (dueDate) {
       categorizedData.upcoming.push(pipelineItem);
     } else {
+      // Catch-all for prospects with some progress but no due date (edge case)
       categorizedData.justStarted.push(pipelineItem);
     }
   });
