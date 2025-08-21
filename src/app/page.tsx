@@ -2,7 +2,7 @@
 
 'use client';
 import React, { useEffect, useState, useCallback } from 'react';
-import { LayoutDashboard, Users, Flame, UserCheck, PlusCircle, BarChart3, CheckSquare, Clock, FileQuestion, Send, UserRound, ListChecks, ArrowRight, UserPlus, Eye, MessageCircle as MessageCircleIcon, MoreVertical, Heart } from 'lucide-react';
+import { LayoutDashboard, Users, Flame, UserCheck, PlusCircle, BarChart3, CheckSquare, Clock, FileQuestion, Send, UserRound, ListChecks, ArrowRight, UserPlus, Eye, MessageCircle as MessageCircleIcon, MoreVertical, Heart, MessagesSquare, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
@@ -10,9 +10,9 @@ import Link from 'next/link';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip as ChartTooltip, Legend } from 'recharts';
 import { ChartConfig, ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import { useAuth } from '@/hooks/useAuth';
-import { getDashboardOverview, getMonthlyActivityData, getDailyAgendaItems, getWarmUpPipelineData, updateProspect } from '@/lib/firebase/services';
+import { getDashboardOverview, getMonthlyActivityData, getDailyAgendaItems, getWarmUpPipelineData, updateProspect, getProspects } from '@/lib/firebase/services';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
-import type { MonthlyActivity, AgendaItem, WarmUpPipelineData, WarmUpPipelineItem, WarmUpAction, OutreachProspect, WarmUpActivity } from '@/lib/types';
+import type { MonthlyActivity, AgendaItem, WarmUpPipelineData, WarmUpPipelineItem, WarmUpAction, OutreachProspect, WarmUpActivity, OutreachLeadStage } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { format, subMonths, formatDistanceToNow, isPast, isToday } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -29,6 +29,9 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Dialog, DialogContent, DialogFooter, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { ConversationTracker } from '@/components/outreach/conversation-tracker';
+import { generateContextualScript, type GenerateContextualScriptInput } from '@/ai/flows/generate-contextual-script';
 
 
 const initialOverviewData = {
@@ -134,14 +137,15 @@ const DashboardSkeleton = () => (
 const WarmUpDashboardCard = ({
   item,
   onLogActivity,
+  onViewConversation,
 }: {
   item: WarmUpPipelineItem;
   onLogActivity: (prospectId: string, action: WarmUpAction) => void;
+  onViewConversation: (prospect: OutreachProspect) => void;
 }) => {
   const router = useRouter();
   const outreachLink = `/outreach?q=${encodeURIComponent(item.instagramHandle || item.name)}`;
-  const { toast } = useToast();
-
+  
   const getUrgencyBadge = (): { text: string; variant: "destructive" | "secondary" | "outline" } => {
     if (!item.nextActionDue) return { text: "Next", variant: "secondary" };
     const dueDate = new Date(item.nextActionDue);
@@ -158,9 +162,15 @@ const WarmUpDashboardCard = ({
     onLogActivity(item.id, action);
   };
   
-  const quickActionIcons: { action: WarmUpAction, icon: React.ElementType, tooltip: string }[] = [
+  const handleViewConversationClick = (e: React.MouseEvent) => {
+     e.stopPropagation();
+     onViewConversation(item as OutreachProspect);
+  }
+
+  const quickActionIcons: { action: WarmUpAction, icon: React.ElementType, tooltip: string, isDmAction?: boolean }[] = [
       { action: 'Liked Posts', icon: Heart, tooltip: "Log 'Liked Posts'" },
       { action: 'Viewed Story', icon: Eye, tooltip: "Log 'Viewed Story'"},
+      { action: 'Replied to Story', icon: MessagesSquare, tooltip: "Reply to Story / Start DM", isDmAction: true },
   ];
 
   return (
@@ -172,12 +182,29 @@ const WarmUpDashboardCard = ({
         </div>
          <TooltipProvider>
             <div className="flex items-center gap-1">
-                 {quickActionIcons.map(({action, icon: Icon, tooltip}) => {
+                 {quickActionIcons.map(({action, icon: Icon, tooltip, isDmAction}) => {
                      const isDone = item.completedActions.includes(action);
+                     const isNextAction = item.nextAction === action;
+
+                     const handleClick = (e: React.MouseEvent) => {
+                        if (isDone) return;
+                        if (isDmAction) {
+                            handleViewConversationClick(e);
+                        } else {
+                            handleQuickAction(e, action);
+                        }
+                     }
+
                      return (
                          <Tooltip key={action}>
                              <TooltipTrigger asChild>
-                                <Button variant={isDone ? 'secondary' : 'ghost'} size="icon" className="h-7 w-7" onClick={(e) => !isDone && handleQuickAction(e, action)} disabled={isDone}>
+                                <Button 
+                                    variant={isDone ? 'secondary' : (isNextAction ? 'default' : 'ghost')} 
+                                    size="icon" 
+                                    className="h-7 w-7" 
+                                    onClick={handleClick} 
+                                    disabled={isDone}
+                                >
                                     <Icon className={cn("h-4 w-4", isDone && 'text-muted-foreground')} />
                                 </Button>
                              </TooltipTrigger>
@@ -213,6 +240,12 @@ export default function DashboardPage() {
   const [warmUpData, setWarmUpData] = useState<WarmUpPipelineData>(initialWarmUpData);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const { toast } = useToast();
+  
+  // State for conversation modal
+  const [isConversationModalOpen, setIsConversationModalOpen] = useState(false);
+  const [currentProspectForConversation, setCurrentProspectForConversation] = useState<OutreachProspect | null>(null);
+  const [conversationHistoryContent, setConversationHistoryContent] = useState<string | null>(null);
+  const [isSavingConversation, setIsSavingConversation] = useState(false);
 
   const fetchDashboardData = useCallback(async () => {
     if (!user) return;
@@ -261,10 +294,10 @@ export default function DashboardPage() {
     }));
 
     try {
-        const prospectDoc = await getDoc(doc(db, 'prospects', prospectId));
-        if (!prospectDoc.exists()) throw new Error("Prospect not found");
+        const allProspects = await getProspects();
+        const prospectData = allProspects.find(p => p.id === prospectId);
+        if (!prospectData) throw new Error("Prospect not found");
 
-        const prospectData = prospectDoc.data() as OutreachProspect;
         const existingWarmUp = prospectData.warmUp || [];
         
         if (existingWarmUp.some(a => a.action === action)) {
@@ -281,14 +314,109 @@ export default function DashboardPage() {
         
         await updateProspect(prospectId, { warmUp: [...existingWarmUp, newActivity] });
         toast({ title: "Activity Logged!", description: `'${action}' recorded.` });
-        // Optionally re-fetch for perfect consistency, though optimistic UI is faster
         fetchDashboardData();
     } catch (error: any) {
         toast({ title: "Logging Failed", description: error.message, variant: 'destructive' });
-        // Revert UI on failure
         setWarmUpData(originalWarmUpData);
     }
   }, [warmUpData, toast, fetchDashboardData]);
+
+  const handleOpenConversationModal = useCallback(async (prospect: OutreachProspect) => {
+    const allProspects = await getProspects();
+    const fullProspect = allProspects.find(p => p.id === prospect.id);
+    if (fullProspect) {
+      setCurrentProspectForConversation(fullProspect);
+      setConversationHistoryContent(fullProspect.conversationHistory || '');
+      setIsConversationModalOpen(true);
+    } else {
+      toast({title: "Error", description: "Could not load prospect details.", variant: "destructive"});
+    }
+  }, [toast]);
+  
+  const handleSaveConversation = useCallback(async () => {
+    if (!currentProspectForConversation || !conversationHistoryContent) return;
+    setIsSavingConversation(true);
+    try {
+      const isFirstMessage = !currentProspectForConversation.conversationHistory;
+      const warmUpActivities = new Set(currentProspectForConversation.warmUp?.map(a => a.action));
+
+      const updates: Partial<OutreachProspect> = {
+        conversationHistory: conversationHistoryContent,
+        lastContacted: new Date().toISOString()
+      };
+
+      if ((isFirstMessage || !warmUpActivities.has('Replied to Story')) && currentProspectForConversation.status === 'Warming Up') {
+        const newWarmUpActivity: WarmUpActivity = {
+            id: crypto.randomUUID(),
+            action: 'Replied to Story',
+            date: new Date().toISOString(),
+        };
+        updates.warmUp = [...(currentProspectForConversation.warmUp || []), newWarmUpActivity];
+      }
+
+      await updateProspect(currentProspectForConversation.id, updates);
+      toast({ title: 'Conversation Saved', description: `History for ${currentProspectForConversation.name} updated.` });
+      setIsConversationModalOpen(false);
+      setCurrentProspectForConversation(null);
+      fetchDashboardData();
+    } catch (error: any) {
+      toast({ title: 'Save Failed', description: error.message || 'Could not save conversation.', variant: 'destructive' });
+    } finally {
+      setIsSavingConversation(false);
+    }
+  }, [currentProspectForConversation, conversationHistoryContent, toast, fetchDashboardData]);
+  
+  const handleGenerateNextReply = useCallback(async (prospect: OutreachProspect, customInstructions: string): Promise<string> => {
+    const input: GenerateContextualScriptInput = {
+        scriptType: "Generate Next Reply",
+        clientName: prospect.name?.trim() || null,
+        clientHandle: prospect.instagramHandle?.trim() || null,
+        businessName: prospect.businessName?.trim() || null,
+        website: prospect.website?.trim() || null,
+        prospectLocation: prospect.prospectLocation || null,
+        clientIndustry: prospect.industry?.trim() || null,
+        visualStyle: prospect.visualStyle?.trim() || null, 
+        bioSummary: prospect.bioSummary?.trim() || null, 
+        businessType: prospect.businessType || null,
+        businessTypeOther: prospect.businessTypeOther?.trim() || null,
+        accountStage: prospect.accountStage || null,
+        followerCount: prospect.followerCount,
+        postCount: prospect.postCount,
+        avgLikes: prospect.avgLikes,
+        avgComments: prospect.avgComments,
+        painPoints: prospect.painPoints || [],
+        goals: prospect.goals || [],
+        leadStatus: prospect.status,
+        source: prospect.source || null,
+        lastTouch: prospect.lastContacted ? `Last contacted on ${new Date(prospect.lastContacted).toLocaleDateString()}` : 'No prior contact recorded',
+        followUpNeeded: prospect.followUpNeeded || false,
+        offerInterest: prospect.offerInterest || [],
+        tonePreference: prospect.tonePreference || null,
+        additionalNotes: prospect.notes?.trim() || null,
+        lastMessageSnippet: prospect.lastMessageSnippet?.trim() || null,
+        lastScriptSent: prospect.lastScriptSent?.trim() || null,
+        linkSent: prospect.linkSent || false,
+        carouselOffered: prospect.carouselOffered || false,
+        nextStep: prospect.nextStep?.trim() || null,
+        conversationHistory: prospect.conversationHistory?.trim() || null,
+        customInstructions: customInstructions || null,
+    };
+    
+    try {
+      const result = await generateContextualScript(input);
+      toast({ title: "Reply Generated", description: "Review the suggestion below." });
+      return result.script;
+    } catch (error) {
+      console.error("Error generating next reply:", error);
+      toast({
+        title: "Error Generating Reply",
+        description: (error as Error).message || "An unexpected error occurred.",
+        variant: "destructive",
+      });
+      return '';
+    }
+  }, [toast]);
+  
 
   const displayOverviewData = [
     { metric: 'Active Clients', value: overviewData.activeClients, icon: Users, color: 'text-green-500', bgColor: 'bg-green-100 dark:bg-green-900/50' },
@@ -319,6 +447,28 @@ export default function DashboardPage() {
           </div>
         }
       />
+      
+       <Dialog open={isConversationModalOpen} onOpenChange={setIsConversationModalOpen}>
+        <DialogContent className="sm:max-w-xl md:max-w-2xl h-[90vh] flex flex-col p-0">
+          <DialogTitle className="sr-only">Conversation with {currentProspectForConversation?.name}</DialogTitle>
+          <div className="flex-grow min-h-0">
+            <ConversationTracker
+              prospect={currentProspectForConversation}
+              value={conversationHistoryContent}
+              onChange={setConversationHistoryContent}
+              onGenerateReply={handleGenerateNextReply}
+              isDirty={currentProspectForConversation ? (currentProspectForConversation.conversationHistory || '') !== (conversationHistoryContent || '') : false}
+            />
+          </div>
+          <DialogFooter className="p-4 border-t gap-2">
+            <Button variant="outline" onClick={() => setIsConversationModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveConversation} disabled={isSavingConversation}>
+              {isSavingConversation ? <div className="animate-spin h-4 w-4 border-2 rounded-full border-t-transparent" /> : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
        <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
         {displayOverviewData.map((item) => (
@@ -408,17 +558,17 @@ export default function DashboardPage() {
                     <div className="mt-4">
                         <TabsContent value="urgent">
                             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                                {warmUpData.urgent.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} />)}
+                                {warmUpData.urgent.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onViewConversation={handleOpenConversationModal} />)}
                             </div>
                         </TabsContent>
                         <TabsContent value="upcoming">
                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                                {warmUpData.upcoming.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} />)}
+                                {warmUpData.upcoming.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onViewConversation={handleOpenConversationModal} />)}
                             </div>
                         </TabsContent>
                         <TabsContent value="justStarted">
                             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                                {warmUpData.justStarted.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} />)}
+                                {warmUpData.justStarted.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onViewConversation={handleOpenConversationModal} />)}
                             </div>
                         </TabsContent>
                     </div>
