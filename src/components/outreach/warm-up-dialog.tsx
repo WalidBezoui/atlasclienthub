@@ -127,8 +127,17 @@ export function WarmUpDialog({
     }
     setShowCompleteConfirmation(false);
   };
+  
+  const getCompletedActions = (p: OutreachProspect | null | undefined): Set<WarmUpAction> => {
+      if (!p) return new Set();
+      const actions = new Set((p.warmUp || []).map(a => a.action));
+      if (p.conversationHistory?.includes("Me:")) {
+          actions.add('Replied to Story');
+      }
+      return actions;
+  };
 
-  const completedActions = new Set((currentProspect?.warmUp || []).map(a => a.action));
+  const completedActions = getCompletedActions(currentProspect);
   const progress = (completedActions.size / warmUpSteps.length) * 100;
   const isWarmingUp = currentProspect?.status === 'Warming Up';
   

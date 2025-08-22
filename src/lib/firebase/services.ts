@@ -777,14 +777,17 @@ export const getWarmUpPipelineData = async (): Promise<WarmUpPipelineData> => {
 
   snapshot.docs.forEach(doc => {
     const prospect = doc.data() as OutreachProspect;
-    const completedActions = (prospect.warmUp || []).map(a => a.action);
-    const actionsSet = new Set(completedActions);
-    
+    const hasSentDM = prospect.conversationHistory?.includes("Me:");
+    const loggedActions = new Set((prospect.warmUp || []).map(a => a.action));
+    if (hasSentDM) {
+        loggedActions.add('Replied to Story');
+    }
+
     let nextAction: WarmUpAction | 'Done' = 'Liked Posts';
-    if (actionsSet.has('Liked Posts')) nextAction = 'Viewed Story';
-    if (actionsSet.has('Viewed Story')) nextAction = 'Left Comment';
-    if (actionsSet.has('Left Comment')) nextAction = 'Replied to Story';
-    if (actionsSet.has('Replied to Story')) nextAction = 'Done';
+    if (loggedActions.has('Liked Posts')) nextAction = 'Viewed Story';
+    if (loggedActions.has('Viewed Story')) nextAction = 'Left Comment';
+    if (loggedActions.has('Left Comment')) nextAction = 'Replied to Story';
+    if (loggedActions.has('Replied to Story')) nextAction = 'Done';
     
     if (nextAction === 'Done') return; // Skip if all actions are complete
 
@@ -794,10 +797,10 @@ export const getWarmUpPipelineData = async (): Promise<WarmUpPipelineData> => {
         id: doc.id,
         name: prospect.name,
         instagramHandle: prospect.instagramHandle,
-        progress: (actionsSet.size / 4) * 100,
+        progress: (loggedActions.size / 4) * 100,
         nextAction: nextAction,
         nextActionDue: convertTimestampToISO(lastActivity?.nextActionDue),
-        completedActions: completedActions,
+        completedActions: Array.from(loggedActions),
     };
     
     const dueDate = pipelineItem.nextActionDue ? new Date(pipelineItem.nextActionDue) : null;
