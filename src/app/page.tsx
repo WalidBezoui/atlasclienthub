@@ -167,11 +167,6 @@ const WarmUpDashboardCard = ({
     onLogActivity(item.id, action);
   };
   
-  const handleGenerateOutreachClick = (e: React.MouseEvent) => {
-     e.stopPropagation();
-     onGenerateOutreach(item);
-  }
-
   const quickActionIcons: { action: WarmUpAction; icon: React.ElementType; tooltip: string }[] = [
     { action: 'Liked Posts', icon: Heart, tooltip: "Log 'Liked Posts'" },
     { action: 'Viewed Story', icon: Eye, tooltip: "Log 'Viewed Story'" },
@@ -230,7 +225,7 @@ const WarmUpDashboardCard = ({
             <Badge variant={variant} className="text-xs">{text}</Badge>
         </div>
         <div className="pt-2">
-           <Button variant="default" size="sm" className="w-full h-8" onClick={handleGenerateOutreachClick} disabled={item.completedActions.includes('Replied to Story')}>
+           <Button variant="default" size="sm" className="w-full h-8" onClick={(e) => { e.stopPropagation(); onGenerateOutreach(item); }} disabled={item.completedActions.includes('Replied to Story')}>
                <MessagesSquare className="mr-2 h-4 w-4"/> Generate Outreach DM
            </Button>
         </div>
@@ -264,6 +259,7 @@ export default function DashboardPage() {
 
   const fetchDashboardData = useCallback(async () => {
     if (!user) return;
+    setIsLoadingData(true);
     try {
       const [overview, monthlyActivity, dailyAgenda, warmUpPipeline] = await Promise.all([
         getDashboardOverview(),
@@ -340,7 +336,7 @@ export default function DashboardPage() {
         toast({ title: "Activity Logged!", description: `'${action}' recorded.` });
         fetchDashboardData();
     } catch (error: any) {
-        toast({ title: "Logging Failed", description: error.message, variant: 'destructive' });
+        toast({ title: "Logging Failed", description: error.message, variant: "destructive" });
         setWarmUpData(originalWarmUpData);
     }
   }, [warmUpData, toast, fetchDashboardData]);
@@ -598,7 +594,7 @@ export default function DashboardPage() {
        <Card>
         <CardHeader>
             <CardTitle className="font-headline flex items-center">
-                <Flame className="mr-3 h-5 w-5 text-destructive" /> Warm-Up Command Center ({warmUpData.totalInWarmUp})
+                <Flame className="mr-3 h-5 w-5 text-destructive" /> Warm-Up Command Center
             </CardTitle>
             <CardDescription>
                 A smart, prioritized view of your warm-up pipeline with quick actions.
@@ -607,9 +603,9 @@ export default function DashboardPage() {
         <CardContent>
             {warmUpData.totalInWarmUp > 0 ? (
                 <Tabs defaultValue="dueToday" className="flex flex-col sm:flex-row gap-6">
-                    <TabsList className="grid grid-cols-1 sm:flex sm:flex-col sm:w-48 sm:shrink-0 h-fit">
+                    <TabsList className="grid grid-cols-3 sm:flex sm:flex-col sm:w-48 sm:shrink-0 h-fit">
                         <TabsTrigger value="dueToday">Due Today <Badge variant="secondary" className="ml-auto">{warmUpData.dueToday.length}</Badge></TabsTrigger>
-                        <TabsTrigger value="overdue">Overdue <Badge variant="destructive" className="ml-auto">{warmUpData.overdue.length}</Badge></TabsTrigger>
+                        <TabsTrigger value="overdue">Urgent <Badge variant="destructive" className="ml-auto">{warmUpData.overdue.length}</Badge></TabsTrigger>
                         <TabsTrigger value="upcoming">Upcoming <Badge variant="outline" className="ml-auto">{warmUpData.upcoming.length}</Badge></TabsTrigger>
                     </TabsList>
                     <div className="flex-1 min-w-0">
