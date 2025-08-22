@@ -116,14 +116,6 @@ Your task is to craft the perfect, personalized Instagram DM based on the prospe
 - **Outreach Method**: "Become Inevitable" (10-Day Warm-Up)
 - **Warm-Up Actions Completed**: {{#if warmUpActivities}}{{#each warmUpActivities}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}{{else}}None yet{{/if}}
 {{/if}}
-
----
-**CONVERSATION HISTORY (MOST RECENT MESSAGE IS AT THE BOTTOM):**
-{{#if conversationHistory}}
-{{{conversationHistory}}}
-{{else}}
-No conversation history yet.
-{{/if}}
 ---
 
 **SCRIPT GENERATION RULES**
@@ -161,13 +153,23 @@ No conversation history yet.
        - "Just wanted to say I'm really impressed with how you [do something specific from their page]. What was the inspiration behind that?"
 
 **IF "Generate Next Reply":**
-   - **Act as a senior sales strategist.** Your goal is to move the conversation forward toward a specific outcome (e.g., getting them to agree to a free audit, booking a call).
-   - **Think step-by-step:**
-     1.  **Analyze the ENTIRE conversation history.** What has been said? What was our last message? What was their reply?
-     2.  **Determine their current state.** Are they skeptical? Interested but busy? Confused? Asking for details?
-     3.  **Identify the next logical step.** Based on their state, what is the *single most effective thing* we can say to guide them to the next milestone in our sales process (e.g., from 'interested' to 'accepting an audit')?
-     4.  **Craft the reply.** Write a concise, natural-sounding message that accomplishes this next step. It should directly address their last message while gently steering the conversation.
-   - **Prioritize user's custom instructions if provided.**
+   - **Role:** Act as a senior sales strategist for "${SENDER_STUDIO_NAME}". Your goal is to move the conversation forward toward a specific outcome (e.g., getting them to agree to a free audit, booking a call).
+   - **Task:** Based on the full conversation history below, craft the best possible next reply.
+   - **Analysis Steps (Internal Monologue - do not show in output):**
+     1.  **Analyze the Full History:** What has been said? What was our last message? What was their reply?
+     2.  **Determine Current State:** Are they skeptical? Interested but busy? Confused? Asking for details?
+     3.  **Identify Next Logical Goal:** Based on their state, what is the *single most effective thing* we can say to guide them to the next milestone (e.g., from 'interested' to 'accepting an audit')?
+     4.  **Craft the Reply:** Write a concise, natural-sounding message that accomplishes this next step. It should directly address their last message while gently steering the conversation.
+   - **CRITICAL CONTEXT TO USE:**
+     - **Full Conversation History (Newest at bottom):**
+       {{#if conversationHistory}}
+       {{{conversationHistory}}}
+       {{else}}
+       (No conversation history yet. This is the first message.)
+       {{/if}}
+     - **Prospect's Last Message:** "{{#if lastMessageSnippet}}{{{lastMessageSnippet}}}{{else}}(No previous message from them){{/if}}"
+     - **Your Custom Instructions (Highest Priority):** "{{#if customInstructions}}{{{customInstructions}}}{{else}}(No custom instructions provided){{/if}}"
+   - **Final Output:** The generated script should be ready to copy and paste.
 
 **IF "Warm Follow-Up DM" or "Send Reminder":**
    - Be gentle and non-pushy. Refer back to the last interaction and briefly reiterate the value of the "{{offerType}}".
@@ -220,6 +222,7 @@ const generateContextualScriptFlow = ai.defineFlow(
   }
 );
     
+
 
 
 
