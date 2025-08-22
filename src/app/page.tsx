@@ -172,10 +172,10 @@ const WarmUpDashboardCard = ({
      onGenerateOutreach(item);
   }
 
-  const quickActionIcons: { action: WarmUpAction, icon: React.ElementType, tooltip: string}[] = [
-      { action: 'Liked Posts', icon: Heart, tooltip: "Log 'Liked Posts'" },
-      { action: 'Viewed Story', icon: Eye, tooltip: "Log 'Viewed Story'"},
-      { action: 'Left Comment', icon: MessageCircleIcon, tooltip: "Open Comment Generator" },
+  const quickActionIcons: { action: WarmUpAction; icon: React.ElementType; tooltip: string }[] = [
+    { action: 'Liked Posts', icon: Heart, tooltip: "Log 'Liked Posts'" },
+    { action: 'Viewed Story', icon: Eye, tooltip: "Log 'Viewed Story'" },
+    { action: 'Left Comment', icon: MessageCircleIcon, tooltip: 'Open Comment Generator' },
   ];
 
   return (
@@ -183,12 +183,15 @@ const WarmUpDashboardCard = ({
       <div className="flex justify-between items-start">
         <div className="flex-1 min-w-0">
           <p className="font-semibold truncate text-sm group-hover:underline">{item.name}</p>
-          <p className="text-xs text-muted-foreground truncate flex items-center gap-1.5">
-            <a href={`https://instagram.com/${item.instagramHandle?.replace('@','')}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="hover:underline">
+           <a 
+                href={`https://instagram.com/${item.instagramHandle?.replace('@','')}`} 
+                target="_blank" rel="noopener noreferrer" 
+                onClick={(e) => e.stopPropagation()} 
+                className="text-xs text-muted-foreground truncate flex items-center gap-1.5 hover:text-primary hover:underline w-fit"
+            >
              @{item.instagramHandle || 'N/A'}
+             <LinkIcon className="h-3 w-3 text-muted-foreground/70 group-hover:text-primary" />
             </a>
-            <LinkIcon className="h-3 w-3 text-muted-foreground/70" />
-          </p>
         </div>
          <TooltipProvider>
             <div className="flex items-center gap-1">
@@ -224,11 +227,11 @@ const WarmUpDashboardCard = ({
             <span className="text-muted-foreground">Next: <span className="font-medium text-foreground">{item.nextAction}</span></span>
             <Badge variant={variant} className="text-xs">{text}</Badge>
         </div>
-         <div className="pt-2">
-            <Button variant="default" size="sm" className="w-full h-8" onClick={handleGenerateOutreachClick} disabled={item.completedActions.includes('Replied to Story')}>
-                <MessagesSquare className="mr-2 h-4 w-4"/> Generate Outreach DM
-            </Button>
-         </div>
+        <div className="pt-2">
+           <Button variant="default" size="sm" className="w-full h-8" onClick={handleGenerateOutreachClick} disabled={item.completedActions.includes('Replied to Story')}>
+               <MessagesSquare className="mr-2 h-4 w-4"/> Generate Outreach DM
+           </Button>
+        </div>
       </div>
     </div>
   );
@@ -602,7 +605,7 @@ export default function DashboardPage() {
         <CardContent>
             {warmUpData.totalInWarmUp > 0 ? (
                 <Tabs defaultValue="dueToday">
-                    <TabsList className="grid w-full grid-cols-3">
+                    <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3">
                         <TabsTrigger value="dueToday">Due Today <Badge variant="destructive" className="ml-2">{warmUpData.dueToday.length}</Badge></TabsTrigger>
                         <TabsTrigger value="overdue">Overdue <Badge variant="destructive" className="ml-2">{warmUpData.overdue.length}</Badge></TabsTrigger>
                         <TabsTrigger value="upcoming">Upcoming <Badge variant="outline" className="ml-2">{warmUpData.upcoming.length}</Badge></TabsTrigger>
