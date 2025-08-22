@@ -98,12 +98,12 @@ const prompt = ai.definePrompt({
   name: 'generateContextualScriptPrompt',
   input: {schema: z.any()}, // Input schema handled in the flow
   output: {schema: GenerateContextualScriptOutputSchema},
-  prompt: `You are an expert Instagram outreach copywriter for a creative studio called "${SENDER_STUDIO_NAME}", which specializes in social media, content creation, and Instagram strategy.
+  prompt: `You are an expert Instagram outreach copywriter and senior strategist for a creative studio called "${SENDER_STUDIO_NAME}", which specializes in social media, content creation, and Instagram strategy.
 
-Your task is to craft the perfect, personalized Instagram DM based on the prospect details below.
+Your task is to craft the perfect, personalized Instagram DM based on the prospect details and conversation history below.
 
 ---
-**PROSPECT DETAILS & CONTEXT:**
+**PROSPECT DETAILS:**
 - **Name**: {{#if clientName}}{{clientName}}{{else if businessName}}{{businessName}}{{else}}{{clientHandle}}{{/if}}
 - **IG Handle**: {{clientHandle}}
 - **Brand Name**: {{businessName}}
@@ -112,14 +112,20 @@ Your task is to craft the perfect, personalized Instagram DM based on the prospe
 - **Identified Pain Point(s)**: {{#each painPoints}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}
 - **Their Goals**: {{#each goals}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}
 - **Lead Status**: {{leadStatus}}
-{{#if lastMessageSnippet}}- **Last Message from Them**: "{{lastMessageSnippet}}"{{/if}}
-- **Conversation History**: {{#if conversationHistory}}{{{conversationHistory}}}{{else}}No history.{{/if}}
 {{#if isInevitableMethod}}
 - **Outreach Method**: "Become Inevitable" (10-Day Warm-Up)
 - **Warm-Up Actions Completed**: {{#if warmUpActivities}}{{#each warmUpActivities}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}{{else}}None yet{{/if}}
 {{/if}}
 
 ---
+**CONVERSATION HISTORY (MOST RECENT MESSAGE IS AT THE BOTTOM):**
+{{#if conversationHistory}}
+{{{conversationHistory}}}
+{{else}}
+No conversation history yet.
+{{/if}}
+---
+
 **SCRIPT GENERATION RULES**
 
 **1. SCRIPT TYPE: "{{scriptType}}"**
@@ -154,11 +160,17 @@ Your task is to craft the perfect, personalized Instagram DM based on the prospe
      - **Focus on a specific compliment:** Refer back to something you genuinely like.
        - "Just wanted to say I'm really impressed with how you [do something specific from their page]. What was the inspiration behind that?"
 
+**IF "Generate Next Reply":**
+   - **Act as a senior sales strategist.** Your goal is to move the conversation forward toward a specific outcome (e.g., getting them to agree to a free audit, booking a call).
+   - **Think step-by-step:**
+     1.  **Analyze the ENTIRE conversation history.** What has been said? What was our last message? What was their reply?
+     2.  **Determine their current state.** Are they skeptical? Interested but busy? Confused? Asking for details?
+     3.  **Identify the next logical step.** Based on their state, what is the *single most effective thing* we can say to guide them to the next milestone in our sales process (e.g., from 'interested' to 'accepting an audit')?
+     4.  **Craft the reply.** Write a concise, natural-sounding message that accomplishes this next step. It should directly address their last message while gently steering the conversation.
+   - **Prioritize user's custom instructions if provided.**
+
 **IF "Warm Follow-Up DM" or "Send Reminder":**
    - Be gentle and non-pushy. Refer back to the last interaction and briefly reiterate the value of the "{{offerType}}".
-
-**IF "Generate Next Reply":**
-   - Act as an expert conversational assistant. Analyze the conversation history and the prospect's last message. Your goal is to suggest the most logical next message to move the conversation forward. Prioritize the user's custom instructions if provided.
 
 **IF "Soft Close":**
    - Be graceful. Acknowledge it might not be the right time and leave the door open for the future.
@@ -208,5 +220,6 @@ const generateContextualScriptFlow = ai.defineFlow(
   }
 );
     
+
 
 
