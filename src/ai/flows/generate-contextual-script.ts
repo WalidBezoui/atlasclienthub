@@ -126,17 +126,19 @@ Your task is to craft the perfect, personalized Instagram DM based on the prospe
 
 **IF "Cold Outreach DM":**
    - **Language:** The response MUST be in FRENCH.
-   - **Template:** Use the following template and fill in the bracketed sections.
-   
-     "{{businessName}} 👋
-     J’ai beaucoup aimé [élément précis et vrai que tu as remarqué sur leur page].
-     Chez Atlas Social Studio, on travaille uniquement avec un petit nombre de marques que nous admirons vraiment — et ta page a clairement retenu notre attention.
-     En la parcourant, j’ai repéré quelques opportunités simples mais efficaces pour booster ton engagement et rendre ton branding encore plus impactant pour les ventes.
-     Veux-tu que je te les envoie ? Sans aucune obligation, bien sûr."
-
-   - **Filling the template:**
-     - For \`[élément précis et vrai que tu as remarqué sur leur page]\`, use the provided \`uniqueNote\` if available. If it's not available, you MUST create a specific, sincere, and concrete compliment based on the prospect's details (business type, industry, visual style). DO NOT use generic compliments like "your content" or "your page". Be specific, e.g., "la palette de couleurs sur votre dernier post" or "la qualité de vos photos de produits".
-   - **Maintain Consistency:** The rest of the template must remain identical to maintain the effect of scarcity and consistency.
+   - **Goal:** To start a conversation by providing value, not to make a hard sell.
+   - **Structure:** You must follow this 4-part structure. Do NOT use a rigid template.
+     1.  **The Hook (Personalized Compliment):** Start with a genuine, specific compliment. Use the \`uniqueNote\` field if available. If not, create one based on their page. It MUST be specific (e.g., "la palette de couleurs de votre dernier réel", "la façon dont vous présentez vos produits").
+     2.  **The "Why You?" (Relate & State Expertise):** Briefly and elegantly connect their brand to your agency's expertise. Mention that you work with brands in their niche. This shows them they aren't just a random name on a list. Example: "En tant que studio qui collabore avec des marques de [Industry/Niche], votre approche a vraiment retenu notre attention."
+     3.  **The Value Proposition (Identify the Gap):** This is the most critical part. Instead of a generic offer, pinpoint a *single, high-impact area* where they could improve, based on their pain points. Frame it as a helpful observation. Examples:
+         - *If pain is "Inconsistent grid":* "En parcourant votre page, j'ai remarqué que votre contenu est excellent, mais avec une grille plus harmonieuse, l'impact visuel pourrait être décuplé."
+         - *If pain is "Low engagement":* "J'ai vu que vous aviez une belle communauté, et j'ai quelques idées sur comment transformer cette audience en clients fidèles."
+     4.  **The Call to Action (Low-Friction Ask):** End with a soft, easy-to-say-yes-to question. DO NOT ask for a call. The goal is to get a reply and start a conversation.
+         - *Good:* "Seriez-vous ouvert(e) à ce que je vous envoie une ou deux suggestions rapides à ce sujet ?"
+         - *Good:* "Je peux vous envoyer quelques exemples si ça vous intéresse."
+         - *Bad:* "Pouvons-nous prévoir un appel ?"
+         
+   - **Putting it all together:** The final output should be a smooth, natural-sounding message. It should feel like a peer reaching out, not a salesperson.
 
 **IF "Conversation Starter":**
    - **Language:** The response SHOULD BE in ENGLISH, unless prospect details indicate otherwise.
@@ -206,4 +208,5 @@ const generateContextualScriptFlow = ai.defineFlow(
   }
 );
     
+
 
