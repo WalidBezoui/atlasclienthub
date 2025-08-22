@@ -85,6 +85,7 @@ export function ScriptModal({
   };
   
   const handleConfirm = () => {
+    handleCopy();
     if (onConfirm) {
       onConfirm(currentScript);
     }
