@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { User, Bot, MoreHorizontal, Edit, Trash2, Repeat, Loader2, Sparkles, Clipboard, Download, Send, MessageCircle, Copy } from 'lucide-react';
+import { User, Bot, MoreHorizontal, Edit, Trash2, Repeat, Loader2, Sparkles, Clipboard, Download, Send, MessageCircle as MessageCircleIcon, Copy, ClipboardCheck } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
 import type { OutreachProspect, GeneratedComment } from '@/lib/types';
@@ -279,7 +279,8 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
         <div className="px-4 pt-2 border-b bg-card">
             <TabsList>
                 <TabsTrigger value="dms">DM History</TabsTrigger>
-                <TabsTrigger value="comments">Comment History ({prospect?.comments?.length || 0})</TabsTrigger>
+                <TabsTrigger value="comments">Comments ({prospect?.comments?.length || 0})</TabsTrigger>
+                <TabsTrigger value="details">Details</TabsTrigger>
             </TabsList>
         </div>
         
@@ -448,7 +449,7 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
                                             {formatDistanceToNow(new Date(comment.generatedAt), { addSuffix: true })}
                                         </p>
                                     </div>
-                                    <MessageCircle className="h-5 w-5 text-muted-foreground" />
+                                    <MessageCircleIcon className="h-5 w-5 text-muted-foreground" />
                                 </CardHeader>
                                 <CardContent>
                                     <p className="text-sm font-medium mb-3">"{comment.commentText}"</p>
@@ -461,11 +462,47 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
                     </div>
                  ) : (
                     <div className="text-center text-sm text-muted-foreground h-full flex flex-col justify-center items-center">
-                        <MessageCircle className="h-10 w-10 mb-4" />
+                        <MessageCircleIcon className="h-10 w-10 mb-4" />
                         <p className="font-semibold">No comments logged for this prospect yet.</p>
                         <p>Generated comments will appear here after you save them.</p>
                     </div>
                  )}
+            </ScrollArea>
+        </TabsContent>
+        <TabsContent value="details" className="flex-grow min-h-0 bg-background">
+            <ScrollArea className="h-full p-4">
+                {prospect ? (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>{prospect.name}</CardTitle>
+                            <CardDescription>@{prospect.instagramHandle}</CardDescription>
+                        </CardHeader>
+                        <CardContent className="text-sm space-y-2">
+                            <div className="flex justify-between">
+                                <span className="text-muted-foreground">Status</span>
+                                <Badge>{prospect.status}</Badge>
+                            </div>
+                             <div className="flex justify-between">
+                                <span className="text-muted-foreground">Lead Score</span>
+                                <Badge variant="secondary">{prospect.leadScore ?? 'N/A'}</Badge>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-muted-foreground">Followers</span>
+                                <span>{prospect.followerCount ?? 'N/A'}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-muted-foreground">Industry</span>
+                                <span>{prospect.industry || 'N/A'}</span>
+                            </div>
+                             <div className="pt-2">
+                                <h4 className="font-semibold mb-1">Notes</h4>
+                                <p className="text-muted-foreground whitespace-pre-wrap">{prospect.notes || 'No additional notes.'}</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                ) : (
+                    <p className="text-muted-foreground text-center">No prospect details available.</p>
+                )}
             </ScrollArea>
         </TabsContent>
       </Tabs>
