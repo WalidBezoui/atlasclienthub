@@ -2,7 +2,7 @@
 
 'use client';
 import React, { useEffect, useState, useCallback } from 'react';
-import { LayoutDashboard, Users, Flame, UserCheck, PlusCircle, BarChart3, CheckSquare, Clock, FileQuestion, Send, UserRound, ListChecks, ArrowRight, UserPlus, Eye, MessageCircle as MessageCircleIcon, MoreVertical, Heart, MessagesSquare, Edit } from 'lucide-react';
+import { LayoutDashboard, Users, Flame, UserCheck, PlusCircle, BarChart3, CheckSquare, Clock, FileQuestion, Send, UserRound, ListChecks, ArrowRight, UserPlus, Eye, MessageCircle as MessageCircleIcon, MoreVertical, Heart, MessagesSquare, Edit, Link as LinkIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
@@ -12,7 +12,7 @@ import { ChartConfig, ChartContainer, ChartTooltipContent } from '@/components/u
 import { useAuth } from '@/hooks/useAuth';
 import { getDashboardOverview, getMonthlyActivityData, getDailyAgendaItems, getWarmUpPipelineData, updateProspect, getProspects } from '@/lib/firebase/services';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
-import type { MonthlyActivity, AgendaItem, WarmUpPipelineData, WarmUpPipelineItem, WarmUpAction, OutreachProspect, WarmUpActivity, OutreachLeadStage } from '@/lib/types';
+import type { MonthlyActivity, AgendaItem, WarmUpPipelineData, WarmUpPipelineItem, WarmUpAction, OutreachProspect, OutreachLeadStage } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { format, subMonths, formatDistanceToNow, isPast, isToday } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -215,6 +215,16 @@ const WarmUpDashboardCard = ({
                          </Tooltip>
                      );
                  })}
+                 <Tooltip>
+                    <TooltipTrigger asChild>
+                         <a href={`https://instagram.com/${item.instagramHandle?.replace('@','')}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" disabled={!item.instagramHandle}>
+                                <LinkIcon className="h-4 w-4" />
+                            </Button>
+                         </a>
+                    </TooltipTrigger>
+                    <TooltipContent><p>Open Instagram Profile</p></TooltipContent>
+                 </Tooltip>
             </div>
         </TooltipProvider>
       </div>
@@ -647,3 +657,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+
