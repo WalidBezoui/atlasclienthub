@@ -55,6 +55,7 @@ const ProspectTimelineTooltip = ({ prospect }: { prospect: OutreachProspect }) =
 const scriptMenuItems = [
     { label: "Cold Outreach DM", type: "Cold Outreach DM" },
     { label: "Warm Follow-Up DM", type: "Warm Follow-Up DM" },
+    { label: "Conversation Starter", type: "Conversation Starter" },
     { label: "Audit Delivery Message", type: "Audit Delivery Message" },
     { label: "Send Reminder", type: "Send Reminder" },
     { label: "Soft Close", type: "Soft Close" },
@@ -114,8 +115,11 @@ const ProspectTableRow = React.memo(({
     };
     
     const calculateWarmUpProgress = (prospect: OutreachProspect): number => {
-      const activities = new Set((prospect.warmUp || []).map(a => a.action));
-      return (activities.size / 4) * 100;
+      const actions = new Set((prospect.warmUp || []).map(a => a.action));
+      if (prospect.conversationHistory?.includes("Me:")) {
+        actions.add('Replied to Story');
+      }
+      return (actions.size / 4) * 100;
     };
 
 
@@ -128,12 +132,15 @@ const ProspectTableRow = React.memo(({
 
     const getActivityText = (prospect: OutreachProspect): { text: string, isNext: boolean } => {
         if (prospect.status === 'Warming Up') {
-            const activities = new Set((prospect.warmUp || []).map(a => a.action));
+            const actions = new Set((prospect.warmUp || []).map(a => a.action));
+            if (prospect.conversationHistory?.includes("Me:")) {
+                actions.add('Replied to Story');
+            }
             let nextAction: WarmUpAction | 'Done' = 'Liked Posts';
-            if (activities.has('Liked Posts')) nextAction = 'Viewed Story';
-            if (activities.has('Viewed Story')) nextAction = 'Left Comment';
-            if (activities.has('Left Comment')) nextAction = 'Replied to Story';
-            if (activities.has('Replied to Story')) nextAction = 'Done';
+            if (actions.has('Liked Posts')) nextAction = 'Viewed Story';
+            if (actions.has('Viewed Story')) nextAction = 'Left Comment';
+            if (actions.has('Left Comment')) nextAction = 'Replied to Story';
+            if (actions.has('Replied to Story')) nextAction = 'Done';
             
             return { text: `Next: ${nextAction === 'Done' ? 'Send DM' : nextAction}`, isNext: true };
         }
@@ -199,7 +206,7 @@ const ProspectTableRow = React.memo(({
                                 <Progress value={calculateWarmUpProgress(prospect)} className="h-1.5" />
                             </TooltipTrigger>
                             <TooltipContent>
-                                <p>Warm-up Progress: {calculateWarmUpProgress(prospect)}%</p>
+                                <p>Warm-up Progress: {Math.round(calculateWarmUpProgress(prospect))}%</p>
                             </TooltipContent>
                         </Tooltip>
                     </TooltipProvider>

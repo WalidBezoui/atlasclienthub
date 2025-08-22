@@ -6,7 +6,7 @@ import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Flame, Eye, Heart, MessageCircle as MessageCircleIcon, MessageSquare, AlertTriangle, Trash2, Check, ArrowRight } from 'lucide-react';
+import { Loader2, Flame, Eye, Heart, MessageCircle as MessageCircleIcon, MessageSquare, AlertTriangle, Trash2, Check, ArrowRight, Bot } from 'lucide-react';
 import type { OutreachProspect, WarmUpActivity, WarmUpAction, OutreachLeadStage } from '@/lib/types';
 import { updateProspect } from '@/lib/firebase/services';
 import { Progress } from '@/components/ui/progress';
@@ -25,6 +25,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { cn } from '@/lib/utils';
+import { ScriptModal } from '../scripts/script-modal';
+import { generateContextualScript, GenerateContextualScriptInput } from '@/ai/flows/generate-contextual-script';
+
 
 interface WarmUpDialogProps {
   isOpen: boolean;
@@ -32,7 +35,6 @@ interface WarmUpDialogProps {
   prospect: OutreachProspect | null | undefined;
   onActivityLogged: (updatedProspect: OutreachProspect) => void;
   onGenerateComment: (prospect: OutreachProspect) => void;
-  onViewConversation: (prospect: OutreachProspect) => void;
   onStatusChange: (id: string, newStatus: OutreachLeadStage) => void;
 }
 
@@ -40,7 +42,7 @@ const warmUpSteps: { action: WarmUpAction; title: string; description: string; i
     { action: 'Liked Posts', title: 'Silent Engagement: Likes', description: 'Like a few recent, relevant posts.', icon: Heart },
     { action: 'Viewed Story', title: 'Silent Engagement: Stories', description: 'View their stories to show up in their list.', icon: Eye },
     { action: 'Left Comment', title: 'Value Engagement', description: 'Leave a high-value, non-salesy comment.', icon: MessageCircleIcon },
-    { action: 'Replied to Story', title: 'Private Engagement', description: 'Reply to a story to start a private conversation.', icon: MessageSquare },
+    { action: 'Replied to Story', title: 'Private Engagement', description: 'Reply to a story or start a direct conversation.', icon: MessageSquare },
 ];
 
 export function WarmUpDialog({ 
@@ -49,7 +51,6 @@ export function WarmUpDialog({
   prospect, 
   onActivityLogged, 
   onGenerateComment, 
-  onViewConversation,
   onStatusChange
 }: WarmUpDialogProps) {
   const [currentProspect, setCurrentProspect] = useState<OutreachProspect | null | undefined>(prospect);
@@ -58,11 +59,15 @@ export function WarmUpDialog({
   const [showCompleteConfirmation, setShowCompleteConfirmation] = useState(false);
   const { toast } = useToast();
 
+  const [isScriptModalOpen, setIsScriptModalOpen] = useState(false);
+  const [generatedScript, setGeneratedScript] = useState('');
+  const [isGeneratingScript, setIsGeneratingScript] = useState(false);
+
   useEffect(() => {
     setCurrentProspect(prospect);
   }, [prospect]);
 
-  const handleLogActivity = async (action: WarmUpAction) => {
+  const handleLogActivity = async (action: WarmUpAction, scriptContent?: string) => {
     if (!currentProspect) return;
     setIsLoading(true);
     
@@ -71,19 +76,25 @@ export function WarmUpDialog({
       id: crypto.randomUUID(), 
       action, 
       date: now.toISOString(),
-      nextActionDue: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(), // Schedule next action in 2 days
+      nextActionDue: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
     };
     const updatedWarmUp = [...(currentProspect.warmUp || []), newActivity];
 
+    const updates: Partial<OutreachProspect> = { warmUp: updatedWarmUp };
+    if (action === 'Replied to Story' && scriptContent) {
+      updates.conversationHistory = `${currentProspect.conversationHistory || ''}${currentProspect.conversationHistory ? '\n\n' : ''}Me: ${scriptContent}`.trim();
+      updates.lastContacted = now.toISOString();
+      updates.lastScriptSent = "Conversation Starter";
+    }
+
     try {
-      const updatedProspectData = { ...currentProspect, warmUp: updatedWarmUp };
-      await updateProspect(currentProspect.id, { warmUp: updatedWarmUp });
+      await updateProspect(currentProspect.id, updates);
+      const updatedProspectData = { ...currentProspect, ...updates };
       setCurrentProspect(updatedProspectData);
       toast({ title: 'Activity Logged', description: `${action} has been recorded.` });
       onActivityLogged(updatedProspectData);
 
-      // Check if all steps are complete
-      const completedActions = new Set(updatedWarmUp.map(a => a.action));
+      const completedActions = new Set(updatedProspectData.warmUp.map(a => a.action));
       if (completedActions.size >= warmUpSteps.length) {
           setShowCompleteConfirmation(true);
       }
@@ -92,6 +103,38 @@ export function WarmUpDialog({
       toast({ title: 'Error', description: error.message || "Could not log activity.", variant: "destructive" });
     } finally {
       setIsLoading(false);
+    }
+  };
+  
+  const handleGenerateAndLogDM = async (prospect: OutreachProspect) => {
+    setIsGeneratingScript(true);
+    setIsScriptModalOpen(true);
+    setGeneratedScript('');
+    
+    const input: GenerateContextualScriptInput = {
+        scriptType: "Conversation Starter",
+        clientName: prospect.name,
+        clientHandle: prospect.instagramHandle,
+        clientIndustry: prospect.industry,
+        businessType: prospect.businessType,
+        tonePreference: prospect.tonePreference
+    };
+    
+    try {
+        const result = await generateContextualScript(input);
+        setGeneratedScript(result.script);
+    } catch (error: any) {
+        toast({ title: 'Script Generation Failed', description: (error as Error).message, variant: 'destructive' });
+        setGeneratedScript('Failed to generate script. Please try again.');
+    } finally {
+        setIsGeneratingScript(false);
+    }
+  };
+
+  const handleScriptConfirm = (scriptContent: string) => {
+    if (currentProspect) {
+      handleLogActivity('Replied to Story', scriptContent);
+      setIsScriptModalOpen(false);
     }
   };
 
@@ -174,7 +217,7 @@ export function WarmUpDialog({
         button = <Button variant="outline" size="sm" className="w-full" onClick={() => onGenerateComment(currentProspect!)} disabled={!isClickable}><Icon className="mr-2 h-4 w-4"/>Leave Comment</Button>;
         break;
       case 'Replied to Story':
-        button = <Button variant="outline" size="sm" className="w-full" onClick={() => onViewConversation(currentProspect!)} disabled={!isClickable}><Icon className="mr-2 h-4 w-4"/>Reply to Story / Start DM</Button>;
+        button = <Button variant="outline" size="sm" className="w-full" onClick={() => handleGenerateAndLogDM(currentProspect!)} disabled={!isClickable}><Bot className="mr-2 h-4 w-4"/>Generate Starter DM</Button>;
         break;
       default:
         button = <Button variant="outline" size="sm" className="w-full" onClick={() => handleLogActivity(action)} disabled={!isClickable}><Icon className="mr-2 h-4 w-4"/>Log '{title}'</Button>;
@@ -205,6 +248,18 @@ export function WarmUpDialog({
 
   return (
     <>
+      <ScriptModal
+        isOpen={isScriptModalOpen}
+        onClose={() => setIsScriptModalOpen(false)}
+        scriptContent={generatedScript}
+        title="Generate Conversation Starter"
+        isLoadingInitially={isGeneratingScript}
+        showConfirmButton={true}
+        onConfirm={handleScriptConfirm}
+        confirmButtonText="Copy, Save & Log"
+        prospect={currentProspect}
+      />
+
       <AlertDialog open={!!activityToDelete} onOpenChange={(open) => !open && setActivityToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>

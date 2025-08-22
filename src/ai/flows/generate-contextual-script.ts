@@ -84,7 +84,7 @@ export type GenerateContextualScriptInput = z.infer<typeof GenerateContextualScr
 
 
 const GenerateContextualScriptOutputSchema = z.object({
-  script: z.string().describe('The generated script in French.'),
+  script: z.string().describe('The generated script.'),
 });
 export type GenerateContextualScriptOutput = z.infer<typeof GenerateContextualScriptOutputSchema>;
 
@@ -139,11 +139,18 @@ Your task is to craft the perfect, personalized Instagram DM based on the prospe
    - **Maintain Consistency:** The rest of the template must remain identical to maintain the effect of scarcity and consistency.
 
 **IF "Conversation Starter":**
-   - **Context:** This script is for the "Private Engagement" phase of the warm-up method, to be sent after they've engaged with your comment.
-   - **Tone:** Very casual, friendly, and low-pressure.
-   - **Acknowledge their Engagement:** Start by acknowledging their like/reply. Example: "Hey {{clientName}}, thanks for the love on my comment!" or "Appreciate the reply!"
-   - **Bridge to a Question:** Connect their post to a genuine, open-ended question. Example: "That post about [topic] was great. Made me wonder, what's the biggest challenge you see with [related area]?"
-   - **NO PITCHING.** The goal is just to start a real conversation.
+   - **Language:** The response SHOULD BE in ENGLISH, unless prospect details indicate otherwise.
+   - **Context:** This script is for the "Private Engagement" phase of the warm-up method. It's the first DM to send after they've engaged with your comment or story reply.
+   - **Goal:** To start a genuine, low-pressure conversation. **DO NOT PITCH ANYTHING.**
+   - **Template Ideas:**
+     - **Acknowledge their engagement:** Start by acknowledging their like/reply to bridge the gap.
+       - "Hey {{clientName}}, thanks for the love on my comment!"
+       - "Hey {{clientName}}, appreciate the reply to my story!"
+     - **Connect to their content:** Ask a thoughtful, open-ended question related to their recent posts or niche.
+       - "That post you did about [topic] was super insightful. It made me wonder, what's the biggest hurdle you see [their target audience] facing when it comes to [related challenge]?"
+       - "Loved your story about [story topic]. How have you found the response to that been?"
+     - **Focus on a specific compliment:** Refer back to something you genuinely like.
+       - "Just wanted to say I'm really impressed with how you [do something specific from their page]. What was the inspiration behind that?"
 
 **IF "Warm Follow-Up DM" or "Send Reminder":**
    - Be gentle and non-pushy. Refer back to the last interaction and briefly reiterate the value of the "{{offerType}}".
@@ -186,7 +193,7 @@ const generateContextualScriptFlow = ai.defineFlow(
       isPersonalBrand: input.businessType === "Personal Brand (coach, consultant)",
       isBusiness: !["Creator / Influencer", "Personal Brand (coach, consultant)"].includes(input.businessType || ''),
       isInevitableMethod: input.leadStatus === 'Warming Up', // Set flag based on status
-      warmUpActivities: input.warmUp || [],
+      warmUpActivities: input.warmUpActivities || [],
     };
 
     const {output} = await prompt(promptInput, { config: { temperature: 0.8, maxOutputTokens: 500 }});
@@ -199,3 +206,4 @@ const generateContextualScriptFlow = ai.defineFlow(
   }
 );
     
+
