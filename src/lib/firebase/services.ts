@@ -774,6 +774,8 @@ export const getWarmUpPipelineData = async (): Promise<WarmUpPipelineData> => {
     dueToday: [],
     upcoming: [],
   };
+  
+  const updatePromises: Promise<void>[] = [];
 
   snapshot.docs.forEach(doc => {
     const prospect = doc.data() as OutreachProspect;
@@ -789,7 +791,17 @@ export const getWarmUpPipelineData = async (): Promise<WarmUpPipelineData> => {
     if (loggedActions.has('Left Comment')) nextAction = 'Replied to Story';
     if (loggedActions.has('Replied to Story')) nextAction = 'Done';
     
-    if (nextAction === 'Done') return; // Skip if all actions are complete
+    if (nextAction === 'Done') {
+        const docRef = doc.ref;
+        const newStatus: OutreachLeadStage = 'Cold';
+        const newHistoryEntry: StatusHistoryItem = { status: newStatus, date: new Date().toISOString() };
+        const updates = {
+            status: newStatus,
+            statusHistory: arrayUnion(newHistoryEntry)
+        };
+        updatePromises.push(updateDoc(docRef, updates));
+        return; // Skip adding to pipeline as it's being updated
+    }
 
     const lastActivity = prospect.warmUp?.[prospect.warmUp.length - 1];
 
@@ -816,6 +828,12 @@ export const getWarmUpPipelineData = async (): Promise<WarmUpPipelineData> => {
       categorizedData.upcoming.push(pipelineItem);
     }
   });
+
+  if (updatePromises.length > 0) {
+    await Promise.all(updatePromises);
+    // Optionally, you could refetch here, but for now we'll just not show the graduated ones
+    // and they will be correct on next page load.
+  }
   
   // Sort each category by urgency
   const sortByUrgency = (a: any, b: any) => {
@@ -829,7 +847,7 @@ export const getWarmUpPipelineData = async (): Promise<WarmUpPipelineData> => {
   categorizedData.upcoming.sort(sortByUrgency);
 
   return {
-    totalInWarmUp: snapshot.size,
+    totalInWarmUp: snapshot.size - updatePromises.length,
     ...categorizedData,
   };
 };
