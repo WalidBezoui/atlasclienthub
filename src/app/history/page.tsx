@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -17,20 +18,9 @@ import { useRouter } from 'next/navigation';
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { ConversationTracker } from '@/components/outreach/conversation-tracker';
 import { generateContextualScript, type GenerateContextualScriptInput } from '@/ai/flows/generate-contextual-script';
 
@@ -65,11 +55,12 @@ export default function ConversationHistoryPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProspect, setSelectedProspect] = useState<OutreachProspect | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [historyContent, setHistoryContent] = useState<string | null>('');
-  const [isSaving, setIsSaving] = useState(false);
-  const [showUnsavedConfirm, setShowUnsavedConfirm] = useState(false);
-
+  
   const { toast } = useToast();
+
+  const updateProspectInState = useCallback((id: string, updates: Partial<OutreachProspect>) => {
+    setProspects(current => current.map(p => p.id === id ? { ...p, ...updates } : p));
+  }, []);
 
   const fetchProspectsWithHistory = useCallback(async () => {
     if (!user) return;
@@ -103,7 +94,6 @@ export default function ConversationHistoryPage() {
 
   const handleViewHistory = (prospect: OutreachProspect) => {
     setSelectedProspect(prospect);
-    setHistoryContent(prospect.conversationHistory || '');
     setIsModalOpen(true);
   };
   
@@ -122,7 +112,8 @@ export default function ConversationHistoryPage() {
         prospectLocation: prospect.prospectLocation || null,
         clientIndustry: prospect.industry?.trim() || null,
         visualStyle: prospect.visualStyle?.trim() || null, 
-        bioSummary: prospect.bioSummary?.trim() || null, 
+        bioSummary: prospect.bioSummary?.trim() || null,
+        uniqueNote: prospect.uniqueNote?.trim() || null, 
         businessType: prospect.businessType || null,
         businessTypeOther: prospect.businessTypeOther?.trim() || null,
         accountStage: prospect.accountStage || null,
@@ -163,31 +154,13 @@ export default function ConversationHistoryPage() {
     }
   };
 
-  const handleSaveHistory = async () => {
-    if (!selectedProspect) return;
-    setIsSaving(true);
-    try {
-      await updateProspect(selectedProspect.id, { conversationHistory: historyContent });
-      toast({ title: "History Updated", description: "The conversation log has been saved." });
-      setIsModalOpen(false);
-      // Refresh the list to show updated content
-      fetchProspectsWithHistory();
-    } catch (error: any) {
-      console.error("Error saving history:", error);
-      toast({ title: "Save Failed", description: error.message || "Could not save history.", variant: "destructive" });
-    } finally {
-      setIsSaving(false);
+  const handleSaveConversation = (prospectId: string, newConversation: string) => {
+    updateProspect(prospectId, { conversationHistory: newConversation, lastContacted: new Date().toISOString() });
+    updateProspectInState(prospectId, { conversationHistory: newConversation, lastContacted: new Date().toISOString() });
+    if(selectedProspect?.id === prospectId){
+        setSelectedProspect(prev => prev ? {...prev, conversationHistory: newConversation} : null);
     }
-  };
-
-  const isHistoryDirty = selectedProspect ? (selectedProspect.conversationHistory || '') !== (historyContent || '') : false;
-
-  const handleModalCloseAttempt = () => {
-    if (isHistoryDirty) {
-      setShowUnsavedConfirm(true);
-    } else {
-      setIsModalOpen(false);
-    }
+    toast({ title: "History Updated", description: "The conversation log has been saved." });
   };
 
 
@@ -207,51 +180,19 @@ export default function ConversationHistoryPage() {
         icon={MessagesSquare}
       />
 
-      <AlertDialog open={showUnsavedConfirm} onOpenChange={setShowUnsavedConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>You have unsaved changes</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to discard your changes? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Stay</AlertDialogCancel>
-            <AlertDialogAction onClick={() => {
-              setShowUnsavedConfirm(false);
-              setIsModalOpen(false);
-            }}>
-              Discard
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <Dialog open={isModalOpen} onOpenChange={(open) => {
-        if (!open) handleModalCloseAttempt();
-        else setIsModalOpen(true);
-      }}>
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-xl md:max-w-2xl h-[90vh] flex flex-col p-0">
           <DialogTitle className="sr-only">View Conversation History</DialogTitle>
           <DialogDescription className="sr-only">
             A dialog to view, edit, and manage the full conversation history with {selectedProspect?.name || 'this prospect'}.
           </DialogDescription>
-           <div className="flex-grow min-h-0">
-            <ConversationTracker
-              value={historyContent}
-              onChange={setHistoryContent}
-              prospect={selectedProspect}
-              onGenerateReply={handleGenerateNextReply}
-              isDirty={isHistoryDirty}
-            />
-          </div>
-          <DialogFooter className="gap-2 p-4 border-t">
-            <Button variant="outline" onClick={handleModalCloseAttempt}>Cancel</Button>
-            <Button onClick={handleSaveHistory} disabled={isSaving || !isHistoryDirty}>
-              {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Save Changes
-            </Button>
-          </DialogFooter>
+           {selectedProspect ? (
+                <ConversationTracker
+                    prospect={selectedProspect}
+                    onSave={handleSaveConversation}
+                    onGenerateReply={handleGenerateNextReply}
+                />
+            ) : <LoadingSpinner text="Loading conversation..." /> }
         </DialogContent>
       </Dialog>
 

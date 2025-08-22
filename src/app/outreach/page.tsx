@@ -105,10 +105,7 @@ function OutreachPage() {
   // State for conversation modal
   const [isConversationModalOpen, setIsConversationModalOpen] = useState(false);
   const [currentProspectForConversation, setCurrentProspectForConversation] = useState<OutreachProspect | null>(null);
-  const [conversationHistoryContent, setConversationHistoryContent] = useState<string | null>(null);
-  const [isSavingConversation, setIsSavingConversation] = useState(false);
-  const [showUnsavedConfirm, setShowUnsavedConfirm] = useState(false);
-
+  
   // State for comment generator
   const [isCommentGeneratorOpen, setIsCommentGeneratorOpen] = useState(false);
   const [prospectForComment, setProspectForComment] = useState<OutreachProspect | null>(null);
@@ -495,7 +492,8 @@ function OutreachPage() {
         prospectLocation: prospect.prospectLocation || null,
         clientIndustry: prospect.industry?.trim() || null,
         visualStyle: prospect.visualStyle?.trim() || null, 
-        bioSummary: prospect.bioSummary?.trim() || null, 
+        bioSummary: prospect.bioSummary?.trim() || null,
+        uniqueNote: prospect.uniqueNote?.trim() || null,
         businessType: prospect.businessType || null,
         businessTypeOther: prospect.businessTypeOther?.trim() || null,
         accountStage: prospect.accountStage || null,
@@ -530,6 +528,7 @@ function OutreachPage() {
       const currentHistory = prospect.conversationHistory || '';
       const newHistory = `${currentHistory}${currentHistory ? '\n\n' : ''}Me: ${scriptContent}`.trim();
       const contactDate = new Date().toISOString();
+      const warmUpActivities = new Set(prospect.warmUp?.map(a => a.action));
 
       const updates: Partial<OutreachProspect> = {
           conversationHistory: newHistory,
@@ -538,6 +537,16 @@ function OutreachPage() {
       };
 
       let newStatus: OutreachLeadStage | undefined;
+      // Auto-complete warm up if generating script and it's not done
+      if (!warmUpActivities.has('Replied to Story') && prospect.status === 'Warming Up') {
+        const newWarmUpActivity: WarmUpActivity = {
+            id: crypto.randomUUID(),
+            action: 'Replied to Story',
+            date: new Date().toISOString(),
+        };
+        updates.warmUp = [...(prospect.warmUp || []), newWarmUpActivity];
+      }
+
       if (prospect.status === 'To Contact' && scriptType === 'Cold Outreach DM') {
           newStatus = 'Cold';
       } else if (prospect.status === 'Cold' && (scriptType.includes('Follow-Up') || scriptType.includes('Reminder'))) {
@@ -657,7 +666,8 @@ function OutreachPage() {
         prospectLocation: prospect.prospectLocation || null,
         clientIndustry: prospect.industry?.trim() || null,
         visualStyle: prospect.visualStyle?.trim() || null, 
-        bioSummary: prospect.bioSummary?.trim() || null, 
+        bioSummary: prospect.bioSummary?.trim() || null,
+        uniqueNote: prospect.uniqueNote?.trim() || null, 
         businessType: prospect.businessType || null,
         businessTypeOther: prospect.businessTypeOther?.trim() || null,
         accountStage: prospect.accountStage || null,
@@ -915,61 +925,17 @@ function OutreachPage() {
 
   const handleOpenConversationModal = (prospect: OutreachProspect) => {
     setCurrentProspectForConversation(prospect);
-    setConversationHistoryContent(prospect.conversationHistory || null);
     setIsConversationModalOpen(true);
   };
 
-  const handleSaveConversation = async () => {
-    if (!currentProspectForConversation || !isConversationDirty) return;
-    setIsSavingConversation(true);
-    try {
-      const isFirstMessage = !currentProspectForConversation.conversationHistory;
-      
-      const newWarmUp: WarmUpActivity = {
-        id: crypto.randomUUID(),
-        action: 'Replied to Story',
-        date: new Date().toISOString(),
-      };
-      
-      const updates: Partial<OutreachProspect> = {
-        conversationHistory: conversationHistoryContent,
-        lastContacted: new Date().toISOString()
-      };
-
-      if (isFirstMessage && currentProspectForConversation.status === 'Warming Up') {
-        updates.warmUp = [...(currentProspectForConversation.warmUp || []), newWarmUp];
-      }
-
-      await updateProspect(currentProspectForConversation.id, updates);
-
-      const updatedProspectInList = { ...currentProspectForConversation, ...updates };
-      updateProspectInState(currentProspectForConversation.id, updatedProspectInList);
-      
-      // If the warm-up dialog is open, update its state directly
-      if (editingProspect && editingProspect.id === currentProspectForConversation.id) {
-        setEditingProspect(updatedProspectInList);
-      }
-      
-      toast({ title: 'Conversation Saved', description: `History for ${currentProspectForConversation.name} updated.` });
-      setIsConversationModalOpen(false);
-      setCurrentProspectForConversation(null);
-    } catch (error: any) {
-      toast({ title: 'Save Failed', description: error.message || 'Could not save conversation.', variant: 'destructive' });
-    } finally {
-      setIsSavingConversation(false);
+  const handleConversationSave = (prospectId: string, newConversation: string) => {
+    updateProspect(prospectId, { conversationHistory: newConversation, lastContacted: new Date().toISOString() });
+    updateProspectInState(prospectId, { conversationHistory: newConversation, lastContacted: new Date().toISOString() });
+    if(currentProspectForConversation?.id === prospectId){
+        setCurrentProspectForConversation(prev => prev ? {...prev, conversationHistory: newConversation} : null);
     }
   };
   
-  const isConversationDirty = currentProspectForConversation ? (currentProspectForConversation.conversationHistory || '') !== (conversationHistoryContent || '') : false;
-
-  const handleConversationModalCloseAttempt = () => {
-    if (isConversationDirty) {
-      setShowUnsavedConfirm(true);
-    } else {
-      setIsConversationModalOpen(false);
-    }
-  };
-
   const handleStartAudit = (prospect: OutreachProspect) => {
     const buildQuestionnaireFromProspect = (p: OutreachProspect) => {
         const parts = [
@@ -1121,55 +1087,22 @@ function OutreachPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={isConversationModalOpen} onOpenChange={(open) => {
-        if (!open) handleConversationModalCloseAttempt();
-        else setIsConversationModalOpen(true);
-      }}>
+      <Dialog open={isConversationModalOpen} onOpenChange={setIsConversationModalOpen}>
         <DialogContent className="sm:max-w-xl md:max-w-2xl h-[90vh] flex flex-col p-0">
            <DialogTitle className="sr-only">Manage Conversation with {currentProspectForConversation?.name}</DialogTitle>
            <DialogDescription className="sr-only">
             View, edit, and manage the full conversation history.
            </DialogDescription>
-          <div className="flex-grow min-h-0">
-            <ConversationTracker
-              prospect={currentProspectForConversation}
-              value={conversationHistoryContent}
-              onChange={setConversationHistoryContent}
-              onGenerateReply={handleGenerateNextReply}
-              isDirty={isConversationDirty}
-            />
-          </div>
-          <DialogFooter className="p-4 border-t gap-2">
-            <Button variant="outline" onClick={handleConversationModalCloseAttempt}>Cancel</Button>
-            <Button onClick={handleSaveConversation} disabled={isSavingConversation || !isConversationDirty}>
-              {isSavingConversation ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Save Changes
-            </Button>
-          </DialogFooter>
+            {currentProspectForConversation ? (
+                <ConversationTracker
+                    prospect={currentProspectForConversation}
+                    onSave={handleConversationSave}
+                    onGenerateReply={handleGenerateNextReply}
+                />
+            ) : <LoadingSpinner text="Loading conversation..." /> }
         </DialogContent>
       </Dialog>
-
-       <AlertDialog open={showUnsavedConfirm} onOpenChange={setShowUnsavedConfirm}>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-                <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
-                <AlertDialogDescription>
-                    You have unsaved changes in the conversation history. Are you sure you want to discard them?
-                </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => setShowUnsavedConfirm(false)}>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={() => {
-                    setShowUnsavedConfirm(false);
-                    setIsConversationModalOpen(false);
-                    setCurrentProspectForConversation(null);
-                }}>
-                    Discard
-                </AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-    </AlertDialog>
-
+      
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4">

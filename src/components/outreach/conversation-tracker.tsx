@@ -21,11 +21,9 @@ import { Badge } from '@/components/ui/badge';
 import { formatDistanceToNow } from 'date-fns';
 
 interface ConversationTrackerProps {
-  value: string | null;
-  onChange: (newValue: string) => void;
-  prospect?: OutreachProspect | null;
+  prospect: OutreachProspect;
+  onSave: (prospectId: string, newConversation: string) => void;
   onGenerateReply?: (prospect: OutreachProspect, customInstructions: string) => Promise<string>;
-  isDirty?: boolean;
 }
 
 type Message = {
@@ -97,7 +95,7 @@ const formatProspectDetails = (prospect: OutreachProspect | null | undefined): s
     return details.join('\n');
 }
 
-export function ConversationTracker({ value, onChange, prospect, onGenerateReply, isDirty }: ConversationTrackerProps) {
+export function ConversationTracker({ prospect, onSave, onGenerateReply }: ConversationTrackerProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [sender, setSender] = useState<'Me' | 'Prospect'>('Me');
@@ -119,18 +117,19 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
       }
     }, 100);
   };
-
+  
   useEffect(() => {
-    setMessages(parseMessages(value));
+    setMessages(parseMessages(prospect.conversationHistory || null));
     if (activeTab === 'dms') {
         scrollToBottom();
     }
-  }, [value, activeTab]);
+  }, [prospect.conversationHistory, activeTab]);
   
   const handleAddMessage = () => {
-    if (!newMessage.trim()) return;
+    if (!newMessage.trim() || !prospect) return;
     const newMessages = [...messages, { sender, content: newMessage.trim() }];
-    onChange(serializeMessages(newMessages));
+    const newHistory = serializeMessages(newMessages);
+    onSave(prospect.id, newHistory);
     setNewMessage('');
   };
 
@@ -146,18 +145,22 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
   };
 
   const handleDeleteMessage = (index: number) => {
+    if (!prospect) return;
     const newMessages = messages.filter((_, i) => i !== index);
-    onChange(serializeMessages(newMessages));
+    const newHistory = serializeMessages(newMessages);
+    onSave(prospect.id, newHistory);
   };
   
   const handleSwitchSender = (index: number) => {
+    if (!prospect) return;
     const newMessages = messages.map((msg, i) => {
         if (i === index) {
             return { ...msg, sender: msg.sender === 'Me' ? 'Prospect' : 'Me' };
         }
         return msg;
     });
-    onChange(serializeMessages(newMessages));
+    const newHistory = serializeMessages(newMessages);
+    onSave(prospect.id, newHistory);
   };
 
   const handleStartEdit = (index: number) => {
@@ -166,14 +169,15 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
   };
 
   const handleSaveEdit = () => {
-    if (editingIndex === null) return;
+    if (editingIndex === null || !prospect) return;
     const newMessages = messages.map((msg, i) => {
         if (i === editingIndex) {
             return { ...msg, content: editingText };
         }
         return msg;
     });
-    onChange(serializeMessages(newMessages));
+    const newHistory = serializeMessages(newMessages);
+    onSave(prospect.id, newHistory);
     setEditingIndex(null);
     setEditingText('');
   };
@@ -237,15 +241,6 @@ export function ConversationTracker({ value, onChange, prospect, onGenerateReply
       <div className="flex items-center justify-between px-4 py-2.5 border-b shrink-0 bg-card rounded-t-lg">
         <h3 className="flex-1 font-semibold text-foreground truncate flex items-center gap-2" title={prospect?.name}>
             <span>Conversation with {prospect?.name || 'Prospect'}</span>
-            <span 
-                className={cn(
-                    "text-amber-500 text-2xl leading-none transition-opacity duration-300",
-                    isDirty ? "opacity-100 animate-pulse" : "opacity-0"
-                )} 
-                title="Unsaved changes"
-            >
-                *
-            </span>
         </h3>
         <div className="flex items-center gap-1">
             <DropdownMenu>
