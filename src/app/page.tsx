@@ -153,7 +153,7 @@ const WarmUpDashboardCard = ({
         const dueDate = new Date(item.nextActionDue);
         if (isNaN(dueDate.getTime())) return { text: "Next", variant: "secondary" };
         if (isPast(dueDate) && !isToday(dueDate)) return { text: "Overdue", variant: "destructive" };
-        if (isToday(dueDate)) return { text: "Due Today", variant: "destructive" };
+        if (isToday(dueDate)) return { text: "Due Today", variant: "secondary" };
         return { text: `Due ${formatDistanceToNow(dueDate, { addSuffix: true })}`, variant: "outline" };
     } catch {
         return { text: "Next", variant: "secondary" };
@@ -190,7 +190,7 @@ const WarmUpDashboardCard = ({
                 className="text-xs text-muted-foreground truncate flex items-center gap-1.5 hover:text-primary hover:underline w-fit"
             >
              @{item.instagramHandle || 'N/A'}
-             <LinkIcon className="h-3 w-3 text-muted-foreground/70 group-hover:text-primary" />
+             <LinkIcon className="h-3 w-3 text-muted-foreground/70 transition-colors group-hover:text-primary" />
             </a>
         </div>
          <TooltipProvider>
@@ -217,13 +217,15 @@ const WarmUpDashboardCard = ({
             </div>
         </TooltipProvider>
       </div>
-      <div className="mt-2 space-y-1.5">
-        <div className="text-xs flex justify-between items-center">
-            <span className="font-medium text-muted-foreground">Progress</span>
-            <span className="font-semibold">{Math.round(item.progress)}%</span>
+      <div className="mt-2 space-y-2">
+        <div>
+            <div className="text-xs flex justify-between items-center mb-1">
+                <span className="font-medium text-muted-foreground">Progress</span>
+                <span className="font-semibold">{Math.round(item.progress)}%</span>
+            </div>
+            <Progress value={item.progress} className="h-1.5"/>
         </div>
-        <Progress value={item.progress} className="h-1.5"/>
-        <div className="text-xs flex justify-between pt-1">
+        <div className="text-xs flex justify-between pt-1 items-center">
             <span className="text-muted-foreground">Next: <span className="font-medium text-foreground">{item.nextAction}</span></span>
             <Badge variant={variant} className="text-xs">{text}</Badge>
         </div>
@@ -604,30 +606,30 @@ export default function DashboardPage() {
         </CardHeader>
         <CardContent>
             {warmUpData.totalInWarmUp > 0 ? (
-                <Tabs defaultValue="dueToday">
-                    <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3">
-                        <TabsTrigger value="dueToday">Due Today <Badge variant="destructive" className="ml-2">{warmUpData.dueToday.length}</Badge></TabsTrigger>
-                        <TabsTrigger value="overdue">Overdue <Badge variant="destructive" className="ml-2">{warmUpData.overdue.length}</Badge></TabsTrigger>
-                        <TabsTrigger value="upcoming">Upcoming <Badge variant="outline" className="ml-2">{warmUpData.upcoming.length}</Badge></TabsTrigger>
+                <Tabs defaultValue="dueToday" className="flex flex-col sm:flex-row gap-6">
+                    <TabsList className="grid grid-cols-1 sm:flex sm:flex-col sm:w-48 sm:shrink-0 h-fit">
+                        <TabsTrigger value="dueToday">Due Today <Badge variant="secondary" className="ml-auto">{warmUpData.dueToday.length}</Badge></TabsTrigger>
+                        <TabsTrigger value="overdue">Overdue <Badge variant="destructive" className="ml-auto">{warmUpData.overdue.length}</Badge></TabsTrigger>
+                        <TabsTrigger value="upcoming">Upcoming <Badge variant="outline" className="ml-auto">{warmUpData.upcoming.length}</Badge></TabsTrigger>
                     </TabsList>
-                    <div className="mt-4">
+                    <div className="flex-1 min-w-0">
                         <TabsContent value="dueToday">
                           {warmUpData.dueToday.length > 0 ? (
-                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                            <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
                                 {warmUpData.dueToday.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={handleGenerateDashboardOutreach}/>)}
                             </div>
                           ) : <p className="text-sm text-center text-muted-foreground py-8">Nothing due today. Well done!</p>}
                         </TabsContent>
                         <TabsContent value="overdue">
                           {warmUpData.overdue.length > 0 ? (
-                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                            <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
                                 {warmUpData.overdue.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={handleGenerateDashboardOutreach}/>)}
                             </div>
                           ) : <p className="text-sm text-center text-muted-foreground py-8">No overdue items. Great job!</p>}
                         </TabsContent>
                         <TabsContent value="upcoming">
                            {warmUpData.upcoming.length > 0 ? (
-                           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                           <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
                                 {warmUpData.upcoming.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={handleGenerateDashboardOutreach}/>)}
                             </div>
                            ) : <p className="text-sm text-center text-muted-foreground py-8">No upcoming prospects in the warm-up pipeline.</p>}
