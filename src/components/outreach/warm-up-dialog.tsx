@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -64,11 +64,34 @@ export function WarmUpDialog({
   const [generatedScript, setGeneratedScript] = useState('');
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   const [currentScriptGenerationInput, setCurrentScriptGenerationInput] = useState<GenerateContextualScriptInput | null>(null);
-
+  
+  const stepRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   useEffect(() => {
     setCurrentProspect(prospect);
   }, [prospect]);
+  
+  const getCompletedActions = (p: OutreachProspect | null | undefined): Set<WarmUpAction> => {
+      if (!p) return new Set();
+      const actions = new Set((p.warmUp || []).map(a => a.action));
+      if (p.conversationHistory?.includes("Me:")) {
+          actions.add('Replied to Story');
+      }
+      return actions;
+  };
+
+  const completedActions = getCompletedActions(currentProspect);
+  
+  const nextActionIndex = warmUpSteps.findIndex(step => !completedActions.has(step.action));
+
+  useEffect(() => {
+    if (isOpen && nextActionIndex !== -1 && stepRefs.current[nextActionIndex]) {
+      setTimeout(() => {
+        stepRefs.current[nextActionIndex]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 200);
+    }
+  }, [isOpen, nextActionIndex]);
+
 
   const handleLogActivity = async (action: WarmUpAction, scriptContent?: string) => {
     if (!currentProspect) return;
@@ -92,12 +115,9 @@ export function WarmUpDialog({
       toast({ title: 'Activity Logged', description: `'${action}' has been recorded.` });
       onActivityLogged(updatedProspectData);
 
-      const completedActions = new Set(updatedProspectData.warmUp?.map(a => a.action) || []);
-       if (updatedProspectData.conversationHistory?.includes("Me:")) {
-          completedActions.add('Replied to Story');
-      }
-
-      if (completedActions.size >= warmUpSteps.length) {
+      const postLogCompletedActions = getCompletedActions(updatedProspectData);
+      
+      if (postLogCompletedActions.size >= warmUpSteps.length) {
           setShowCompleteConfirmation(true);
       }
 
@@ -225,27 +245,8 @@ export function WarmUpDialog({
     setShowCompleteConfirmation(false);
   };
   
-  const getCompletedActions = (p: OutreachProspect | null | undefined): Set<WarmUpAction> => {
-      if (!p) return new Set();
-      const actions = new Set((p.warmUp || []).map(a => a.action));
-      if (p.conversationHistory?.includes("Me:")) {
-          actions.add('Replied to Story');
-      }
-      return actions;
-  };
-
-  const completedActions = getCompletedActions(currentProspect);
   const progress = (completedActions.size / warmUpSteps.length) * 100;
   const isWarmingUp = currentProspect?.status === 'Warming Up';
-  
-  let nextAction: WarmUpAction | null = null;
-  for (const step of warmUpSteps) {
-      if (!completedActions.has(step.action)) {
-          nextAction = step.action;
-          break;
-      }
-  }
-
 
   const StepCard = ({
     stepNumber,
@@ -278,7 +279,7 @@ export function WarmUpDialog({
     }
 
     return (
-    <div className={cn("flex items-start gap-4 transition-all", !isNext && !isComplete && "opacity-50", isNext && "bg-primary/5 p-3 rounded-lg -mx-3")}>
+    <div ref={el => stepRefs.current[stepNumber - 1] = el} className={cn("flex items-start gap-4 transition-all", !isNext && !isComplete && "opacity-50", isNext && "bg-primary/5 p-3 rounded-lg -mx-3")}>
       <div className="flex flex-col items-center">
         <div className={cn(
           "h-8 w-8 rounded-full flex items-center justify-center border-2 transition-colors",
@@ -377,21 +378,22 @@ export function WarmUpDialog({
                       <Button size="sm" onClick={handleEnableWarming}>Enable Warming Up Status</Button>
                   </div>
               )}
-
-            <div className="space-y-0">
-               {warmUpSteps.map((step, index) => (
-                   <StepCard
-                    key={step.action}
-                    stepNumber={index + 1}
-                    title={step.title}
-                    description={step.description}
-                    action={step.action}
-                    icon={step.icon}
-                    isComplete={completedActions.has(step.action)}
-                    isNext={nextAction === step.action}
-                   />
-               ))}
-            </div>
+            <ScrollArea className="h-72 pr-3 -mr-3">
+              <div className="space-y-0">
+                {warmUpSteps.map((step, index) => (
+                    <StepCard
+                      key={step.action}
+                      stepNumber={index + 1}
+                      title={step.title}
+                      description={step.description}
+                      action={step.action}
+                      icon={step.icon}
+                      isComplete={completedActions.has(step.action)}
+                      isNext={nextActionIndex === index}
+                    />
+                ))}
+              </div>
+            </ScrollArea>
             
              <Accordion type="single" collapsible>
                 <AccordionItem value="log">

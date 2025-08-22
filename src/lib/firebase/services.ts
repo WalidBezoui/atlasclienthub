@@ -806,12 +806,8 @@ export const getWarmUpPipelineData = async (): Promise<WarmUpPipelineData> => {
     const dueDate = pipelineItem.nextActionDue ? new Date(pipelineItem.nextActionDue) : null;
     
     if (!dueDate) {
-        // If no due date, it's considered due today if no actions have been taken
-        if (pipelineItem.progress === 0) {
-           categorizedData.dueToday.push(pipelineItem);
-        } else {
-           categorizedData.upcoming.push(pipelineItem);
-        }
+      // If no due date, it's considered due today if no actions have been taken
+      categorizedData.dueToday.push(pipelineItem);
     } else if (isPast(dueDate) && !isToday(dueDate)) {
       categorizedData.overdue.push(pipelineItem);
     } else if (isToday(dueDate)) {

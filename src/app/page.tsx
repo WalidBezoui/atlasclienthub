@@ -1,7 +1,7 @@
 
 
 'use client';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { LayoutDashboard, Users, Flame, UserCheck, PlusCircle, BarChart3, CheckSquare, Clock, FileQuestion, Send, UserRound, ListChecks, ArrowRight, UserPlus, Eye, MessageCircle as MessageCircleIcon, MoreVertical, Heart, MessagesSquare, Edit, Link as LinkIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,12 +29,10 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Dialog, DialogContent, DialogFooter, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { ConversationTracker } from '@/components/outreach/conversation-tracker';
-import { generateContextualScript, type GenerateContextualScriptInput } from '@/ai/flows/generate-contextual-script';
 import { WarmUpDialog } from '@/components/outreach/warm-up-dialog';
 import { CommentGeneratorDialog } from '@/components/outreach/CommentGeneratorDialog';
 import { ScriptModal } from '@/components/scripts/script-modal';
+import { generateContextualScript, type GenerateContextualScriptInput } from '@/ai/flows/generate-contextual-script';
 
 
 const initialOverviewData = {
@@ -151,11 +149,15 @@ const WarmUpDashboardCard = ({
   
   const getUrgencyBadge = (): { text: string; variant: "destructive" | "secondary" | "outline" } => {
     if (!item.nextActionDue) return { text: "Next", variant: "secondary" };
-    const dueDate = new Date(item.nextActionDue);
-    if (isNaN(dueDate.getTime())) return { text: "Next", variant: "secondary" };
-    if (isPast(dueDate) && !isToday(dueDate)) return { text: "Overdue", variant: "destructive" };
-    if (isToday(dueDate)) return { text: "Due Today", variant: "destructive" };
-    return { text: `Due ${formatDistanceToNow(dueDate, { addSuffix: true })}`, variant: "outline" };
+    try {
+        const dueDate = new Date(item.nextActionDue);
+        if (isNaN(dueDate.getTime())) return { text: "Next", variant: "secondary" };
+        if (isPast(dueDate) && !isToday(dueDate)) return { text: "Overdue", variant: "destructive" };
+        if (isToday(dueDate)) return { text: "Due Today", variant: "destructive" };
+        return { text: `Due ${formatDistanceToNow(dueDate, { addSuffix: true })}`, variant: "outline" };
+    } catch {
+        return { text: "Next", variant: "secondary" };
+    }
   };
 
   const { text, variant } = getUrgencyBadge();
@@ -170,43 +172,36 @@ const WarmUpDashboardCard = ({
      onGenerateOutreach(item);
   }
 
-  const quickActionIcons: { action: WarmUpAction, icon: React.ElementType, tooltip: string, isDmAction?: boolean }[] = [
+  const quickActionIcons: { action: WarmUpAction, icon: React.ElementType, tooltip: string}[] = [
       { action: 'Liked Posts', icon: Heart, tooltip: "Log 'Liked Posts'" },
       { action: 'Viewed Story', icon: Eye, tooltip: "Log 'Viewed Story'"},
-      { action: 'Replied to Story', icon: MessagesSquare, tooltip: "Generate Outreach DM", isDmAction: true },
+      { action: 'Left Comment', icon: MessageCircleIcon, tooltip: "Open Comment Generator" },
   ];
 
   return (
-    <div className="p-3 bg-card border rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={() => onOpenWarmUpDialog(item)}>
+    <div className="p-3 bg-card border rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer group" onClick={() => onOpenWarmUpDialog(item)}>
       <div className="flex justify-between items-start">
         <div className="flex-1 min-w-0">
-          <p className="font-semibold truncate text-sm hover:underline">{item.name}</p>
-          <p className="text-xs text-muted-foreground truncate">@{item.instagramHandle || 'N/A'}</p>
+          <p className="font-semibold truncate text-sm group-hover:underline">{item.name}</p>
+          <p className="text-xs text-muted-foreground truncate flex items-center gap-1.5">
+            <a href={`https://instagram.com/${item.instagramHandle?.replace('@','')}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="hover:underline">
+             @{item.instagramHandle || 'N/A'}
+            </a>
+            <LinkIcon className="h-3 w-3 text-muted-foreground/70" />
+          </p>
         </div>
          <TooltipProvider>
             <div className="flex items-center gap-1">
-                 {quickActionIcons.map(({action, icon: Icon, tooltip, isDmAction}) => {
+                 {quickActionIcons.map(({action, icon: Icon, tooltip}) => {
                      const isDone = item.completedActions.includes(action);
-                     const isNextAction = item.nextAction === action;
-
-                     const handleClick = (e: React.MouseEvent) => {
-                        e.stopPropagation();
-                        if (isDone) return;
-                        if (isDmAction) {
-                            handleGenerateOutreachClick(e);
-                        } else {
-                            handleQuickAction(e, action);
-                        }
-                     }
-
                      return (
                          <Tooltip key={action}>
                              <TooltipTrigger asChild>
                                 <Button 
-                                    variant={isDone ? 'secondary' : (isNextAction ? 'default' : 'ghost')} 
+                                    variant={isDone ? 'secondary' : 'ghost'} 
                                     size="icon" 
                                     className="h-7 w-7" 
-                                    onClick={handleClick} 
+                                    onClick={(e) => handleQuickAction(e, action)} 
                                     disabled={isDone}
                                 >
                                     <Icon className={cn("h-4 w-4", isDone && 'text-muted-foreground')} />
@@ -216,16 +211,6 @@ const WarmUpDashboardCard = ({
                          </Tooltip>
                      );
                  })}
-                 <Tooltip>
-                    <TooltipTrigger asChild>
-                         <a href={`https://instagram.com/${item.instagramHandle?.replace('@','')}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" disabled={!item.instagramHandle}>
-                                <LinkIcon className="h-4 w-4" />
-                            </Button>
-                         </a>
-                    </TooltipTrigger>
-                    <TooltipContent><p>Open Instagram Profile</p></TooltipContent>
-                 </Tooltip>
             </div>
         </TooltipProvider>
       </div>
@@ -239,6 +224,11 @@ const WarmUpDashboardCard = ({
             <span className="text-muted-foreground">Next: <span className="font-medium text-foreground">{item.nextAction}</span></span>
             <Badge variant={variant} className="text-xs">{text}</Badge>
         </div>
+         <div className="pt-2">
+            <Button variant="default" size="sm" className="w-full h-8" onClick={handleGenerateOutreachClick} disabled={item.completedActions.includes('Replied to Story')}>
+                <MessagesSquare className="mr-2 h-4 w-4"/> Generate Outreach DM
+            </Button>
+         </div>
       </div>
     </div>
   );
@@ -254,11 +244,6 @@ export default function DashboardPage() {
   const [warmUpData, setWarmUpData] = useState<WarmUpPipelineData>(initialWarmUpData);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const { toast } = useToast();
-  
-  const [isConversationModalOpen, setIsConversationModalOpen] = useState(false);
-  const [currentProspectForConversation, setCurrentProspectForConversation] = useState<OutreachProspect | null>(null);
-  const [conversationHistoryContent, setConversationHistoryContent] = useState<string | null>(null);
-  const [isSavingConversation, setIsSavingConversation] = useState(false);
   
   const [isWarmUpOpen, setIsWarmUpOpen] = useState(false);
   const [editingProspect, setEditingProspect] = useState<OutreachProspect | null>(null);
@@ -300,6 +285,19 @@ export default function DashboardPage() {
   }, [user, authLoading, fetchDashboardData]);
   
   const handleLogWarmUpActivity = useCallback(async (prospectId: string, action: WarmUpAction) => {
+     const allProspects = await getProspects();
+     const prospectData = allProspects.find(p => p.id === prospectId);
+     if (!prospectData) {
+       toast({title: "Error", description: "Could not load prospect details.", variant: "destructive"});
+       return;
+     }
+
+    if (action === 'Left Comment') {
+      setProspectForComment(prospectData);
+      setIsCommentGeneratorOpen(true);
+      return;
+    }
+    
     const originalWarmUpData = { ...warmUpData };
     
     const updatePipeline = (pipeline: WarmUpPipelineItem[]) => pipeline.map(item => {
@@ -319,10 +317,6 @@ export default function DashboardPage() {
     }));
 
     try {
-        const allProspects = await getProspects();
-        const prospectData = allProspects.find(p => p.id === prospectId);
-        if (!prospectData) throw new Error("Prospect not found");
-
         const existingWarmUp = prospectData.warmUp || [];
         
         if (existingWarmUp.some(a => a.action === action)) {
@@ -345,137 +339,7 @@ export default function DashboardPage() {
         setWarmUpData(originalWarmUpData);
     }
   }, [warmUpData, toast, fetchDashboardData]);
-
-  const handleOpenConversationModal = useCallback(async (prospect: OutreachProspect | WarmUpPipelineItem) => {
-    const allProspects = await getProspects();
-    const fullProspect = allProspects.find(p => p.id === prospect.id);
-    if (fullProspect) {
-      setCurrentProspectForConversation(fullProspect);
-      setConversationHistoryContent(fullProspect.conversationHistory || '');
-      setIsConversationModalOpen(true);
-    } else {
-      toast({title: "Error", description: "Could not load prospect details.", variant: "destructive"});
-    }
-  }, [toast]);
   
-  const handleSaveConversation = useCallback(async () => {
-    if (!currentProspectForConversation || !conversationHistoryContent) return;
-    setIsSavingConversation(true);
-    try {
-      const isFirstMessage = !currentProspectForConversation.conversationHistory;
-      const warmUpActivities = new Set(currentProspectForConversation.warmUp?.map(a => a.action));
-
-      const updates: Partial<OutreachProspect> = {
-        conversationHistory: conversationHistoryContent,
-        lastContacted: new Date().toISOString()
-      };
-
-      if ((isFirstMessage || !warmUpActivities.has('Replied to Story')) && currentProspectForConversation.status === 'Warming Up') {
-        const newWarmUpActivity: WarmUpActivity = {
-            id: crypto.randomUUID(),
-            action: 'Replied to Story',
-            date: new Date().toISOString(),
-        };
-        updates.warmUp = [...(currentProspectForConversation.warmUp || []), newWarmUpActivity];
-      }
-
-      await updateProspect(currentProspectForConversation.id, updates);
-      toast({ title: 'Conversation Saved', description: `History for ${currentProspectForConversation.name} updated.` });
-      setIsConversationModalOpen(false);
-      setCurrentProspectForConversation(null);
-      fetchDashboardData();
-    } catch (error: any) {
-      toast({ title: 'Save Failed', description: error.message || 'Could not save conversation.', variant: 'destructive' });
-    } finally {
-      setIsSavingConversation(false);
-    }
-  }, [currentProspectForConversation, conversationHistoryContent, toast, fetchDashboardData]);
-  
-  const handleGenerateNextReply = useCallback(async (prospect: OutreachProspect, customInstructions: string): Promise<string> => {
-    const input: GenerateContextualScriptInput = {
-        scriptType: "Generate Next Reply",
-        clientName: prospect.name?.trim() || null,
-        clientHandle: prospect.instagramHandle?.trim() || null,
-        businessName: prospect.businessName?.trim() || null,
-        website: prospect.website?.trim() || null,
-        prospectLocation: prospect.prospectLocation || null,
-        clientIndustry: prospect.industry?.trim() || null,
-        visualStyle: prospect.visualStyle?.trim() || null, 
-        bioSummary: prospect.bioSummary?.trim() || null,
-        uniqueNote: prospect.uniqueNote?.trim() || null,
-        businessType: prospect.businessType || null,
-        businessTypeOther: prospect.businessTypeOther?.trim() || null,
-        accountStage: prospect.accountStage || null,
-        followerCount: prospect.followerCount,
-        postCount: prospect.postCount,
-        avgLikes: prospect.avgLikes,
-        avgComments: prospect.avgComments,
-        painPoints: prospect.painPoints || [],
-        goals: prospect.goals || [],
-        leadStatus: prospect.status,
-        source: prospect.source || null,
-        lastTouch: prospect.lastContacted ? `Last contacted on ${new Date(prospect.lastContacted).toLocaleDateString()}` : 'No prior contact recorded',
-        followUpNeeded: prospect.followUpNeeded || false,
-        offerInterest: prospect.offerInterest || [],
-        tonePreference: prospect.tonePreference || null,
-        additionalNotes: prospect.notes?.trim() || null,
-        lastMessageSnippet: prospect.lastMessageSnippet?.trim() || null,
-        lastScriptSent: prospect.lastScriptSent?.trim() || null,
-        linkSent: prospect.linkSent || false,
-        carouselOffered: prospect.carouselOffered || false,
-        nextStep: prospect.nextStep?.trim() || null,
-        conversationHistory: prospect.conversationHistory?.trim() || null,
-        customInstructions: customInstructions || null,
-    };
-    
-    try {
-      const result = await generateContextualScript(input);
-      toast({ title: "Reply Generated", description: "Review the suggestion below." });
-      return result.script;
-    } catch (error) {
-      console.error("Error generating next reply:", error);
-      toast({
-        title: "Error Generating Reply",
-        description: (error as Error).message || "An unexpected error occurred.",
-        variant: "destructive",
-      });
-      return '';
-    }
-  }, [toast]);
-  
-  const handleOpenWarmUpDialog = async (item: WarmUpPipelineItem) => {
-    const allProspects = await getProspects();
-    const fullProspect = allProspects.find(p => p.id === item.id);
-    if (fullProspect) {
-      setEditingProspect(fullProspect);
-      setIsWarmUpOpen(true);
-    } else {
-      toast({ title: "Error", description: "Could not load full prospect details.", variant: "destructive" });
-    }
-  };
-  
-  const handleWarmUpActivityLogged = (updatedProspect: OutreachProspect) => {
-    if (editingProspect && editingProspect.id === updatedProspect.id) {
-        setEditingProspect(updatedProspect);
-    }
-    fetchDashboardData();
-  };
-
-  const handleOpenCommentGenerator = (prospect: OutreachProspect) => {
-    setProspectForComment(prospect);
-    setIsCommentGeneratorOpen(true);
-  };
-  
-  const handleStatusChange = async (id: string, newStatus: OutreachLeadStage) => {
-     if (!user) return;
-     try {
-       await updateProspect(id, { status: newStatus });
-       fetchDashboardData();
-     } catch (error) {
-       toast({ title: 'Error updating status', variant: 'destructive' });
-     }
-  };
-
   const handleGenerateDashboardOutreach = useCallback(async (item: WarmUpPipelineItem) => {
     const allProspects = await getProspects();
     const prospect = allProspects.find(p => p.id === item.id);
@@ -489,7 +353,7 @@ export default function DashboardPage() {
     setIsGeneratingScript(true);
     setIsScriptModalOpen(true);
     setGeneratedScript('');
-
+    
     const input: GenerateContextualScriptInput = {
         scriptType: "Cold Outreach DM",
         clientName: prospect.name,
@@ -500,7 +364,7 @@ export default function DashboardPage() {
         visualStyle: prospect.visualStyle,
         businessType: prospect.businessType,
     };
-
+    
     setCurrentScriptGenerationInput(input);
     
     try {
@@ -565,6 +429,34 @@ export default function DashboardPage() {
       setIsGeneratingScript(false);
     }
   }, [currentScriptGenerationInput, toast]);
+  
+  const handleOpenWarmUpDialog = async (item: WarmUpPipelineItem) => {
+    const allProspects = await getProspects();
+    const fullProspect = allProspects.find(p => p.id === item.id);
+    if (fullProspect) {
+      setEditingProspect(fullProspect);
+      setIsWarmUpOpen(true);
+    } else {
+      toast({ title: "Error", description: "Could not load full prospect details.", variant: "destructive" });
+    }
+  };
+  
+  const handleWarmUpActivityLogged = (updatedProspect: OutreachProspect) => {
+    if (editingProspect && editingProspect.id === updatedProspect.id) {
+        setEditingProspect(updatedProspect);
+    }
+    fetchDashboardData();
+  };
+  
+  const handleStatusChange = async (id: string, newStatus: OutreachLeadStage) => {
+     if (!user) return;
+     try {
+       await updateProspect(id, { status: newStatus });
+       fetchDashboardData();
+     } catch (error) {
+       toast({ title: 'Error updating status', variant: 'destructive' });
+     }
+  };
 
   const displayOverviewData = [
     { metric: 'Active Clients', value: overviewData.activeClients, icon: Users, color: 'text-green-500', bgColor: 'bg-green-100 dark:bg-green-900/50' },
@@ -614,8 +506,11 @@ export default function DashboardPage() {
           onClose={() => setIsWarmUpOpen(false)}
           prospect={editingProspect}
           onActivityLogged={handleWarmUpActivityLogged}
-          onGenerateComment={handleOpenCommentGenerator}
-          onViewConversation={handleOpenConversationModal}
+          onGenerateComment={(p) => {
+            setProspectForComment(p);
+            setIsCommentGeneratorOpen(true);
+          }}
+          onViewConversation={() => {}} // This can be expanded if needed
           onStatusChange={handleStatusChange}
         />
         
@@ -698,7 +593,7 @@ export default function DashboardPage() {
        <Card>
         <CardHeader>
             <CardTitle className="font-headline flex items-center">
-                <MessageCircleIcon className="mr-3 h-5 w-5 text-primary" /> Warm-Up Command Center ({warmUpData.totalInWarmUp})
+                <Flame className="mr-3 h-5 w-5 text-destructive" /> Warm-Up Command Center ({warmUpData.totalInWarmUp})
             </CardTitle>
             <CardDescription>
                 A smart, prioritized view of your warm-up pipeline with quick actions.
@@ -709,24 +604,30 @@ export default function DashboardPage() {
                 <Tabs defaultValue="dueToday">
                     <TabsList className="grid w-full grid-cols-3">
                         <TabsTrigger value="dueToday">Due Today <Badge variant="destructive" className="ml-2">{warmUpData.dueToday.length}</Badge></TabsTrigger>
-                        <TabsTrigger value="overdue">Overdue <Badge variant="secondary" className="ml-2">{warmUpData.overdue.length}</Badge></TabsTrigger>
+                        <TabsTrigger value="overdue">Overdue <Badge variant="destructive" className="ml-2">{warmUpData.overdue.length}</Badge></TabsTrigger>
                         <TabsTrigger value="upcoming">Upcoming <Badge variant="outline" className="ml-2">{warmUpData.upcoming.length}</Badge></TabsTrigger>
                     </TabsList>
                     <div className="mt-4">
-                         <TabsContent value="dueToday">
+                        <TabsContent value="dueToday">
+                          {warmUpData.dueToday.length > 0 ? (
                             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                                 {warmUpData.dueToday.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={handleGenerateDashboardOutreach}/>)}
                             </div>
+                          ) : <p className="text-sm text-center text-muted-foreground py-8">Nothing due today. Well done!</p>}
                         </TabsContent>
                         <TabsContent value="overdue">
+                          {warmUpData.overdue.length > 0 ? (
                             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                                 {warmUpData.overdue.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={handleGenerateDashboardOutreach}/>)}
                             </div>
+                          ) : <p className="text-sm text-center text-muted-foreground py-8">No overdue items. Great job!</p>}
                         </TabsContent>
                         <TabsContent value="upcoming">
+                           {warmUpData.upcoming.length > 0 ? (
                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                                 {warmUpData.upcoming.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={handleGenerateDashboardOutreach}/>)}
                             </div>
+                           ) : <p className="text-sm text-center text-muted-foreground py-8">No upcoming prospects in the warm-up pipeline.</p>}
                         </TabsContent>
                     </div>
                 </Tabs>
