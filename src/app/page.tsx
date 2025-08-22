@@ -12,7 +12,7 @@ import { ChartConfig, ChartContainer, ChartTooltipContent } from '@/components/u
 import { useAuth } from '@/hooks/useAuth';
 import { getDashboardOverview, getMonthlyActivityData, getDailyAgendaItems, getWarmUpPipelineData, updateProspect, getProspects } from '@/lib/firebase/services';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
-import type { MonthlyActivity, AgendaItem, WarmUpPipelineData, WarmUpPipelineItem, WarmUpAction, OutreachProspect, OutreachLeadStage } from '@/lib/types';
+import type { MonthlyActivity, AgendaItem, WarmUpPipelineData, WarmUpPipelineItem, WarmUpAction, OutreachProspect, OutreachLeadStage, StatusHistoryItem, WarmUpActivity } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { format, subMonths, formatDistanceToNow, isPast, isToday } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -34,6 +34,7 @@ import { ConversationTracker } from '@/components/outreach/conversation-tracker'
 import { generateContextualScript, type GenerateContextualScriptInput } from '@/ai/flows/generate-contextual-script';
 import { WarmUpDialog } from '@/components/outreach/warm-up-dialog';
 import { CommentGeneratorDialog } from '@/components/outreach/CommentGeneratorDialog';
+import { ScriptModal } from '@/components/scripts/script-modal';
 
 
 const initialOverviewData = {
@@ -139,13 +140,13 @@ const DashboardSkeleton = () => (
 const WarmUpDashboardCard = ({
   item,
   onLogActivity,
-  onViewConversation,
   onOpenWarmUpDialog,
+  onGenerateOutreach,
 }: {
   item: WarmUpPipelineItem;
   onLogActivity: (prospectId: string, action: WarmUpAction) => void;
-  onViewConversation: (prospect: OutreachProspect) => void;
   onOpenWarmUpDialog: (prospect: WarmUpPipelineItem) => void;
+  onGenerateOutreach: (prospect: WarmUpPipelineItem) => void;
 }) => {
   
   const getUrgencyBadge = (): { text: string; variant: "destructive" | "secondary" | "outline" } => {
@@ -164,15 +165,15 @@ const WarmUpDashboardCard = ({
     onLogActivity(item.id, action);
   };
   
-  const handleViewConversationClick = (e: React.MouseEvent) => {
+  const handleGenerateOutreachClick = (e: React.MouseEvent) => {
      e.stopPropagation();
-     onViewConversation(item as OutreachProspect);
+     onGenerateOutreach(item);
   }
 
   const quickActionIcons: { action: WarmUpAction, icon: React.ElementType, tooltip: string, isDmAction?: boolean }[] = [
       { action: 'Liked Posts', icon: Heart, tooltip: "Log 'Liked Posts'" },
       { action: 'Viewed Story', icon: Eye, tooltip: "Log 'Viewed Story'"},
-      { action: 'Replied to Story', icon: MessagesSquare, tooltip: "Reply to Story / Start DM", isDmAction: true },
+      { action: 'Replied to Story', icon: MessagesSquare, tooltip: "Generate Outreach DM", isDmAction: true },
   ];
 
   return (
@@ -192,7 +193,7 @@ const WarmUpDashboardCard = ({
                         e.stopPropagation();
                         if (isDone) return;
                         if (isDmAction) {
-                            handleViewConversationClick(e);
+                            handleGenerateOutreachClick(e);
                         } else {
                             handleQuickAction(e, action);
                         }
@@ -254,19 +255,22 @@ export default function DashboardPage() {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const { toast } = useToast();
   
-  // State for conversation modal
   const [isConversationModalOpen, setIsConversationModalOpen] = useState(false);
   const [currentProspectForConversation, setCurrentProspectForConversation] = useState<OutreachProspect | null>(null);
   const [conversationHistoryContent, setConversationHistoryContent] = useState<string | null>(null);
   const [isSavingConversation, setIsSavingConversation] = useState(false);
   
-  // State for WarmUpDialog
   const [isWarmUpOpen, setIsWarmUpOpen] = useState(false);
   const [editingProspect, setEditingProspect] = useState<OutreachProspect | null>(null);
   
-  // State for CommentGeneratorDialog
   const [isCommentGeneratorOpen, setIsCommentGeneratorOpen] = useState(false);
   const [prospectForComment, setProspectForComment] = useState<OutreachProspect | null>(null);
+
+  const [isScriptModalOpen, setIsScriptModalOpen] = useState(false);
+  const [generatedScript, setGeneratedScript] = useState('');
+  const [isGeneratingScript, setIsGeneratingScript] = useState(false);
+  const [currentProspectForScript, setCurrentProspectForScript] = useState<OutreachProspect | null>(null);
+  const [currentScriptGenerationInput, setCurrentScriptGenerationInput] = useState<GenerateContextualScriptInput | null>(null);
 
   const fetchDashboardData = useCallback(async () => {
     if (!user) return;
@@ -472,6 +476,95 @@ export default function DashboardPage() {
      }
   };
 
+  const handleGenerateDashboardOutreach = useCallback(async (item: WarmUpPipelineItem) => {
+    const allProspects = await getProspects();
+    const prospect = allProspects.find(p => p.id === item.id);
+
+    if (!prospect) {
+      toast({ title: "Prospect details not found", variant: "destructive" });
+      return;
+    }
+
+    setCurrentProspectForScript(prospect);
+    setIsGeneratingScript(true);
+    setIsScriptModalOpen(true);
+    setGeneratedScript('');
+
+    const input: GenerateContextualScriptInput = {
+        scriptType: "Cold Outreach DM",
+        clientName: prospect.name,
+        clientHandle: prospect.instagramHandle,
+        businessName: prospect.businessName,
+        uniqueNote: prospect.uniqueNote,
+        clientIndustry: prospect.industry,
+        visualStyle: prospect.visualStyle,
+        businessType: prospect.businessType,
+    };
+
+    setCurrentScriptGenerationInput(input);
+    
+    try {
+        const result = await generateContextualScript(input);
+        setGeneratedScript(result.script);
+    } catch (error: any) {
+        toast({ title: 'Script Generation Failed', description: (error as Error).message, variant: 'destructive' });
+        setGeneratedScript('Failed to generate script. Please try again.');
+    } finally {
+        setIsGeneratingScript(false);
+    }
+  }, [toast]);
+  
+  const handleDashboardScriptConfirm = useCallback(async (scriptContent: string) => {
+    if (!currentProspectForScript) return;
+    
+    const now = new Date();
+    const newActivity: WarmUpActivity = { 
+      id: crypto.randomUUID(), 
+      action: 'Replied to Story', 
+      date: now.toISOString(),
+    };
+    const updatedWarmUp = [...(currentProspectForScript.warmUp || []), newActivity];
+
+    const newStatus: OutreachLeadStage = 'Cold';
+    const newHistoryEntry: StatusHistoryItem = { status: newStatus, date: now.toISOString() };
+
+    const updates: Partial<OutreachProspect> = {
+      warmUp: updatedWarmUp,
+      conversationHistory: `${currentProspectForScript.conversationHistory || ''}${currentProspectForScript.conversationHistory ? '\n\n' : ''}Me: ${scriptContent}`.trim(),
+      lastContacted: now.toISOString(),
+      lastScriptSent: "Cold Outreach DM",
+      status: newStatus,
+      statusHistory: [...(currentProspectForScript.statusHistory || []), newHistoryEntry],
+    };
+
+    try {
+        await updateProspect(currentProspectForScript.id, updates);
+        toast({ title: "Action Complete!", description: "Outreach logged and prospect status advanced to 'Cold'." });
+        setIsScriptModalOpen(false);
+        fetchDashboardData(); 
+    } catch(error: any) {
+        toast({ title: "Update Failed", description: error.message || 'Could not update prospect.', variant: 'destructive' });
+    }
+  }, [currentProspectForScript, fetchDashboardData, toast]);
+
+  const handleRegenerateScript = useCallback(async (customInstructions: string): Promise<string | null> => {
+    if (!currentScriptGenerationInput) return null;
+    const updatedInput = { ...currentScriptGenerationInput, customInstructions };
+    setCurrentScriptGenerationInput(updatedInput);
+    
+    setIsGeneratingScript(true);
+    setGeneratedScript('');
+    try {
+      const result = await generateContextualScript(updatedInput);
+      setGeneratedScript(result.script);
+      return result.script;
+    } catch (error) {
+       toast({ title: 'Regeneration Failed', variant: 'destructive' });
+       return null;
+    } finally {
+      setIsGeneratingScript(false);
+    }
+  }, [currentScriptGenerationInput, toast]);
 
   const displayOverviewData = [
     { metric: 'Active Clients', value: overviewData.activeClients, icon: Users, color: 'text-green-500', bgColor: 'bg-green-100 dark:bg-green-900/50' },
@@ -503,26 +596,18 @@ export default function DashboardPage() {
         }
       />
       
-       <Dialog open={isConversationModalOpen} onOpenChange={setIsConversationModalOpen}>
-        <DialogContent className="sm:max-w-xl md:max-w-2xl h-[90vh] flex flex-col p-0">
-          <DialogTitle className="sr-only">Conversation with {currentProspectForConversation?.name}</DialogTitle>
-          <div className="flex-grow min-h-0">
-            <ConversationTracker
-              prospect={currentProspectForConversation}
-              value={conversationHistoryContent}
-              onChange={setConversationHistoryContent}
-              onGenerateReply={handleGenerateNextReply}
-              isDirty={currentProspectForConversation ? (currentProspectForConversation.conversationHistory || '') !== (conversationHistoryContent || '') : false}
-            />
-          </div>
-          <DialogFooter className="p-4 border-t gap-2">
-            <Button variant="outline" onClick={() => setIsConversationModalOpen(false)}>Cancel</Button>
-            <Button onClick={handleSaveConversation} disabled={isSavingConversation}>
-              {isSavingConversation ? <div className="animate-spin h-4 w-4 border-2 rounded-full border-t-transparent" /> : 'Save Changes'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+       <ScriptModal
+        isOpen={isScriptModalOpen}
+        onClose={() => setIsScriptModalOpen(false)}
+        scriptContent={generatedScript}
+        title="Generate Cold Outreach DM"
+        onRegenerate={handleRegenerateScript}
+        isLoadingInitially={isGeneratingScript}
+        showConfirmButton={true}
+        onConfirm={handleDashboardScriptConfirm}
+        confirmButtonText="Copy, Save & Log"
+        prospect={currentProspectForScript}
+      />
       
        <WarmUpDialog
           isOpen={isWarmUpOpen}
@@ -623,24 +708,24 @@ export default function DashboardPage() {
             {warmUpData.totalInWarmUp > 0 ? (
                 <Tabs defaultValue="dueToday">
                     <TabsList className="grid w-full grid-cols-3">
-                        <TabsTrigger value="dueToday">Due Today <Badge variant="secondary" className="ml-2">{warmUpData.dueToday.length}</Badge></TabsTrigger>
-                        <TabsTrigger value="overdue">Overdue <Badge variant="destructive" className="ml-2">{warmUpData.overdue.length}</Badge></TabsTrigger>
+                        <TabsTrigger value="dueToday">Due Today <Badge variant="destructive" className="ml-2">{warmUpData.dueToday.length}</Badge></TabsTrigger>
+                        <TabsTrigger value="overdue">Overdue <Badge variant="secondary" className="ml-2">{warmUpData.overdue.length}</Badge></TabsTrigger>
                         <TabsTrigger value="upcoming">Upcoming <Badge variant="outline" className="ml-2">{warmUpData.upcoming.length}</Badge></TabsTrigger>
                     </TabsList>
                     <div className="mt-4">
                          <TabsContent value="dueToday">
                             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                                {warmUpData.dueToday.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onViewConversation={handleOpenConversationModal} onOpenWarmUpDialog={handleOpenWarmUpDialog} />)}
+                                {warmUpData.dueToday.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={handleGenerateDashboardOutreach}/>)}
                             </div>
                         </TabsContent>
                         <TabsContent value="overdue">
                             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                                {warmUpData.overdue.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onViewConversation={handleOpenConversationModal} onOpenWarmUpDialog={handleOpenWarmUpDialog} />)}
+                                {warmUpData.overdue.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={handleGenerateDashboardOutreach}/>)}
                             </div>
                         </TabsContent>
                         <TabsContent value="upcoming">
                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                                {warmUpData.upcoming.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onViewConversation={handleOpenConversationModal} onOpenWarmUpDialog={handleOpenWarmUpDialog} />)}
+                                {warmUpData.upcoming.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={handleGenerateDashboardOutreach}/>)}
                             </div>
                         </TabsContent>
                     </div>
@@ -657,4 +742,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
