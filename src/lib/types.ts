@@ -208,3 +208,7 @@ export type WarmUpPipelineData = {
   dueToday: WarmUpPipelineItem[];
   upcoming: WarmUpPipelineItem[];
 };
+
+export type FollowUpAgendaItem = OutreachProspect & {
+  lastMessageSnippet: string;
+};

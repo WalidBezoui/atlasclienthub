@@ -20,7 +20,7 @@ import {
 } from 'firebase/firestore';
 import { subMonths, format, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, isToday, isPast } from 'date-fns';
 
-import type { Client, InstagramAudit, OutreachProspect, MonthlyActivity, OutreachLeadStage, AgendaItem, StatusHistoryItem, WarmUpActivity, WarmUpPipelineData, WarmUpAction } from '@/lib/types';
+import type { Client, InstagramAudit, OutreachProspect, MonthlyActivity, OutreachLeadStage, AgendaItem, StatusHistoryItem, WarmUpActivity, WarmUpPipelineData, WarmUpAction, FollowUpAgendaItem } from '@/lib/types';
 
 // Generic function to get current user ID
 const getCurrentUserId = (): string | null => {
@@ -661,6 +661,40 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
     return agendaItems;
 };
 
+export const getFollowUpAgendaItems = async (): Promise<FollowUpAgendaItem[]> => {
+  const userId = getCurrentUserId();
+  if (!userId) return [];
+
+  const q = query(
+    prospectsCollection,
+    where('userId', '==', userId),
+    where('followUpNeeded', '==', true),
+    orderBy('lastContacted', 'asc') 
+  );
+  
+  const snapshot = await getDocs(q);
+  
+  return snapshot.docs.map(doc => {
+    const data = doc.data() as OutreachProspect;
+    
+    // Find the last message in the conversation history
+    const history = data.conversationHistory || '';
+    const messages = history.split('\n');
+    const lastMessage = messages.filter(m => m.trim() !== '').pop() || 'No conversation history.';
+
+    return {
+      id: doc.id,
+      name: data.name,
+      instagramHandle: data.instagramHandle,
+      status: data.status,
+      lastContacted: convertTimestampToISO(data.lastContacted),
+      lastMessageSnippet: lastMessage,
+      // Pass the full prospect data for the script generation context
+      ...data
+    };
+  });
+};
+
 
 export const getMonthlyActivityData = async (): Promise<MonthlyActivity[]> => {
   const userId = getCurrentUserId();
@@ -785,6 +819,18 @@ export const getWarmUpPipelineData = async (): Promise<WarmUpPipelineData> => {
         loggedActions.add('Replied to Story');
     }
 
+    if (loggedActions.size >= 4) {
+      const docRef = doc.ref;
+      const newStatus: OutreachLeadStage = 'Cold';
+      const newHistoryEntry: StatusHistoryItem = { status: newStatus, date: new Date().toISOString() };
+      const updates = {
+          status: newStatus,
+          statusHistory: arrayUnion(newHistoryEntry)
+      };
+      updatePromises.push(updateDoc(docRef, updates));
+      return; // Skip adding to pipeline as it's being updated
+    }
+    
     let nextAction: WarmUpAction | 'Done' = 'Liked Posts';
     if (loggedActions.has('Liked Posts')) nextAction = 'Viewed Story';
     if (loggedActions.has('Viewed Story')) nextAction = 'Left Comment';
