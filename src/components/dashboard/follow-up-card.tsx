@@ -26,21 +26,21 @@ export function FollowUpCard({ item, onGenerateFollowUp }: FollowUpCardProps) {
     if (!isDateValid) return 'text-muted-foreground';
     const daysAgo = (new Date().getTime() - lastContactedDate.getTime()) / (1000 * 3600 * 24);
     if (daysAgo > 14) return 'text-destructive';
-    if (daysAgo > 7) return 'text-yellow-600';
+    if (daysAgo > 7) return 'text-yellow-600 dark:text-yellow-500';
     return 'text-muted-foreground';
   };
 
   return (
-    <Card className="flex flex-col h-full">
+    <Card className="flex flex-col h-full shadow-md hover:shadow-lg transition-shadow">
       <CardHeader className="pb-2">
          <div className="flex justify-between items-start">
             <p className="font-semibold truncate">{item.name}</p>
-            <Badge variant={item.status === 'Closed - Won' ? 'default' : 'secondary'}>{item.status}</Badge>
+            <Badge variant={item.status === 'Closed - Won' ? 'default' : 'secondary'} className="text-xs">{item.status}</Badge>
          </div>
          <p className="text-xs text-muted-foreground">@{item.instagramHandle}</p>
       </CardHeader>
       <CardContent className="flex-grow space-y-3">
-        <div className={cn("flex items-center text-xs", getUrgencyColor())}>
+        <div className={cn("flex items-center text-xs font-medium", getUrgencyColor())}>
           <Clock className="mr-1.5 h-3 w-3" />
           Last contact: {timeAgo}
         </div>

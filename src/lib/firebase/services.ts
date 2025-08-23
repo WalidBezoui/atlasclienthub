@@ -593,7 +593,7 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
 
     const [followUpSnapshot, needsQualifierSnapshot, warmingUpSnapshot] = await Promise.all([
         getDocs(followUpQuery),
-        getDocs(needsQualifierQuery),
+        getDocs(needsQualifierSnapshot),
         getDocs(warmingUpQuery),
     ]);
 
@@ -677,6 +677,7 @@ export const getFollowUpAgendaItems = async (): Promise<FollowUpAgendaItem[]> =>
   const results = snapshot.docs.map(doc => {
     const data = doc.data() as OutreachProspect;
     
+    // Filter out items without a lastContacted date, as they can't be sorted properly
     if (!data.lastContacted) {
       return null;
     }
@@ -692,10 +693,11 @@ export const getFollowUpAgendaItems = async (): Promise<FollowUpAgendaItem[]> =>
       status: data.status,
       lastContacted: convertTimestampToISO(data.lastContacted),
       lastMessageSnippet: lastMessage,
-      ...data,
+      ...data, // Include all prospect data for the onGenerateFollowUp function
     };
   });
   
+  // Filter out the null results
   return results.filter((item): item is FollowUpAgendaItem => item !== null);
 };
 
@@ -867,8 +869,8 @@ export const getWarmUpPipelineData = async (): Promise<WarmUpPipelineData> => {
     
     const dueDate = pipelineItem.nextActionDue ? new Date(pipelineItem.nextActionDue) : null;
     
+    // If no nextActionDue is set, consider it due today (for newly added prospects to warm-up)
     if (!dueDate) {
-      // If no due date, it's considered due today if no actions have been taken
       categorizedData.dueToday.push(pipelineItem);
     } else if (isPast(dueDate) && !isToday(dueDate)) {
       categorizedData.overdue.push(pipelineItem);
