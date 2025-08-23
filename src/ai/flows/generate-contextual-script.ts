@@ -172,7 +172,19 @@ Your task is to craft the perfect, personalized Instagram DM based on the prospe
    - **Final Output:** The generated script should be ready to copy and paste.
 
 **IF "Warm Follow-Up DM" or "Send Reminder":**
-   - Be gentle and non-pushy. Refer back to the last interaction and briefly reiterate the value of the "{{offerType}}".
+   - **Goal:** To re-engage a prospect who has not replied to a previous message, without being pushy or annoying.
+   - **Structure:**
+     1. **Contextual Opener:** Gently remind them of the last interaction. This is critical.
+        - *If you sent an audit:* "Hey {{clientName}}, just wanted to follow up and see if you had a chance to look at the audit I sent over?"
+        - *If you made an offer:* "Hey {{clientName}}, hope you're having a great week! Just wanted to quickly follow up on my offer to share some ideas about [their pain point]."
+        - *If they replied and then went silent:* "Hey {{clientName}}, circling back on our conversation from last week."
+     2. **Value Reiteration & Low-Friction CTA:** Briefly restate the value and ask an easy, open-ended question.
+        - *Example for audit:* "Was there anything in there that stood out, or any questions I can answer?"
+        - *Example for offer:* "No pressure at all, just thought it could be helpful. Would you still be interested?"
+   - **Rules:**
+     - **NEVER** say "just checking in" or "just following up" without context.
+     - Keep it short and respectful of their time.
+     - Assume they are busy, not that they are ignoring you.
 
 **IF "Soft Close":**
    - Be graceful. Acknowledge it might not be the right time and leave the door open for the future.
@@ -222,6 +234,7 @@ const generateContextualScriptFlow = ai.defineFlow(
   }
 );
     
+
 
 
 
