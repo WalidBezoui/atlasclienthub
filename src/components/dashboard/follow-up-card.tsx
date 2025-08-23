@@ -6,7 +6,7 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { FollowUpAgendaItem, OutreachProspect } from '@/lib/types';
-import { formatDistanceToNow, isPast } from 'date-fns';
+import { formatDistanceToNow, isPast, isValid } from 'date-fns';
 import { Clock, Send, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -17,11 +17,13 @@ interface FollowUpCardProps {
 }
 
 export function FollowUpCard({ item, onGenerateFollowUp }: FollowUpCardProps) {
-  const lastContactedDate = item.lastContacted ? new Date(item.lastContacted) : new Date();
-  const isOverdue = isPast(lastContactedDate);
-  const timeAgo = formatDistanceToNow(lastContactedDate, { addSuffix: true });
+  const lastContactedDate = item.lastContacted ? new Date(item.lastContacted) : null;
+  const isDateValid = lastContactedDate && isValid(lastContactedDate);
+
+  const timeAgo = isDateValid ? formatDistanceToNow(lastContactedDate, { addSuffix: true }) : 'N/A';
   
   const getUrgencyColor = () => {
+    if (!isDateValid) return 'text-muted-foreground';
     const daysAgo = (new Date().getTime() - lastContactedDate.getTime()) / (1000 * 3600 * 24);
     if (daysAgo > 14) return 'text-destructive';
     if (daysAgo > 7) return 'text-yellow-600';
