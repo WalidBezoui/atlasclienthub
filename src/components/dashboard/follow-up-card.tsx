@@ -50,7 +50,7 @@ export function FollowUpCard({ item, onGenerateFollowUp }: FollowUpCardProps) {
         </blockquote>
       </CardContent>
       <CardFooter>
-        <Button className="w-full" onClick={() => onGenerateFollowUp(item)}>
+        <Button className="w-full" onClick={() => onGenerateFollowUp(item as OutreachProspect)}>
             <Send className="mr-2 h-4 w-4" /> Generate Follow-Up
         </Button>
       </CardFooter>

@@ -655,7 +655,7 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
                 description: `Next action: ${nextAction}`,
                 dueDate: lastActivity.nextActionDue,
             });
-            processedIds.add(prospect.id);
+            processedIds.add(doc.id);
         });
 
     return agendaItems;
@@ -674,10 +674,13 @@ export const getFollowUpAgendaItems = async (): Promise<FollowUpAgendaItem[]> =>
   
   const snapshot = await getDocs(q);
   
-  return snapshot.docs.map(doc => {
+  const results = snapshot.docs.map(doc => {
     const data = doc.data() as OutreachProspect;
     
-    // Find the last message in the conversation history
+    if (!data.lastContacted) {
+      return null;
+    }
+
     const history = data.conversationHistory || '';
     const messages = history.split('\n');
     const lastMessage = messages.filter(m => m.trim() !== '').pop() || 'No conversation history.';
@@ -689,10 +692,11 @@ export const getFollowUpAgendaItems = async (): Promise<FollowUpAgendaItem[]> =>
       status: data.status,
       lastContacted: convertTimestampToISO(data.lastContacted),
       lastMessageSnippet: lastMessage,
-      // Pass the full prospect data for the script generation context
-      ...data
+      ...data,
     };
   });
+  
+  return results.filter((item): item is FollowUpAgendaItem => item !== null);
 };
 
 

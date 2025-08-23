@@ -182,7 +182,7 @@ const WarmUpDashboardCard = ({
                 href={`https://instagram.com/${item.instagramHandle?.replace('@','')}`} 
                 target="_blank" rel="noopener noreferrer" 
                 onClick={(e) => e.stopPropagation()} 
-                className="text-xs text-muted-foreground truncate flex items-center gap-1.5 hover:text-primary hover:underline w-fit"
+                className="text-xs text-muted-foreground truncate flex items-center gap-1.5 hover:text-primary hover:underline w-fit group"
             >
              @{item.instagramHandle || 'N/A'}
              <LinkIcon className="h-3 w-3 text-muted-foreground/70 transition-colors group-hover:text-primary" />
@@ -484,8 +484,8 @@ export default function DashboardPage() {
 
   const displayOverviewData = [
     { metric: 'Active Clients', value: overviewData.activeClients, icon: Users, color: 'text-green-500', bgColor: 'bg-green-100 dark:bg-green-900/50' },
-    { metric: 'In Warm-up', value: overviewData.prospectsInWarmUp, icon: Flame, color: 'text-destructive', bgColor: 'bg-red-100 dark:bg-red-900/50' },
-    { metric: 'Follow-ups Due', value: overviewData.followUpsDue, icon: Clock, color: 'text-yellow-500', bgColor: 'bg-yellow-100 dark:bg-yellow-900/50' },
+    { metric: 'In Warm-up', value: warmUpData.totalInWarmUp, icon: Flame, color: 'text-destructive', bgColor: 'bg-red-100 dark:bg-red-900/50' },
+    { metric: 'Follow-ups Due', value: followUpData.length, icon: Clock, color: 'text-yellow-500', bgColor: 'bg-yellow-100 dark:bg-yellow-900/50' },
     { metric: 'Ready for Audit', value: overviewData.auditsReady, icon: UserCheck, color: 'text-blue-500', bgColor: 'bg-blue-100 dark:bg-blue-900/50' },
   ];
 
