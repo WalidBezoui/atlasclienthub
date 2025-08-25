@@ -543,7 +543,7 @@ export const getDashboardOverview = async (): Promise<{
     auditsReadySnapshot,
   ] = await Promise.all([
     getCountFromServer(activeClientsQuery),
-    getCountFromServer(warmingUpSnapshot),
+    getCountFromServer(warmingUpQuery),
     getCountFromServer(followUpQuery),
     getCountFromServer(readyForAuditQuery),
   ]);
