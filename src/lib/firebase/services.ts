@@ -18,9 +18,9 @@ import {
   limit,
   arrayUnion,
 } from 'firebase/firestore';
-import { subMonths, format, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, isToday, isPast } from 'date-fns';
+import { subMonths, format, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, isToday, isPast, subDays } from 'date-fns';
 
-import type { Client, InstagramAudit, OutreachProspect, MonthlyActivity, OutreachLeadStage, AgendaItem, StatusHistoryItem, WarmUpActivity, WarmUpPipelineData, WarmUpAction, FollowUpAgendaItem } from '@/lib/types';
+import type { Client, InstagramAudit, OutreachProspect, MonthlyActivity, OutreachLeadStage, AgendaItem, StatusHistoryItem, WarmUpActivity, WarmUpPipelineData, WarmUpAction, FollowUpAgendaItem, ReminderAgendaItem } from '@/lib/types';
 
 // Generic function to get current user ID
 const getCurrentUserId = (): string | null => {
@@ -543,7 +543,7 @@ export const getDashboardOverview = async (): Promise<{
     auditsReadySnapshot,
   ] = await Promise.all([
     getCountFromServer(activeClientsQuery),
-    getCountFromServer(warmingUpQuery),
+    getCountFromServer(warmingUpSnapshot),
     getCountFromServer(followUpQuery),
     getCountFromServer(readyForAuditQuery),
   ]);
@@ -699,6 +699,45 @@ export const getFollowUpAgendaItems = async (): Promise<FollowUpAgendaItem[]> =>
   
   // Filter out the null results
   return results.filter((item): item is FollowUpAgendaItem => item !== null);
+};
+
+export const getReminderAgendaItems = async (): Promise<ReminderAgendaItem[]> => {
+    const userId = getCurrentUserId();
+    if (!userId) return [];
+
+    const reminderThreshold = subDays(new Date(), 5);
+    const reminderTimestamp = Timestamp.fromDate(reminderThreshold);
+
+    const q = query(
+        prospectsCollection,
+        where('userId', '==', userId),
+        where('status', 'in', ['Cold', 'Warm']),
+        where('lastContacted', '<=', reminderTimestamp),
+        where('followUpNeeded', '==', false), // Don't show if they are already in the main follow-up list
+        orderBy('lastContacted', 'asc'),
+        limit(20)
+    );
+
+    const snapshot = await getDocs(q);
+
+    const results = snapshot.docs.map(doc => {
+        const data = doc.data() as OutreachProspect;
+        const history = data.conversationHistory || '';
+        const messages = history.split('\n');
+        const lastMessage = messages.filter(m => m.trim() !== '').pop() || 'No conversation history.';
+        
+        return {
+            id: doc.id,
+            name: data.name,
+            instagramHandle: data.instagramHandle,
+            status: data.status,
+            lastContacted: convertTimestampToISO(data.lastContacted),
+            lastMessageSnippet: lastMessage,
+            conversationHistory: data.conversationHistory, // Pass full history for AI context
+        };
+    });
+
+    return results;
 };
 
 

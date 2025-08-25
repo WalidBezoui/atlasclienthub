@@ -212,3 +212,7 @@ export type WarmUpPipelineData = {
 export type FollowUpAgendaItem = OutreachProspect & {
   lastMessageSnippet: string;
 };
+
+export type ReminderAgendaItem = Pick<OutreachProspect, 'id' | 'name' | 'instagramHandle' | 'status' | 'lastContacted' | 'conversationHistory'> & {
+  lastMessageSnippet: string;
+};

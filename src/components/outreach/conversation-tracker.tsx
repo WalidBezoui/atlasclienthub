@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -9,7 +8,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { User, Bot, MoreHorizontal, Edit, Trash2, Repeat, Loader2, Sparkles, Clipboard, Download, Send, MessageCircle as MessageCircleIcon, Copy, ClipboardCheck } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
 import type { OutreachProspect, GeneratedComment } from '@/lib/types';
 import { Input } from '../ui/input';
@@ -21,9 +20,12 @@ import { Badge } from '@/components/ui/badge';
 import { formatDistanceToNow } from 'date-fns';
 
 interface ConversationTrackerProps {
-  prospect: OutreachProspect;
-  onSave: (prospectId: string, newConversation: string) => void;
+  prospect: OutreachProspect | null;
+  value: string | null;
+  onChange: (newValue: string) => void;
+  onSave?: (prospectId: string, newConversation: string) => void;
   onGenerateReply?: (prospect: OutreachProspect, customInstructions: string) => Promise<string>;
+  isDirty: boolean;
 }
 
 type Message = {
@@ -95,7 +97,7 @@ const formatProspectDetails = (prospect: OutreachProspect | null | undefined): s
     return details.join('\n');
 }
 
-export function ConversationTracker({ prospect, onSave, onGenerateReply }: ConversationTrackerProps) {
+export function ConversationTracker({ prospect, value, onChange, onGenerateReply }: ConversationTrackerProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [sender, setSender] = useState<'Me' | 'Prospect'>('Me');
@@ -119,17 +121,22 @@ export function ConversationTracker({ prospect, onSave, onGenerateReply }: Conve
   };
   
   useEffect(() => {
-    setMessages(parseMessages(prospect.conversationHistory || null));
+    const parsed = parseMessages(value || null);
+    setMessages(parsed);
     if (activeTab === 'dms') {
         scrollToBottom();
     }
-  }, [prospect.conversationHistory, activeTab]);
+  }, [value, activeTab]);
   
+  const handleUpdateHistory = (newMessages: Message[]) => {
+      const newHistory = serializeMessages(newMessages);
+      onChange(newHistory);
+  };
+
   const handleAddMessage = () => {
     if (!newMessage.trim() || !prospect) return;
     const newMessages = [...messages, { sender, content: newMessage.trim() }];
-    const newHistory = serializeMessages(newMessages);
-    onSave(prospect.id, newHistory);
+    handleUpdateHistory(newMessages);
     setNewMessage('');
   };
 
@@ -147,8 +154,7 @@ export function ConversationTracker({ prospect, onSave, onGenerateReply }: Conve
   const handleDeleteMessage = (index: number) => {
     if (!prospect) return;
     const newMessages = messages.filter((_, i) => i !== index);
-    const newHistory = serializeMessages(newMessages);
-    onSave(prospect.id, newHistory);
+    handleUpdateHistory(newMessages);
   };
   
   const handleSwitchSender = (index: number) => {
@@ -159,8 +165,7 @@ export function ConversationTracker({ prospect, onSave, onGenerateReply }: Conve
         }
         return msg;
     });
-    const newHistory = serializeMessages(newMessages);
-    onSave(prospect.id, newHistory);
+    handleUpdateHistory(newMessages);
   };
 
   const handleStartEdit = (index: number) => {
@@ -176,8 +181,7 @@ export function ConversationTracker({ prospect, onSave, onGenerateReply }: Conve
         }
         return msg;
     });
-    const newHistory = serializeMessages(newMessages);
-    onSave(prospect.id, newHistory);
+    handleUpdateHistory(newMessages);
     setEditingIndex(null);
     setEditingText('');
   };

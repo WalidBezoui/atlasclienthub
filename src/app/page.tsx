@@ -1,7 +1,7 @@
 
 'use client';
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { LayoutDashboard, Users, Flame, UserCheck, PlusCircle, BarChart3, CheckSquare, Clock, FileQuestion, Send, UserRound, ListChecks, ArrowRight, UserPlus, Eye, MessageCircle as MessageCircleIcon, MoreVertical, Heart, MessagesSquare, Edit, Link as LinkIcon, RefreshCcw } from 'lucide-react';
+import { LayoutDashboard, Users, Flame, UserCheck, PlusCircle, BarChart3, CheckSquare, Clock, FileQuestion, Send, UserRound, ListChecks, ArrowRight, UserPlus, Eye, MessageCircle as MessageCircleIcon, MoreVertical, Heart, MessagesSquare, Edit, Link as LinkIcon, RefreshCcw, BellRing } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
@@ -9,11 +9,11 @@ import Link from 'next/link';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip as ChartTooltip, Legend } from 'recharts';
 import { ChartConfig, ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import { useAuth } from '@/hooks/useAuth';
-import { getDashboardOverview, getMonthlyActivityData, getDailyAgendaItems, getWarmUpPipelineData, updateProspect, getProspects, getFollowUpAgendaItems } from '@/lib/firebase/services';
+import { getDashboardOverview, getMonthlyActivityData, getDailyAgendaItems, getWarmUpPipelineData, updateProspect, getProspects, getFollowUpAgendaItems, getReminderAgendaItems } from '@/lib/firebase/services';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
-import type { MonthlyActivity, AgendaItem, WarmUpPipelineData, WarmUpPipelineItem, WarmUpAction, OutreachProspect, OutreachLeadStage, StatusHistoryItem, WarmUpActivity, FollowUpAgendaItem } from '@/lib/types';
+import type { MonthlyActivity, AgendaItem, WarmUpPipelineData, WarmUpPipelineItem, WarmUpAction, OutreachProspect, OutreachLeadStage, StatusHistoryItem, WarmUpActivity, FollowUpAgendaItem, ReminderAgendaItem } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
-import { format, subMonths, formatDistanceToNow, isPast, isToday } from 'date-fns';
+import { format, subMonths, formatDistanceToNow, isPast, isToday, addDays } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
@@ -33,6 +33,7 @@ import { CommentGeneratorDialog } from '@/components/outreach/CommentGeneratorDi
 import { ScriptModal } from '@/components/scripts/script-modal';
 import { generateContextualScript, type GenerateContextualScriptInput } from '@/ai/flows/generate-contextual-script';
 import { FollowUpCard } from '@/components/dashboard/follow-up-card';
+import { ReminderCard } from '@/components/dashboard/reminder-card';
 
 
 const initialOverviewData = {
@@ -243,6 +244,7 @@ export default function DashboardPage() {
   const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([]);
   const [warmUpData, setWarmUpData] = useState<WarmUpPipelineData>(initialWarmUpData);
   const [followUpData, setFollowUpData] = useState<FollowUpAgendaItem[]>([]);
+  const [reminderData, setReminderData] = useState<ReminderAgendaItem[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const { toast } = useToast();
   
@@ -264,18 +266,20 @@ export default function DashboardPage() {
     if (!user) return;
     setIsLoadingData(true);
     try {
-      const [overview, monthlyActivity, dailyAgenda, warmUpPipeline, followUps] = await Promise.all([
+      const [overview, monthlyActivity, dailyAgenda, warmUpPipeline, followUps, reminders] = await Promise.all([
         getDashboardOverview(),
         getMonthlyActivityData(),
         getDailyAgendaItems(),
         getWarmUpPipelineData(),
         getFollowUpAgendaItems(),
+        getReminderAgendaItems(),
       ]);
       setOverviewData(overview);
       setChartData(monthlyActivity.length > 0 ? monthlyActivity : initialChartData);
       setAgendaItems(dailyAgenda);
       setWarmUpData(warmUpPipeline);
       setFollowUpData(followUps);
+      setReminderData(reminders);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
     } finally {
@@ -428,6 +432,28 @@ export default function DashboardPage() {
     try {
         await updateProspect(currentProspectForScript.id, updates);
         toast({ title: "Follow-Up Sent!", description: "Follow-up logged and prospect updated." });
+        setIsScriptModalOpen(false);
+        fetchDashboardData();
+    } catch(error: any) {
+        toast({ title: "Update Failed", description: error.message || 'Could not update prospect.', variant: 'destructive' });
+    }
+  }, [currentProspectForScript, fetchDashboardData, toast]);
+  
+    const handleReminderScriptConfirm = useCallback(async (scriptContent: string) => {
+    if (!currentProspectForScript) return;
+    
+    const now = new Date().toISOString();
+    const updates: Partial<OutreachProspect> = {
+        conversationHistory: `${currentProspectForScript.conversationHistory || ''}${currentProspectForScript.conversationHistory ? '\n\n' : ''}Me: ${scriptContent}`.trim(),
+        lastContacted: now,
+        lastScriptSent: "Warm Follow-Up DM", // Same script type
+        followUpNeeded: true, // Set a follow up for this reminder
+        followUpDate: addDays(new Date(), 7).toISOString(),
+    };
+    
+    try {
+        await updateProspect(currentProspectForScript.id, updates);
+        toast({ title: "Reminder Sent!", description: "Reminder logged and prospect updated." });
         setIsScriptModalOpen(false);
         fetchDashboardData();
     } catch(error: any) {
@@ -693,6 +719,36 @@ export default function DashboardPage() {
                 </div>
             )}
         </CardContent>
+       </Card>
+
+        <Card>
+            <CardHeader>
+                <CardTitle className="font-headline flex items-center">
+                    <BellRing className="mr-3 h-5 w-5 text-purple-500" /> Gentle Reminder Center ({reminderData.length})
+                </CardTitle>
+                <CardDescription>
+                    Prospects you've contacted who haven't replied in a while. Time for a gentle nudge.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                {reminderData.length > 0 ? (
+                    <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                        {reminderData.map(item => (
+                            <ReminderCard 
+                                key={item.id} 
+                                item={item} 
+                                onGenerateReminder={(prospect) => handleGenerateScript(prospect, 'Warm Follow-Up DM', handleReminderScriptConfirm)} 
+                            />
+                        ))}
+                    </div>
+                ) : (
+                    <div className="text-center py-10 text-muted-foreground">
+                        <CheckSquare className="mx-auto h-12 w-12 text-green-500" />
+                        <p className="mt-4 font-semibold">No reminders needed!</p>
+                        <p className="text-sm">Everyone has been contacted recently.</p>
+                    </div>
+                )}
+            </CardContent>
        </Card>
     </div>
   );
