@@ -10,13 +10,14 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuGroup, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
-import { Edit, Trash2, MoreHorizontal, Link as LinkIcon, Bot, MessageCircle, MessagesSquare, GraduationCap, FileQuestion, Loader2, Star, Languages, Flame, UserPlus, Clock } from 'lucide-react';
+import { Edit, Trash2, MoreHorizontal, Link as LinkIcon, Bot, MessageCircle, MessagesSquare, GraduationCap, FileQuestion, Loader2, Star, Languages, Flame, UserPlus, Clock, Clipboard, FileText } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { OutreachProspect, OutreachLeadStage, WarmUpAction } from '@/lib/types';
 import { OUTREACH_LEAD_STAGE_OPTIONS } from '@/lib/types';
 import { Separator } from '../ui/separator';
 import { Progress } from '../ui/progress';
+import { useToast } from '@/hooks/use-toast';
 
 const ProspectTimelineTooltip = ({ prospect }: { prospect: OutreachProspect }) => {
     if (!prospect.createdAt) return null;
@@ -96,6 +97,7 @@ const ProspectTableRow = React.memo(({
   onDelete,
   onWarmUp,
 }: ProspectTableRowProps) => {
+    const { toast } = useToast();
 
     const formatNumber = (num: number | null | undefined): string => {
         if (num === null || num === undefined) return '-';
@@ -160,6 +162,91 @@ const ProspectTableRow = React.memo(({
     };
     
     const activityInfo = getActivityText(prospect);
+
+    const formatProspectForExport = (p: OutreachProspect): string => {
+        const sections = {
+            "BASIC INFO": [
+                { label: "Name", value: p.name },
+                { label: "Instagram", value: p.instagramHandle ? `@${p.instagramHandle}` : 'N/A' },
+                { label: "Business Name", value: p.businessName },
+                { label: "Website", value: p.website },
+                { label: "Email", value: p.email },
+                { label: "Location", value: p.prospectLocation },
+                { label: "Industry", value: p.industry },
+            ],
+            "LEAD STATUS": [
+                { label: "Status", value: p.status },
+                { label: "Source", value: p.source },
+                { label: "Lead Score", value: p.leadScore },
+                { label: "Created", value: p.createdAt ? new Date(p.createdAt).toLocaleString() : 'N/A' },
+                { label: "Last Contacted", value: p.lastContacted ? new Date(p.lastContacted).toLocaleString() : 'N/A' },
+                { label: "Follow-up Needed", value: p.followUpNeeded ? 'Yes' : 'No' },
+                { label: "Follow-up Date", value: p.followUpDate ? new Date(p.followUpDate).toLocaleDateString() : 'N/A' },
+            ],
+            "METRICS & PROFILE": [
+                { label: "Followers", value: p.followerCount },
+                { label: "Posts", value: p.postCount },
+                { label: "Avg. Likes", value: p.avgLikes },
+                { label: "Avg. Comments", value: p.avgComments },
+                { label: "Business Type", value: `${p.businessType || ''}${p.businessType === 'Other' ? ` (${p.businessTypeOther})` : ''}` },
+                { label: "Account Stage", value: p.accountStage },
+                { label: "Visual Style", value: p.visualStyle },
+                { label: "Bio Summary", value: p.bioSummary },
+            ],
+            "PAIN POINTS & GOALS": [
+                { label: "Pain Points", value: p.painPoints?.join(', ') || 'N/A' },
+                { label: "Goals", value: p.goals?.join(', ') || 'N/A' },
+            ],
+            "AI & CONTEXT": [
+                { label: "Unique Note", value: p.uniqueNote },
+                { label: "AI Help Statement", value: p.helpStatement },
+                { label: "Tone Preference", value: p.tonePreference },
+                { label: "Notes", value: p.notes },
+            ],
+            "CONVERSATION HISTORY": [{ label: "", value: p.conversationHistory || "No conversation history logged." }]
+        };
+
+        let output = `PROSPECT DETAILS: ${p.name}\n========================================\n\n`;
+        for (const [section, items] of Object.entries(sections)) {
+            output += `--- ${section} ---\n`;
+            for (const item of items) {
+                if (item.value) {
+                    if (item.label) {
+                        output += `${item.label}: ${item.value}\n`;
+                    } else {
+                        output += `${item.value}\n`;
+                    }
+                }
+            }
+            output += '\n';
+        }
+        return output;
+    };
+
+    const handleCopyToClipboard = () => {
+        const textToCopy = formatProspectForExport(prospect);
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            toast({ title: "Copied to clipboard!", description: `Full details for ${prospect.name} copied.` });
+        }).catch(err => {
+            toast({ title: "Copy failed", description: "Could not copy details.", variant: "destructive" });
+        });
+    };
+
+    const handleExportToFile = () => {
+        const textToExport = formatProspectForExport(prospect);
+        const blob = new Blob([textToExport], { type: 'text/plain;charset=utf-8;' });
+        const link = document.createElement("a");
+        if (link.download !== undefined) {
+            const url = URL.createObjectURL(blob);
+            const filename = `@${prospect.instagramHandle || prospect.name}_details_${new Date().toISOString().split('T')[0]}.txt`;
+            link.setAttribute("href", url);
+            link.setAttribute("download", filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    };
 
 
     return (
@@ -291,6 +378,19 @@ const ProspectTableRow = React.memo(({
                                 </DropdownMenuSub>
                             </DropdownMenuGroup>
                             <DropdownMenuSeparator />
+                             <DropdownMenuSub>
+                                <DropdownMenuSubTrigger><FileText className="mr-2 h-4 w-4" /> Export Details</DropdownMenuSubTrigger>
+                                <DropdownMenuSubContent>
+                                    <DropdownMenuItem onClick={handleCopyToClipboard}>
+                                        <Clipboard className="mr-2 h-4 w-4" />
+                                        Copy to Clipboard
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={handleExportToFile}>
+                                        <FileText className="mr-2 h-4 w-4" />
+                                        Export to .txt File
+                                    </DropdownMenuItem>
+                                </DropdownMenuSubContent>
+                            </DropdownMenuSub>
                             <DropdownMenuItem onClick={() => onDelete(prospect)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Delete Prospect</DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
