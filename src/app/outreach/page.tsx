@@ -105,7 +105,10 @@ function OutreachPage() {
   // State for conversation modal
   const [isConversationModalOpen, setIsConversationModalOpen] = useState(false);
   const [currentProspectForConversation, setCurrentProspectForConversation] = useState<OutreachProspect | null>(null);
-  
+  const [conversationHistoryContent, setConversationHistoryContent] = useState<string | null>(null);
+  const [isSavingConversation, setIsSavingConversation] = useState(false);
+  const [showUnsavedConfirm, setShowUnsavedConfirm] = useState(false);
+
   // State for comment generator
   const [isCommentGeneratorOpen, setIsCommentGeneratorOpen] = useState(false);
   const [prospectForComment, setProspectForComment] = useState<OutreachProspect | null>(null);
@@ -896,6 +899,91 @@ function OutreachPage() {
     }
   };
 
+  const formatProspectForExport = (p: OutreachProspect): string => {
+        const sections = {
+            "BASIC INFO": [
+                { label: "Name", value: p.name },
+                { label: "Instagram", value: p.instagramHandle ? `@${p.instagramHandle}` : 'N/A' },
+                { label: "Business Name", value: p.businessName },
+                { label: "Website", value: p.website },
+                { label: "Email", value: p.email },
+                { label: "Location", value: p.prospectLocation },
+                { label: "Industry", value: p.industry },
+            ],
+            "LEAD STATUS": [
+                { label: "Status", value: p.status },
+                { label: "Source", value: p.source },
+                { label: "Lead Score", value: p.leadScore },
+                { label: "Created", value: p.createdAt ? new Date(p.createdAt).toLocaleString() : 'N/A' },
+                { label: "Last Contacted", value: p.lastContacted ? new Date(p.lastContacted).toLocaleString() : 'N/A' },
+                { label: "Follow-up Needed", value: p.followUpNeeded ? 'Yes' : 'No' },
+                { label: "Follow-up Date", value: p.followUpDate ? new Date(p.followUpDate).toLocaleDateString() : 'N/A' },
+            ],
+            "METRICS & PROFILE": [
+                { label: "Followers", value: p.followerCount },
+                { label: "Posts", value: p.postCount },
+                { label: "Avg. Likes", value: p.avgLikes },
+                { label: "Avg. Comments", value: p.avgComments },
+                { label: "Business Type", value: `${p.businessType || ''}${p.businessType === 'Other' ? ` (${p.businessTypeOther})` : ''}` },
+                { label: "Account Stage", value: p.accountStage },
+                { label: "Visual Style", value: p.visualStyle },
+                { label: "Bio Summary", value: p.bioSummary },
+            ],
+            "PAIN POINTS & GOALS": [
+                { label: "Pain Points", value: p.painPoints?.join(', ') || 'N/A' },
+                { label: "Goals", value: p.goals?.join(', ') || 'N/A' },
+            ],
+            "AI & CONTEXT": [
+                { label: "Unique Note", value: p.uniqueNote },
+                { label: "AI Help Statement", value: p.helpStatement },
+                { label: "Tone Preference", value: p.tonePreference },
+                { label: "Notes", value: p.notes },
+            ],
+            "CONVERSATION HISTORY": [{ label: "", value: p.conversationHistory || "No conversation history logged." }]
+        };
+
+        let output = `PROSPECT DETAILS: ${p.name}\n========================================\n\n`;
+        for (const [section, items] of Object.entries(sections)) {
+            output += `--- ${section} ---\n`;
+            for (const item of items) {
+                if (item.value) {
+                    if (item.label) {
+                        output += `${item.label}: ${item.value}\n`;
+                    } else {
+                        output += `${item.value}\n`;
+                    }
+                }
+            }
+            output += '\n';
+        }
+        return output;
+    };
+
+  const handleCopyToClipboard = (prospect: OutreachProspect) => {
+      const textToCopy = formatProspectForExport(prospect);
+      navigator.clipboard.writeText(textToCopy).then(() => {
+          toast({ title: "Copied to clipboard!", description: `Full details for ${prospect.name} copied.` });
+      }).catch(err => {
+          toast({ title: "Copy failed", description: "Could not copy details.", variant: "destructive" });
+      });
+  };
+
+  const handleExportToFile = (prospect: OutreachProspect) => {
+      const textToExport = formatProspectForExport(prospect);
+      const blob = new Blob([textToExport], { type: 'text/plain;charset=utf-8;' });
+      const link = document.createElement("a");
+      if (link.download !== undefined) {
+          const url = URL.createObjectURL(blob);
+          const filename = `@${prospect.instagramHandle || prospect.name}_details_${new Date().toISOString().split('T')[0]}.txt`;
+          link.setAttribute("href", url);
+          link.setAttribute("download", filename);
+          link.style.visibility = 'hidden';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+      }
+  };
+
   if (authLoading || (isLoading && !prospects.length && user)) {
     return <div className="flex justify-center items-center h-screen"><LoadingSpinner text="Loading outreach prospects..." size="lg"/></div>;
   }
@@ -925,17 +1013,62 @@ function OutreachPage() {
 
   const handleOpenConversationModal = (prospect: OutreachProspect) => {
     setCurrentProspectForConversation(prospect);
+    setConversationHistoryContent(prospect.conversationHistory || null);
     setIsConversationModalOpen(true);
   };
 
-  const handleConversationSave = (prospectId: string, newConversation: string) => {
-    updateProspect(prospectId, { conversationHistory: newConversation, lastContacted: new Date().toISOString() });
-    updateProspectInState(prospectId, { conversationHistory: newConversation, lastContacted: new Date().toISOString() });
-    if(currentProspectForConversation?.id === prospectId){
-        setCurrentProspectForConversation(prev => prev ? {...prev, conversationHistory: newConversation} : null);
+  const handleSaveConversation = async () => {
+    if (!currentProspectForConversation || !isConversationDirty) return;
+    setIsSavingConversation(true);
+    try {
+      const isFirstMessage = !currentProspectForConversation.conversationHistory;
+      const warmUpActivities = new Set(currentProspectForConversation.warmUp?.map(a => a.action));
+      
+      const newWarmUpActivity: WarmUpActivity = {
+        id: crypto.randomUUID(),
+        action: 'Replied to Story',
+        date: new Date().toISOString(),
+      };
+      
+      const updates: Partial<OutreachProspect> = {
+        conversationHistory: conversationHistoryContent,
+        lastContacted: new Date().toISOString()
+      };
+
+      if ((isFirstMessage || !warmUpActivities.has('Replied to Story')) && currentProspectForConversation.status === 'Warming Up') {
+        updates.warmUp = [...(currentProspectForConversation.warmUp || []), newWarmUpActivity];
+      }
+
+      await updateProspect(currentProspectForConversation.id, updates);
+
+      const updatedProspectInList = { ...currentProspectForConversation, ...updates };
+      updateProspectInState(currentProspectForConversation.id, updatedProspectInList);
+      
+      // If the warm-up dialog is open, update its state directly
+      if (editingProspect && editingProspect.id === currentProspectForConversation.id) {
+        setEditingProspect(updatedProspectInList);
+      }
+      
+      toast({ title: 'Conversation Saved', description: `History for ${currentProspectForConversation.name} updated.` });
+      setIsConversationModalOpen(false);
+      setCurrentProspectForConversation(null);
+    } catch (error: any) {
+      toast({ title: 'Save Failed', description: error.message || 'Could not save conversation.', variant: 'destructive' });
+    } finally {
+      setIsSavingConversation(false);
     }
   };
   
+  const isConversationDirty = currentProspectForConversation ? (currentProspectForConversation.conversationHistory || '') !== (conversationHistoryContent || '') : false;
+
+  const handleConversationModalCloseAttempt = () => {
+    if (isConversationDirty) {
+      setShowUnsavedConfirm(true);
+    } else {
+      setIsConversationModalOpen(false);
+    }
+  };
+
   const handleStartAudit = (prospect: OutreachProspect) => {
     const buildQuestionnaireFromProspect = (p: OutreachProspect) => {
         const parts = [
@@ -1087,22 +1220,55 @@ function OutreachPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={isConversationModalOpen} onOpenChange={setIsConversationModalOpen}>
+      <Dialog open={isConversationModalOpen} onOpenChange={(open) => {
+        if (!open) handleConversationModalCloseAttempt();
+        else setIsConversationModalOpen(true);
+      }}>
         <DialogContent className="sm:max-w-xl md:max-w-2xl h-[90vh] flex flex-col p-0">
            <DialogTitle className="sr-only">Manage Conversation with {currentProspectForConversation?.name}</DialogTitle>
            <DialogDescription className="sr-only">
             View, edit, and manage the full conversation history.
            </DialogDescription>
-            {currentProspectForConversation ? (
-                <ConversationTracker
-                    prospect={currentProspectForConversation}
-                    onSave={handleConversationSave}
-                    onGenerateReply={handleGenerateNextReply}
-                />
-            ) : <LoadingSpinner text="Loading conversation..." /> }
+          <div className="flex-grow min-h-0">
+            <ConversationTracker
+              prospect={currentProspectForConversation}
+              value={conversationHistoryContent}
+              onChange={setConversationHistoryContent}
+              onGenerateReply={handleGenerateNextReply}
+              isDirty={isConversationDirty}
+            />
+          </div>
+          <DialogFooter className="p-4 border-t gap-2">
+            <Button variant="outline" onClick={handleConversationModalCloseAttempt}>Cancel</Button>
+            <Button onClick={handleSaveConversation} disabled={isSavingConversation || !isConversationDirty}>
+              {isSavingConversation ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              Save Changes
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
-      
+
+       <AlertDialog open={showUnsavedConfirm} onOpenChange={setShowUnsavedConfirm}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    You have unsaved changes in the conversation history. Are you sure you want to discard them?
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setShowUnsavedConfirm(false)}>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => {
+                    setShowUnsavedConfirm(false);
+                    setIsConversationModalOpen(false);
+                    setCurrentProspectForConversation(null);
+                }}>
+                    Discard
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
@@ -1218,6 +1384,8 @@ function OutreachPage() {
                         onDelete={setProspectToDelete}
                         onGenerateScript={handleGenerateScript}
                         onWarmUp={handleOpenWarmUpDialog}
+                        onCopyDetails={handleCopyToClipboard}
+                        onExportDetails={handleExportToFile}
                       />
                   ))
               ) : (
@@ -1276,6 +1444,8 @@ function OutreachPage() {
                           onEvaluate={handleEvaluateProspect}
                           onDelete={setProspectToDelete}
                           onWarmUp={handleOpenWarmUpDialog}
+                          onCopyDetails={handleCopyToClipboard}
+                          onExportDetails={handleExportToFile}
                         />
                     ))
                   ) : (
@@ -1348,3 +1518,6 @@ export default function OutreachPageWrapper() {
         </Suspense>
     )
 }
+
+
+

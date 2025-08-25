@@ -12,7 +12,7 @@ import { OUTREACH_LEAD_STAGE_OPTIONS } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuGroup, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from '../ui/dropdown-menu';
 import { Button } from '../ui/button';
-import { MoreHorizontal, Edit, MessagesSquare, GraduationCap, Bot, MessageCircle, FileQuestion, Trash2, Star, Users, Flame, Clock } from 'lucide-react';
+import { MoreHorizontal, Edit, MessagesSquare, GraduationCap, Bot, MessageCircle, FileQuestion, Trash2, Star, Users, Flame, Clock, FileText, Clipboard } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import { Progress } from '../ui/progress';
 import { formatDistanceToNow } from 'date-fns';
@@ -31,6 +31,8 @@ interface ProspectMobileCardProps {
   onDelete: (prospect: OutreachProspect) => void;
   onGenerateScript: (prospect: OutreachProspect, scriptType: any) => void;
   onWarmUp: (prospect: OutreachProspect) => void;
+  onCopyDetails: (prospect: OutreachProspect) => void;
+  onExportDetails: (prospect: OutreachProspect) => void;
 }
 
 const ProspectMobileCard = React.memo(({
@@ -47,6 +49,8 @@ const ProspectMobileCard = React.memo(({
   onDelete,
   onGenerateScript,
   onWarmUp,
+  onCopyDetails,
+  onExportDetails,
 }: ProspectMobileCardProps) => {
 
     const formatNumber = (num: number | null | undefined): string => {
@@ -141,7 +145,20 @@ const ProspectMobileCard = React.memo(({
                             </Tooltip>
                         </TooltipProvider>
                         <DropdownMenuSeparator/>
-                        <DropdownMenuItem onClick={() => onDelete(prospect)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4"/>Delete</DropdownMenuItem>
+                         <DropdownMenuSub>
+                            <DropdownMenuSubTrigger><FileText className="mr-2 h-4 w-4" /> Export Details</DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent>
+                                <DropdownMenuItem onClick={() => onCopyDetails(prospect)}>
+                                    <Clipboard className="mr-2 h-4 w-4" />
+                                    Copy to Clipboard
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => onExportDetails(prospect)}>
+                                    <FileText className="mr-2 h-4 w-4" />
+                                    Export to .txt File
+                                </DropdownMenuItem>
+                            </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+                        <DropdownMenuItem onClick={() => onDelete(prospect)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4"/> Delete</DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>
