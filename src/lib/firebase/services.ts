@@ -593,7 +593,7 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
 
     const [followUpSnapshot, needsQualifierSnapshot, warmingUpSnapshot] = await Promise.all([
         getDocs(followUpQuery),
-        getDocs(needsQualifierSnapshot),
+        getDocs(needsQualifierQuery),
         getDocs(warmingUpQuery),
     ]);
 
@@ -655,7 +655,7 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
                 description: `Next action: ${nextAction}`,
                 dueDate: lastActivity.nextActionDue,
             });
-            processedIds.add(doc.id);
+            processedIds.add(prospect.id);
         });
 
     return agendaItems;
