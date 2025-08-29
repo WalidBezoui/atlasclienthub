@@ -350,7 +350,7 @@ export default function DashboardPage() {
     }
   }, [warmUpData, toast, fetchDashboardData]);
   
-  const handleGenerateScript = useCallback(async (prospect: OutreachProspect, scriptType: GenerateContextualScriptInput['scriptType'], onConfirmCallback: (script: string) => void) => {
+  const handleGenerateScript = useCallback(async (prospect: OutreachProspect, scriptType: GenerateContextualScriptInput['scriptType'], onConfirmCallback: (script: string, openIg: boolean) => void) => {
     setCurrentProspectForScript(prospect);
     setIsGeneratingScript(true);
     setIsScriptModalOpen(true);
@@ -547,7 +547,6 @@ export default function DashboardPage() {
         isLoadingInitially={isGeneratingScript}
         showConfirmButton={true}
         onConfirm={currentScriptModalConfig.onConfirm}
-        confirmButtonText="Copy, Save & Log"
         prospect={currentProspectForScript}
       />
       
@@ -737,7 +736,7 @@ export default function DashboardPage() {
                             <ReminderCard 
                                 key={item.id} 
                                 item={item} 
-                                onGenerateReminder={(prospect) => handleGenerateScript(prospect, 'Warm Follow-Up DM', handleReminderScriptConfirm)} 
+                                onGenerateReminder={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Send Reminder', handleReminderScriptConfirm)} 
                             />
                         ))}
                     </div>

@@ -12,12 +12,13 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Copy, RefreshCw, Loader2, ClipboardList, Send, ExternalLink, Save } from 'lucide-react';
+import { Copy, RefreshCw, Loader2, ClipboardList, Send, ExternalLink, Save, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
 import type { OutreachProspect } from '@/lib/types';
-import { ScrollArea } from '../ui/scroll-area';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Separator } from '../ui/separator';
 
 interface ScriptModalProps {
   isOpen: boolean;
@@ -27,8 +28,7 @@ interface ScriptModalProps {
   onRegenerate?: (customInstructions: string) => Promise<string | null>;
   isLoadingInitially?: boolean;
   
-  // Custom confirmation action props
-  onConfirm?: (scriptContent: string) => void;
+  onConfirm?: (scriptContent: string, openIg: boolean) => void;
   confirmButtonText?: string;
   isConfirming?: boolean;
   showConfirmButton?: boolean;
@@ -43,7 +43,6 @@ export function ScriptModal({
   onRegenerate,
   isLoadingInitially = false,
   onConfirm,
-  confirmButtonText = "Confirm",
   isConfirming = false,
   showConfirmButton = false,
   prospect,
@@ -58,6 +57,10 @@ export function ScriptModal({
   }, [scriptContent]);
 
   const handleCopy = () => {
+    if (!currentScript) {
+        toast({ title: 'Nothing to copy', variant: 'destructive' });
+        return;
+    }
     navigator.clipboard.writeText(currentScript)
       .then(() => {
         toast({ title: "Copied!", description: "Script copied to clipboard." });
@@ -84,19 +87,11 @@ export function ScriptModal({
     }
   };
   
-  const handleConfirm = () => {
-    handleCopy();
+  const handleConfirm = (openIg: boolean) => {
     if (onConfirm) {
-      onConfirm(currentScript);
+      onConfirm(currentScript, openIg);
     }
-  };
-  
-  const handleConfirmAndOpen = () => {
-    handleCopy();
-    if (onConfirm) {
-      onConfirm(currentScript);
-    }
-    if (prospect?.instagramHandle) {
+    if (prospect?.instagramHandle && openIg) {
       window.open(`https://www.instagram.com/${prospect.instagramHandle.replace('@', '')}/`, '_blank');
     }
   };
@@ -175,16 +170,25 @@ export function ScriptModal({
             </Button>
             
             {showConfirmButton && onConfirm && (
-              <>
-                <Button variant="secondary" onClick={handleConfirm} disabled={isBusy || !currentScript}>
-                    {isConfirming ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                    Copy & Save
-                </Button>
-                <Button onClick={handleConfirmAndOpen} disabled={isBusy || !currentScript}>
-                    {isConfirming ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ExternalLink className="mr-2 h-4 w-4" />}
-                    Copy & Open IG
-                </Button>
-              </>
+                <div className="flex rounded-md shadow-sm">
+                    <Button onClick={() => handleConfirm(false)} disabled={isBusy || !currentScript} className="relative flex-1 rounded-r-none">
+                         {isConfirming ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                         Copy & Log Follow-up
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                         <Button variant="default" size="icon" className="w-10 rounded-l-none" disabled={isBusy || !currentScript}>
+                            <ChevronDown className="h-4 w-4"/>
+                         </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleConfirm(true)}>
+                              <ExternalLink className="mr-2 h-4 w-4" />
+                              Copy, Log & Open IG
+                          </DropdownMenuItem>
+                      </DropdownMenuContent>
+                  </DropdownMenu>
+              </div>
             )}
           </div>
         </DialogFooter>
