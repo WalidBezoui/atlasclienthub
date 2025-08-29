@@ -446,14 +446,14 @@ export default function DashboardPage() {
     const updates: Partial<OutreachProspect> = {
         conversationHistory: `${currentProspectForScript.conversationHistory || ''}${currentProspectForScript.conversationHistory ? '\n\n' : ''}Me: ${scriptContent}`.trim(),
         lastContacted: now,
-        lastScriptSent: "Warm Follow-Up DM", // Same script type
-        followUpNeeded: true, // Set a follow up for this reminder
+        lastScriptSent: "Warm Follow-Up DM",
+        followUpNeeded: true, 
         followUpDate: addDays(new Date(), 7).toISOString(),
     };
     
     try {
         await updateProspect(currentProspectForScript.id, updates);
-        toast({ title: "Reminder Sent!", description: "Reminder logged and prospect updated." });
+        toast({ title: "Reminder Sent!", description: "Reminder logged and a new follow-up has been scheduled for 7 days." });
         setIsScriptModalOpen(false);
         fetchDashboardData();
     } catch(error: any) {

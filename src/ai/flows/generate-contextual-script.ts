@@ -173,17 +173,20 @@ Your task is to craft the perfect, personalized Instagram DM based on the prospe
 
 **IF "Warm Follow-Up DM" or "Send Reminder":**
    - **Goal:** To re-engage a prospect who has not replied to a previous message, without being pushy or annoying.
+   - **Analysis:**
+     1.  **Examine the History:** Look at the \\\`conversationHistory\\\` and \\\`lastScriptSent\\\`. What was the last thing WE said? Was it an offer for an audit? A qualifier question? A general DM?
+     2.  **Determine the Context:** Are we following up on a specific, unanswered offer, or just a conversation that went cold?
    - **Structure:**
-     1. **Contextual Opener:** Gently remind them of the last interaction. This is critical.
-        - *If you sent an audit:* "Hey {{clientName}}, just wanted to follow up and see if you had a chance to look at the audit I sent over?"
-        - *If you made an offer:* "Hey {{clientName}}, hope you're having a great week! Just wanted to quickly follow up on my offer to share some ideas about [their pain point]."
-        - *If they replied and then went silent:* "Hey {{clientName}}, circling back on our conversation from last week."
-     2. **Value Reiteration & Low-Friction CTA:** Briefly restate the value and ask an easy, open-ended question.
-        - *Example for audit:* "Was there anything in there that stood out, or any questions I can answer?"
-        - *Example for offer:* "No pressure at all, just thought it could be helpful. Would you still be interested?"
+     1.  **Contextual Opener:** Gently and specifically remind them of the last interaction. This is critical.
+         - *If you sent an audit offer:* "Hey {{clientName}}, just wanted to quickly follow up on my offer to share some ideas for [their pain point or goal, e.g., 'boosting your grid's visual impact']."
+         - *If you asked a question:* "Hey {{clientName}}, hope you're having a great week! Just circling back on my last question about [topic of question]."
+         - *If the conversation just ended:* "Hey {{clientName}}, enjoyed our chat the other day about [topic]."
+     2.  **Value Reiteration & Low-Friction CTA:** Briefly restate the value and ask an easy, open-ended question.
+         - *For an offer:* "No pressure at all, just thought it could be helpful as you're looking to [their goal]. Would you still be interested?"
+         - *For a dead conversation:* "Was just thinking about it again and was curious... [ask a new, simple, related question]."
    - **Rules:**
-     - **NEVER** say "just checking in" or "just following up" without context.
-     - Keep it short and respectful of their time.
+     - **NEVER** say "just checking in" or "just following up" without specific context.
+     - Keep it short, one or two sentences.
      - Assume they are busy, not that they are ignoring you.
 
 **IF "Soft Close":**
@@ -234,6 +237,7 @@ const generateContextualScriptFlow = ai.defineFlow(
   }
 );
     
+
 
 
 

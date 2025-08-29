@@ -28,6 +28,13 @@ export function ReminderCard({ item, onGenerateReminder }: ReminderCardProps) {
     if (daysAgo > 7) return 'text-yellow-600 dark:text-yellow-500';
     return 'text-muted-foreground';
   };
+  
+  const lastMessageFromMe = item.conversationHistory
+    ?.split('\n')
+    .filter(line => line.startsWith('Me:'))
+    .pop()
+    ?.substring(4)
+    .trim() || 'No message sent.';
 
   return (
     <Card className="flex flex-col h-full shadow-md hover:shadow-lg transition-shadow">
@@ -44,7 +51,7 @@ export function ReminderCard({ item, onGenerateReminder }: ReminderCardProps) {
           Last contact: {timeAgo}
         </div>
         <blockquote className="border-l-2 pl-3 text-xs italic text-muted-foreground h-12 overflow-hidden relative">
-          {item.lastMessageSnippet}
+          <span className="font-semibold not-italic text-foreground">You said:</span> {lastMessageFromMe}
           <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-card to-transparent" />
         </blockquote>
       </CardContent>
