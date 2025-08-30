@@ -354,7 +354,7 @@ export default function DashboardPage() {
     }
   }, [warmUpData, toast, fetchDashboardData]);
   
-  const handleGenerateScript = useCallback(async (prospect: OutreachProspect, scriptType: GenerateContextualScriptInput['scriptType'], onConfirmCallback: (script: string, openIg: boolean) => void) => {
+  const handleGenerateScript = useCallback(async (prospect: OutreachProspect, scriptType: GenerateContextualScriptInput['scriptType'], onConfirmCallback: (script: string) => void) => {
     setCurrentProspectForScript(prospect);
     setIsGeneratingScript(true);
     setIsScriptModalOpen(true);
@@ -443,7 +443,7 @@ export default function DashboardPage() {
     }
   }, [currentProspectForScript, fetchDashboardData, toast]);
   
-    const handleReminderScriptConfirm = useCallback(async (scriptContent: string) => {
+  const handleReminderScriptConfirm = useCallback(async (scriptContent: string) => {
     if (!currentProspectForScript) return;
     
     const now = new Date().toISOString();
@@ -451,7 +451,7 @@ export default function DashboardPage() {
         conversationHistory: `${currentProspectForScript.conversationHistory || ''}${currentProspectForScript.conversationHistory ? '\n\n' : ''}Me: ${scriptContent}`.trim(),
         lastContacted: now,
         lastScriptSent: "Warm Follow-Up DM",
-        followUpNeeded: true, 
+        followUpNeeded: true, // Re-schedule a follow-up
         followUpDate: addDays(new Date(), 7).toISOString(),
     };
     
@@ -464,6 +464,7 @@ export default function DashboardPage() {
         toast({ title: "Update Failed", description: error.message || 'Could not update prospect.', variant: 'destructive' });
     }
   }, [currentProspectForScript, fetchDashboardData, toast]);
+
 
   const handleRegenerateScript = useCallback(async (customInstructions: string): Promise<string | null> => {
     if (!currentScriptGenerationInput) return null;
@@ -522,6 +523,13 @@ export default function DashboardPage() {
   if (!isClient || authLoading || isLoadingData) {
     return <DashboardSkeleton />;
   }
+
+  const actionHubTabs = [
+    { value: "warmUp", label: "Warm-Up", icon: Flame, count: warmUpData.totalInWarmUp, color: "text-destructive" },
+    { value: "followUp", label: "Follow-Up", icon: RefreshCcw, count: followUpData.length, color: "text-yellow-500" },
+    { value: "reminders", label: "Reminders", icon: BellRing, count: reminderData.length, color: "text-purple-500" },
+    { value: "revival", label: "Revival", icon: TrendingUp, count: revivalData.length, color: "text-blue-500" },
+  ];
 
 
   return (
@@ -653,87 +661,92 @@ export default function DashboardPage() {
             </CardDescription>
         </CardHeader>
         <CardContent>
-            <Tabs defaultValue="warmUp">
-                <TabsList className="grid w-full grid-cols-4">
-                    <TabsTrigger value="warmUp"><Flame className="mr-2 h-4 w-4 text-destructive"/>Warm-Up <Badge variant="secondary" className="ml-2">{warmUpData.totalInWarmUp}</Badge></TabsTrigger>
-                    <TabsTrigger value="followUp"><RefreshCcw className="mr-2 h-4 w-4 text-yellow-500"/>Follow-Up <Badge variant="secondary" className="ml-2">{followUpData.length}</Badge></TabsTrigger>
-                    <TabsTrigger value="reminders"><BellRing className="mr-2 h-4 w-4 text-purple-500"/>Reminders <Badge variant="secondary" className="ml-2">{reminderData.length}</Badge></TabsTrigger>
-                    <TabsTrigger value="revival"><TrendingUp className="mr-2 h-4 w-4 text-blue-500"/>Revival <Badge variant="secondary" className="ml-2">{revivalData.length}</Badge></TabsTrigger>
+             <Tabs defaultValue="warmUp" className="md:grid md:grid-cols-4 md:gap-6">
+                <TabsList className="grid grid-cols-1 h-auto md:flex md:flex-col md:items-stretch md:justify-start">
+                  {actionHubTabs.map((tab) => (
+                    <TabsTrigger key={tab.value} value={tab.value} className="justify-start gap-2 text-base md:text-sm py-2.5">
+                       <tab.icon className={cn("mr-2 h-5 w-5", tab.color)}/>
+                       <span className="flex-1 text-left">{tab.label}</span>
+                       <Badge variant="secondary" className="ml-2">{tab.count}</Badge>
+                    </TabsTrigger>
+                  ))}
                 </TabsList>
 
-                <TabsContent value="warmUp" className="mt-4">
-                    {warmUpData.totalInWarmUp > 0 ? (
-                         <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
-                           {warmUpData.overdue.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Cold Outreach DM', handleDashboardScriptConfirm)} />)}
-                           {warmUpData.dueToday.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Cold Outreach DM', handleDashboardScriptConfirm)} />)}
-                           {warmUpData.upcoming.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Cold Outreach DM', handleDashboardScriptConfirm)} />)}
-                         </div>
-                    ) : (
-                        <div className="text-center py-10 text-muted-foreground">
-                            <Flame className="mx-auto h-12 w-12" />
-                            <p className="mt-4 font-semibold">Warm-up pipeline is empty</p>
-                        </div>
-                    )}
-                </TabsContent>
-                <TabsContent value="followUp" className="mt-4">
-                     {followUpData.length > 0 ? (
-                        <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                            {followUpData.map(item => (
-                                <FollowUpCard 
-                                    key={item.id} 
-                                    item={item} 
-                                    onGenerateFollowUp={(prospect) => handleGenerateScript(prospect, 'Warm Follow-Up DM', handleFollowUpScriptConfirm)} 
-                                />
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="text-center py-10 text-muted-foreground">
-                            <CheckSquare className="mx-auto h-12 w-12 text-green-500" />
-                            <p className="mt-4 font-semibold">Follow-up inbox is clear!</p>
-                        </div>
-                    )}
-                </TabsContent>
-                 <TabsContent value="reminders" className="mt-4">
-                    {reminderData.length > 0 ? (
-                        <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                            {reminderData.map(item => (
-                                <ReminderCard 
-                                    key={item.id} 
-                                    item={item} 
-                                    onGenerateReminder={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Send Reminder', handleReminderScriptConfirm)} 
-                                />
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="text-center py-10 text-muted-foreground">
-                            <CheckSquare className="mx-auto h-12 w-12 text-green-500" />
-                            <p className="mt-4 font-semibold">No reminders needed!</p>
-                        </div>
-                    )}
-                </TabsContent>
-                <TabsContent value="revival" className="mt-4">
-                    {revivalData.length > 0 ? (
-                        <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                            {revivalData.map(item => (
-                                <RevivalCard 
-                                    key={item.id} 
-                                    item={item} 
-                                    onGenerateScript={handleGenerateScript}
-                                    onLogActivity={async () => {
-                                        await updateProspect(item.id, { lastContacted: new Date().toISOString() });
-                                        toast({ title: 'Activity Logged!'});
-                                        fetchDashboardData();
-                                    }}
-                                />
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="text-center py-10 text-muted-foreground">
-                            <CheckSquare className="mx-auto h-12 w-12 text-green-500" />
-                            <p className="mt-4 font-semibold">Revival pipeline is empty.</p>
-                        </div>
-                    )}
-                </TabsContent>
+                <div className="mt-4 md:mt-0 md:col-span-3">
+                  <TabsContent value="warmUp">
+                      {warmUpData.totalInWarmUp > 0 ? (
+                           <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+                             {warmUpData.overdue.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Cold Outreach DM', handleDashboardScriptConfirm)} />)}
+                             {warmUpData.dueToday.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Cold Outreach DM', handleDashboardScriptConfirm)} />)}
+                             {warmUpData.upcoming.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Cold Outreach DM', handleDashboardScriptConfirm)} />)}
+                           </div>
+                      ) : (
+                          <div className="text-center py-10 text-muted-foreground rounded-lg bg-muted/50">
+                              <Flame className="mx-auto h-12 w-12" />
+                              <p className="mt-4 font-semibold">Warm-up pipeline is empty</p>
+                          </div>
+                      )}
+                  </TabsContent>
+                  <TabsContent value="followUp">
+                       {followUpData.length > 0 ? (
+                          <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+                              {followUpData.map(item => (
+                                  <FollowUpCard 
+                                      key={item.id} 
+                                      item={item} 
+                                      onGenerateFollowUp={(prospect) => handleGenerateScript(prospect, 'Warm Follow-Up DM', handleFollowUpScriptConfirm)} 
+                                  />
+                              ))}
+                          </div>
+                      ) : (
+                          <div className="text-center py-10 text-muted-foreground rounded-lg bg-muted/50">
+                              <CheckSquare className="mx-auto h-12 w-12 text-green-500" />
+                              <p className="mt-4 font-semibold">Follow-up inbox is clear!</p>
+                          </div>
+                      )}
+                  </TabsContent>
+                   <TabsContent value="reminders">
+                      {reminderData.length > 0 ? (
+                          <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+                              {reminderData.map(item => (
+                                  <ReminderCard 
+                                      key={item.id} 
+                                      item={item} 
+                                      onGenerateReminder={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Send Reminder', handleReminderScriptConfirm)} 
+                                  />
+                              ))}
+                          </div>
+                      ) : (
+                          <div className="text-center py-10 text-muted-foreground rounded-lg bg-muted/50">
+                              <CheckSquare className="mx-auto h-12 w-12 text-green-500" />
+                              <p className="mt-4 font-semibold">No reminders needed!</p>
+                          </div>
+                      )}
+                  </TabsContent>
+                  <TabsContent value="revival">
+                      {revivalData.length > 0 ? (
+                          <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+                              {revivalData.map(item => (
+                                  <RevivalCard 
+                                      key={item.id} 
+                                      item={item} 
+                                      onGenerateScript={handleGenerateScript}
+                                      onLogActivity={async () => {
+                                          await updateProspect(item.id, { lastContacted: new Date().toISOString() });
+                                          toast({ title: 'Activity Logged!'});
+                                          fetchDashboardData();
+                                      }}
+                                  />
+                              ))}
+                          </div>
+                      ) : (
+                          <div className="text-center py-10 text-muted-foreground rounded-lg bg-muted/50">
+                              <CheckSquare className="mx-auto h-12 w-12 text-green-500" />
+                              <p className="mt-4 font-semibold">Revival pipeline is empty.</p>
+                          </div>
+                      )}
+                  </TabsContent>
+                </div>
             </Tabs>
         </CardContent>
        </Card>
