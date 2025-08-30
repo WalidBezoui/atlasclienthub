@@ -176,7 +176,7 @@ const WarmUpDashboardCard = ({
   ];
 
   return (
-    <div className="p-3 bg-card border rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer group" onClick={() => onOpenWarmUpDialog(item)}>
+    <div className="p-3 bg-card border rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer group flex flex-col" onClick={() => onOpenWarmUpDialog(item)}>
       <div className="flex justify-between items-start">
         <div className="flex-1 min-w-0">
           <p className="font-semibold truncate text-sm group-hover:underline">{item.name}</p>
@@ -214,7 +214,7 @@ const WarmUpDashboardCard = ({
             </div>
         </TooltipProvider>
       </div>
-      <div className="mt-2 space-y-2">
+      <div className="mt-2 space-y-2 flex-grow">
         <div>
             <div className="text-xs flex justify-between items-center mb-1">
                 <span className="font-medium text-muted-foreground">Progress</span>
@@ -226,11 +226,11 @@ const WarmUpDashboardCard = ({
             <span className="text-muted-foreground">Next: <span className="font-medium text-foreground">{item.nextAction}</span></span>
             <Badge variant={variant} className="text-xs">{text}</Badge>
         </div>
-        <div className="pt-2">
-           <Button variant="default" size="sm" className="w-full h-8" onClick={(e) => { e.stopPropagation(); onGenerateOutreach(item); }} disabled={item.completedActions.includes('Replied to Story')}>
-               <MessagesSquare className="mr-2 h-4 w-4"/> Generate Outreach DM
-           </Button>
-        </div>
+      </div>
+      <div className="pt-3 mt-auto">
+         <Button variant="default" size="sm" className="w-full h-8" onClick={(e) => { e.stopPropagation(); onGenerateOutreach(item); }} disabled={item.completedActions.includes('Replied to Story')}>
+             <MessagesSquare className="mr-2 h-4 w-4"/> Generate Outreach DM
+         </Button>
       </div>
     </div>
   );
@@ -661,21 +661,21 @@ export default function DashboardPage() {
             </CardDescription>
         </CardHeader>
         <CardContent>
-             <Tabs defaultValue="warmUp" className="md:grid md:grid-cols-[200px_1fr] md:gap-6">
-                <TabsList className="grid grid-cols-1 h-auto md:flex md:flex-col md:items-stretch md:justify-start">
+             <Tabs defaultValue="warmUp" className="lg:grid lg:grid-cols-[250px_1fr] lg:gap-6">
+                <TabsList className="grid grid-cols-2 md:grid-cols-4 lg:flex lg:flex-col lg:items-stretch lg:justify-start lg:h-auto">
                   {actionHubTabs.map((tab) => (
-                    <TabsTrigger key={tab.value} value={tab.value} className="justify-start gap-2 text-base md:text-sm py-2.5">
+                    <TabsTrigger key={tab.value} value={tab.value} className="justify-start gap-2 text-base md:text-sm py-2.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold hover:bg-muted/50 transition-colors">
                        <tab.icon className={cn("mr-2 h-5 w-5", tab.color)}/>
                        <span className="flex-1 text-left">{tab.label}</span>
-                       <Badge variant="secondary" className="ml-2">{tab.count}</Badge>
+                       <Badge variant={cn({'default': tab.value === 'warmUp', 'secondary': tab.value !== 'warmUp' })} className="ml-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">{tab.count}</Badge>
                     </TabsTrigger>
                   ))}
                 </TabsList>
 
-                <div className="mt-4 md:mt-0">
+                <div className="mt-4 lg:mt-0">
                   <TabsContent value="warmUp">
                       {warmUpData.totalInWarmUp > 0 ? (
-                           <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+                           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
                              {warmUpData.overdue.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Cold Outreach DM', handleDashboardScriptConfirm)} />)}
                              {warmUpData.dueToday.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Cold Outreach DM', handleDashboardScriptConfirm)} />)}
                              {warmUpData.upcoming.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Cold Outreach DM', handleDashboardScriptConfirm)} />)}
@@ -689,7 +689,7 @@ export default function DashboardPage() {
                   </TabsContent>
                   <TabsContent value="followUp">
                        {followUpData.length > 0 ? (
-                          <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+                          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
                               {followUpData.map(item => (
                                   <FollowUpCard 
                                       key={item.id} 
@@ -707,7 +707,7 @@ export default function DashboardPage() {
                   </TabsContent>
                    <TabsContent value="reminders">
                       {reminderData.length > 0 ? (
-                          <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+                          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
                               {reminderData.map(item => (
                                   <ReminderCard 
                                       key={item.id} 
@@ -725,7 +725,7 @@ export default function DashboardPage() {
                   </TabsContent>
                   <TabsContent value="revival">
                       {revivalData.length > 0 ? (
-                          <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+                          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
                               {revivalData.map(item => (
                                   <RevivalCard 
                                       key={item.id} 
