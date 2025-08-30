@@ -126,7 +126,7 @@ export function AppHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-card px-4 sm:px-6 shadow-sm">
+      <header className="sticky top-0 flex h-16 items-center justify-between border-b bg-card px-4 sm:px-6 shadow-sm">
         <div className="flex items-center gap-2">
           {user && <SidebarTrigger className="h-8 w-8" />}
           {!isMobile && <h1 className="text-lg font-headline font-semibold">{APP_NAME}</h1>}
