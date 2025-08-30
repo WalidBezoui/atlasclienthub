@@ -289,6 +289,7 @@ export default function DashboardPage() {
     setIsGeneratingScript(true);
     setIsScriptModalOpen(true);
     setGeneratedScript('');
+    setScriptModalTitle(config.title);
     
     const input: GenerateContextualScriptInput = {
         scriptType,
@@ -467,7 +468,7 @@ export default function DashboardPage() {
     if (!currentProspectForConversation || !isConversationDirty) return;
     setIsSavingConversation(true);
     try {
-      await updateProspect(currentProspectForConversation.id, { conversationHistory: conversationHistoryContent });
+      await updateProspect(currentProspectForConversation.id, { conversationHistory: conversationHistoryContent, lastContacted: new Date().toISOString() });
       fetchDashboardData();
       toast({ title: 'Conversation Saved', description: `History for ${currentProspectForConversation.name} updated.` });
       setIsConversationModalOpen(false);
@@ -538,7 +539,11 @@ export default function DashboardPage() {
             setProspectForComment(p);
             setIsCommentGeneratorOpen(true);
           }}
-          onViewConversation={() => {}} // This can be expanded if needed
+          onViewConversation={() => {
+            if (editingProspect) {
+              handleOpenConversationModal(editingProspect);
+            }
+          }}
           onStatusChange={handleStatusChange}
         />
         

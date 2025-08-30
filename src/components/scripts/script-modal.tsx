@@ -27,7 +27,7 @@ interface ScriptModalProps {
   onRegenerate?: (customInstructions: string) => Promise<string | null>;
   isLoadingInitially?: boolean;
   
-  onConfirm?: (scriptContent: string, openIg?: boolean) => void;
+  onConfirm?: (scriptContent: string) => void;
   confirmButtonText?: string;
   isConfirming?: boolean;
   showConfirmButton?: boolean;
@@ -44,7 +44,7 @@ export function ScriptModal({
   onConfirm,
   isConfirming = false,
   showConfirmButton = false,
-  confirmButtonText, // Can be undefined
+  confirmButtonText = "Confirm", // Provide a default value
   prospect,
 }: ScriptModalProps) {
   const { toast } = useToast();
@@ -87,11 +87,11 @@ export function ScriptModal({
     }
   };
   
-  const handleConfirm = (openIg: boolean = false) => {
+  const handleConfirmAndOpen = () => {
     if (onConfirm) {
-      onConfirm(currentScript, openIg);
+      onConfirm(currentScript);
     }
-    if (prospect?.instagramHandle && openIg) {
+    if (prospect?.instagramHandle) {
       window.open(`https://www.instagram.com/direct/t/${prospect.instagramHandle.replace('@', '')}`, '_blank');
     }
   };
@@ -172,9 +172,9 @@ export function ScriptModal({
             
             {showConfirmButton && onConfirm && (
                 <div className="flex rounded-md shadow-sm">
-                    <Button onClick={() => handleConfirm(false)} disabled={isBusy || !currentScript} className="relative flex-1 rounded-r-none">
+                    <Button onClick={() => onConfirm(currentScript)} disabled={isBusy || !currentScript} className="relative flex-1 rounded-r-none">
                          {isConfirming ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                         {confirmButtonText || "Confirm"}
+                         {confirmButtonText}
                     </Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -183,9 +183,9 @@ export function ScriptModal({
                          </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleConfirm(true)}>
+                          <DropdownMenuItem onClick={handleConfirmAndOpen}>
                               <ExternalLink className="mr-2 h-4 w-4" />
-                              {confirmButtonText ? `${confirmButtonText.replace("Log", "Log &")} Open IG` : "Confirm & Open IG"}
+                              {`${confirmButtonText.replace("Log", "Log &")} & Open IG`}
                           </DropdownMenuItem>
                       </DropdownMenuContent>
                   </DropdownMenu>
