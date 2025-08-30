@@ -354,7 +354,7 @@ export default function DashboardPage() {
     }
   }, [warmUpData, toast, fetchDashboardData]);
   
-  const handleGenerateScript = useCallback(async (prospect: OutreachProspect, scriptType: GenerateContextualScriptInput['scriptType'], onConfirmCallback: (script: string) => void) => {
+  const handleGenerateScript = useCallback(async (prospect: OutreachProspect, scriptType: GenerateContextualScriptInput['scriptType'], onConfirmCallback?: (script: string) => void) => {
     setCurrentProspectForScript(prospect);
     setIsGeneratingScript(true);
     setIsScriptModalOpen(true);
@@ -450,7 +450,7 @@ export default function DashboardPage() {
     const updates: Partial<OutreachProspect> = {
         conversationHistory: `${currentProspectForScript.conversationHistory || ''}${currentProspectForScript.conversationHistory ? '\n\n' : ''}Me: ${scriptContent}`.trim(),
         lastContacted: now,
-        lastScriptSent: "Warm Follow-Up DM",
+        lastScriptSent: "Send Reminder", // Use a specific label for reminders
         followUpNeeded: true, // Re-schedule a follow-up
         followUpDate: addDays(new Date(), 7).toISOString(),
     };
