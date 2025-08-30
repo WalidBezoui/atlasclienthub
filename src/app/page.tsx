@@ -1,7 +1,7 @@
 
 'use client';
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { LayoutDashboard, Users, Flame, UserCheck, PlusCircle, BarChart3, CheckSquare, Clock, FileQuestion, Send, UserRound, ListChecks, ArrowRight, UserPlus, Eye, MessageCircle as MessageCircleIcon, MoreVertical, Heart, MessagesSquare, Edit, Link as LinkIcon, RefreshCcw, BellRing, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, Users, Flame, UserCheck, PlusCircle, BarChart3, CheckSquare, Clock, FileQuestion, Send, UserRound, ListChecks, ArrowRight, UserPlus, Eye, MessageCircle as MessageCircleIcon, MoreVertical, Heart, MessagesSquare, Edit, Link as LinkIcon, RefreshCcw, BellRing, TrendingUp, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
@@ -25,12 +25,24 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { WarmUpDialog } from '@/components/outreach/warm-up-dialog';
 import { CommentGeneratorDialog } from '@/components/outreach/CommentGeneratorDialog';
 import { ScriptModal } from '@/components/scripts/script-modal';
+import { ConversationTracker } from '@/components/outreach/conversation-tracker';
 import { generateContextualScript, type GenerateContextualScriptInput } from '@/ai/flows/generate-contextual-script';
 import { FollowUpCard } from '@/components/dashboard/follow-up-card';
 import { ReminderCard } from '@/components/dashboard/reminder-card';
@@ -250,12 +262,15 @@ export default function DashboardPage() {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const { toast } = useToast();
   
+  // State for Warm-up Dialog
   const [isWarmUpOpen, setIsWarmUpOpen] = useState(false);
   const [editingProspect, setEditingProspect] = useState<OutreachProspect | null>(null);
   
+  // State for Comment Generator Dialog
   const [isCommentGeneratorOpen, setIsCommentGeneratorOpen] = useState(false);
   const [prospectForComment, setProspectForComment] = useState<OutreachProspect | null>(null);
 
+  // State for Script Modal
   const [isScriptModalOpen, setIsScriptModalOpen] = useState(false);
   const [generatedScript, setGeneratedScript] = useState('');
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
@@ -263,6 +278,12 @@ export default function DashboardPage() {
   const [currentScriptGenerationInput, setCurrentScriptGenerationInput] = useState<GenerateContextualScriptInput | null>(null);
   const [currentScriptModalConfig, setCurrentScriptModalConfig] = useState<any>({});
 
+  // State for Conversation History Modal
+  const [isConversationModalOpen, setIsConversationModalOpen] = useState(false);
+  const [currentProspectForConversation, setCurrentProspectForConversation] = useState<OutreachProspect | null>(null);
+  const [conversationHistoryContent, setConversationHistoryContent] = useState<string | null>(null);
+  const [isSavingConversation, setIsSavingConversation] = useState(false);
+  const [showUnsavedConfirm, setShowUnsavedConfirm] = useState(false);
 
   const fetchDashboardData = useCallback(async () => {
     if (!user) return;
@@ -513,6 +534,45 @@ export default function DashboardPage() {
      }
   };
 
+  const handleOpenConversationModal = async (prospect: OutreachProspect) => {
+    const allProspects = await getProspects();
+    const fullProspect = allProspects.find(p => p.id === prospect.id);
+    if (!fullProspect) {
+      toast({ title: "Error", description: "Could not load full prospect details.", variant: "destructive" });
+      return;
+    }
+    setCurrentProspectForConversation(fullProspect);
+    setConversationHistoryContent(fullProspect.conversationHistory || null);
+    setIsConversationModalOpen(true);
+  };
+  
+  const isConversationDirty = currentProspectForConversation ? (currentProspectForConversation.conversationHistory || '') !== (conversationHistoryContent || '') : false;
+
+  const handleConversationModalCloseAttempt = () => {
+    if (isConversationDirty) {
+      setShowUnsavedConfirm(true);
+    } else {
+      setIsConversationModalOpen(false);
+      setCurrentProspectForConversation(null);
+    }
+  };
+  
+  const handleSaveConversation = async () => {
+    if (!currentProspectForConversation || !isConversationDirty) return;
+    setIsSavingConversation(true);
+    try {
+      await updateProspect(currentProspectForConversation.id, { conversationHistory: conversationHistoryContent });
+      fetchDashboardData();
+      toast({ title: 'Conversation Saved', description: `History for ${currentProspectForConversation.name} updated.` });
+      setIsConversationModalOpen(false);
+      setCurrentProspectForConversation(null);
+    } catch (error: any) {
+      toast({ title: 'Save Failed', description: error.message || 'Could not save conversation.', variant: 'destructive' });
+    } finally {
+      setIsSavingConversation(false);
+    }
+  };
+
   const displayOverviewData = [
     { metric: 'Active Clients', value: overviewData.activeClients, icon: Users, color: 'text-green-500', bgColor: 'bg-green-100 dark:bg-green-900/50' },
     { metric: 'In Warm-up', value: warmUpData.totalInWarmUp, icon: Flame, color: 'text-destructive', bgColor: 'bg-red-100 dark:bg-red-900/50' },
@@ -581,6 +641,53 @@ export default function DashboardPage() {
             prospect={prospectForComment}
             onCommentAdded={handleWarmUpActivityLogged}
         />
+
+        <Dialog open={isConversationModalOpen} onOpenChange={(open) => {
+            if (!open) handleConversationModalCloseAttempt();
+            else setIsConversationModalOpen(true);
+        }}>
+            <DialogContent className="sm:max-w-xl md:max-w-2xl h-[90vh] flex flex-col p-0">
+               <DialogTitle className="sr-only">Manage Conversation with {currentProspectForConversation?.name}</DialogTitle>
+               <DialogDescription className="sr-only">
+                View, edit, and manage the full conversation history.
+               </DialogDescription>
+              <div className="flex-grow min-h-0">
+                <ConversationTracker
+                  prospect={currentProspectForConversation}
+                  value={conversationHistoryContent}
+                  onChange={setConversationHistoryContent}
+                  isDirty={isConversationDirty}
+                />
+              </div>
+              <DialogFooter className="p-4 border-t gap-2">
+                <Button variant="outline" onClick={handleConversationModalCloseAttempt}>Cancel</Button>
+                <Button onClick={handleSaveConversation} disabled={isSavingConversation || !isConversationDirty}>
+                  {isSavingConversation && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+        </Dialog>
+        <AlertDialog open={showUnsavedConfirm} onOpenChange={setShowUnsavedConfirm}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        You have unsaved changes. Are you sure you want to discard them?
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setShowUnsavedConfirm(false)}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => {
+                        setShowUnsavedConfirm(false);
+                        setIsConversationModalOpen(false);
+                        setCurrentProspectForConversation(null);
+                    }}>
+                        Discard
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
 
 
        <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
@@ -661,8 +768,8 @@ export default function DashboardPage() {
             </CardDescription>
         </CardHeader>
         <CardContent>
-             <Tabs defaultValue="warmUp" className="lg:grid lg:grid-cols-[250px_1fr] lg:gap-6">
-                <TabsList className="grid grid-cols-2 md:grid-cols-4 lg:flex lg:flex-col lg:items-stretch lg:justify-start lg:h-auto">
+             <Tabs defaultValue="warmUp" className="md:grid md:grid-cols-[250px_1fr] md:gap-6">
+                <TabsList className="grid w-full grid-cols-2 lg:flex lg:flex-col lg:items-stretch lg:justify-start lg:h-auto md:w-full md:grid-cols-1">
                   {actionHubTabs.map((tab) => (
                     <TabsTrigger key={tab.value} value={tab.value} className="justify-start gap-2 text-base md:text-sm py-2.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold hover:bg-muted/50 transition-colors">
                        <tab.icon className={cn("mr-2 h-5 w-5", tab.color)}/>
@@ -672,7 +779,7 @@ export default function DashboardPage() {
                   ))}
                 </TabsList>
 
-                <div className="mt-4 lg:mt-0">
+                <div className="mt-4 md:mt-0">
                   <TabsContent value="warmUp">
                       {warmUpData.totalInWarmUp > 0 ? (
                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
@@ -712,7 +819,8 @@ export default function DashboardPage() {
                                   <ReminderCard 
                                       key={item.id} 
                                       item={item} 
-                                      onGenerateReminder={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Send Reminder', handleReminderScriptConfirm)} 
+                                      onGenerateReminder={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Send Reminder', handleReminderScriptConfirm)}
+                                      onViewConversation={() => handleOpenConversationModal(item as OutreachProspect)}
                                   />
                               ))}
                           </div>

@@ -7,16 +7,17 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { ReminderAgendaItem, OutreachProspect } from '@/lib/types';
 import { formatDistanceToNow, isValid } from 'date-fns';
-import { Clock, Send, Link as LinkIcon } from 'lucide-react';
+import { Clock, Send, Link as LinkIcon, MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
 interface ReminderCardProps {
   item: ReminderAgendaItem;
   onGenerateReminder: (prospect: OutreachProspect) => void;
+  onViewConversation: (prospect: OutreachProspect) => void;
 }
 
-export function ReminderCard({ item, onGenerateReminder }: ReminderCardProps) {
+export function ReminderCard({ item, onGenerateReminder, onViewConversation }: ReminderCardProps) {
   const lastContactedDate = item.lastContacted ? new Date(item.lastContacted) : null;
   const isDateValid = lastContactedDate && isValid(lastContactedDate);
 
@@ -38,7 +39,7 @@ export function ReminderCard({ item, onGenerateReminder }: ReminderCardProps) {
     .trim() || 'No message sent.';
 
   return (
-    <Card className="flex flex-col h-full shadow-md hover:shadow-lg transition-shadow">
+    <Card className="flex flex-col h-full shadow-md hover:shadow-lg transition-shadow border-2 border-transparent hover:border-purple-500/50">
       <CardHeader className="pb-2">
          <div className="flex justify-between items-start">
             <p className="font-semibold text-base truncate">{item.name}</p>
@@ -61,13 +62,19 @@ export function ReminderCard({ item, onGenerateReminder }: ReminderCardProps) {
           <Clock className="mr-1.5 h-3 w-3" />
           Last contact: {timeAgo}
         </div>
-        <blockquote className="border-l-2 pl-3 text-xs italic text-muted-foreground h-12 overflow-hidden relative">
+        <div 
+          className="border-l-2 pl-3 text-xs italic text-muted-foreground h-12 overflow-hidden relative group cursor-pointer hover:bg-muted/50 rounded-r-md"
+          onClick={() => onViewConversation(item as OutreachProspect)}
+        >
           <span className="font-semibold not-italic text-foreground">You said:</span> {lastMessageFromMe}
-          <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-card to-transparent" />
-        </blockquote>
+          <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-card to-transparent group-hover:from-muted/50" />
+          <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+            <MessageCircle className="h-5 w-5 text-foreground" />
+          </div>
+        </div>
       </CardContent>
       <CardFooter>
-        <Button className="w-full" onClick={() => onGenerateReminder(item as OutreachProspect)}>
+        <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white" onClick={() => onGenerateReminder(item as OutreachProspect)}>
             <Send className="mr-2 h-4 w-4" /> Generate Reminder
         </Button>
       </CardFooter>
