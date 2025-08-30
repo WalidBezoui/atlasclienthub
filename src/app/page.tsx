@@ -1,7 +1,7 @@
 
 'use client';
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { LayoutDashboard, Users, Flame, UserCheck, PlusCircle, BarChart3, CheckSquare, Clock, FileQuestion, Send, UserRound, ListChecks, ArrowRight, UserPlus, Eye, MessageCircle as MessageCircleIcon, MoreVertical, Heart, MessagesSquare, Edit, Link as LinkIcon, RefreshCcw, BellRing } from 'lucide-react';
+import { LayoutDashboard, Users, Flame, UserCheck, PlusCircle, BarChart3, CheckSquare, Clock, FileQuestion, Send, UserRound, ListChecks, ArrowRight, UserPlus, Eye, MessageCircle as MessageCircleIcon, MoreVertical, Heart, MessagesSquare, Edit, Link as LinkIcon, RefreshCcw, BellRing, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/page-header';
@@ -646,148 +646,98 @@ export default function DashboardPage() {
        <Card>
         <CardHeader>
             <CardTitle className="font-headline flex items-center">
-                <Flame className="mr-3 h-5 w-5 text-destructive" /> Warm-Up Command Center ({warmUpData.totalInWarmUp})
+                Action Hub
             </CardTitle>
             <CardDescription>
-                A smart, prioritized view of your warm-up pipeline with quick actions.
+                Your centralized command center for all prospect engagement activities.
             </CardDescription>
         </CardHeader>
         <CardContent>
-            {warmUpData.totalInWarmUp > 0 ? (
-                <Tabs defaultValue="dueToday" className="flex flex-col sm:flex-row gap-6">
-                    <TabsList className="grid grid-cols-3 sm:flex sm:flex-col sm:w-48 sm:shrink-0 h-fit">
-                        <TabsTrigger value="dueToday">Due Today <Badge variant="secondary" className="ml-auto">{warmUpData.dueToday.length}</Badge></TabsTrigger>
-                        <TabsTrigger value="overdue">Urgent <Badge variant="destructive" className="ml-auto">{warmUpData.overdue.length}</Badge></TabsTrigger>
-                        <TabsTrigger value="upcoming">Upcoming <Badge variant="outline" className="ml-auto">{warmUpData.upcoming.length}</Badge></TabsTrigger>
-                    </TabsList>
-                    <div className="flex-1 min-w-0">
-                        <TabsContent value="dueToday">
-                          {warmUpData.dueToday.length > 0 ? (
-                            <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
-                                {warmUpData.dueToday.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Cold Outreach DM', handleDashboardScriptConfirm)} />)}
-                            </div>
-                          ) : <p className="text-sm text-center text-muted-foreground py-8">Nothing due today. Well done!</p>}
-                        </TabsContent>
-                        <TabsContent value="overdue">
-                          {warmUpData.overdue.length > 0 ? (
-                            <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
-                                {warmUpData.overdue.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Cold Outreach DM', handleDashboardScriptConfirm)} />)}
-                            </div>
-                          ) : <p className="text-sm text-center text-muted-foreground py-8">No overdue items. Great job!</p>}
-                        </TabsContent>
-                        <TabsContent value="upcoming">
-                           {warmUpData.upcoming.length > 0 ? (
-                           <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
-                                {warmUpData.upcoming.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Cold Outreach DM', handleDashboardScriptConfirm)} />)}
-                            </div>
-                           ) : <p className="text-sm text-center text-muted-foreground py-8">No upcoming prospects in the warm-up pipeline.</p>}
-                        </TabsContent>
-                    </div>
-                </Tabs>
-            ) : (
-                <div className="text-center py-10 text-muted-foreground">
-                    <Flame className="mx-auto h-12 w-12" />
-                    <p className="mt-4 font-semibold">Warm-up pipeline is empty</p>
-                    <p className="text-sm">Add prospects and set their status to "Warming Up" to see them here.</p>
-                </div>
-            )}
+            <Tabs defaultValue="warmUp">
+                <TabsList className="grid w-full grid-cols-4">
+                    <TabsTrigger value="warmUp"><Flame className="mr-2 h-4 w-4 text-destructive"/>Warm-Up <Badge variant="secondary" className="ml-2">{warmUpData.totalInWarmUp}</Badge></TabsTrigger>
+                    <TabsTrigger value="followUp"><RefreshCcw className="mr-2 h-4 w-4 text-yellow-500"/>Follow-Up <Badge variant="secondary" className="ml-2">{followUpData.length}</Badge></TabsTrigger>
+                    <TabsTrigger value="reminders"><BellRing className="mr-2 h-4 w-4 text-purple-500"/>Reminders <Badge variant="secondary" className="ml-2">{reminderData.length}</Badge></TabsTrigger>
+                    <TabsTrigger value="revival"><TrendingUp className="mr-2 h-4 w-4 text-blue-500"/>Revival <Badge variant="secondary" className="ml-2">{revivalData.length}</Badge></TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="warmUp" className="mt-4">
+                    {warmUpData.totalInWarmUp > 0 ? (
+                         <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+                           {warmUpData.overdue.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Cold Outreach DM', handleDashboardScriptConfirm)} />)}
+                           {warmUpData.dueToday.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Cold Outreach DM', handleDashboardScriptConfirm)} />)}
+                           {warmUpData.upcoming.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Cold Outreach DM', handleDashboardScriptConfirm)} />)}
+                         </div>
+                    ) : (
+                        <div className="text-center py-10 text-muted-foreground">
+                            <Flame className="mx-auto h-12 w-12" />
+                            <p className="mt-4 font-semibold">Warm-up pipeline is empty</p>
+                        </div>
+                    )}
+                </TabsContent>
+                <TabsContent value="followUp" className="mt-4">
+                     {followUpData.length > 0 ? (
+                        <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                            {followUpData.map(item => (
+                                <FollowUpCard 
+                                    key={item.id} 
+                                    item={item} 
+                                    onGenerateFollowUp={(prospect) => handleGenerateScript(prospect, 'Warm Follow-Up DM', handleFollowUpScriptConfirm)} 
+                                />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-10 text-muted-foreground">
+                            <CheckSquare className="mx-auto h-12 w-12 text-green-500" />
+                            <p className="mt-4 font-semibold">Follow-up inbox is clear!</p>
+                        </div>
+                    )}
+                </TabsContent>
+                 <TabsContent value="reminders" className="mt-4">
+                    {reminderData.length > 0 ? (
+                        <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                            {reminderData.map(item => (
+                                <ReminderCard 
+                                    key={item.id} 
+                                    item={item} 
+                                    onGenerateReminder={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Send Reminder', handleReminderScriptConfirm)} 
+                                />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-10 text-muted-foreground">
+                            <CheckSquare className="mx-auto h-12 w-12 text-green-500" />
+                            <p className="mt-4 font-semibold">No reminders needed!</p>
+                        </div>
+                    )}
+                </TabsContent>
+                <TabsContent value="revival" className="mt-4">
+                    {revivalData.length > 0 ? (
+                        <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                            {revivalData.map(item => (
+                                <RevivalCard 
+                                    key={item.id} 
+                                    item={item} 
+                                    onGenerateScript={handleGenerateScript}
+                                    onLogActivity={async () => {
+                                        await updateProspect(item.id, { lastContacted: new Date().toISOString() });
+                                        toast({ title: 'Activity Logged!'});
+                                        fetchDashboardData();
+                                    }}
+                                />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-10 text-muted-foreground">
+                            <CheckSquare className="mx-auto h-12 w-12 text-green-500" />
+                            <p className="mt-4 font-semibold">Revival pipeline is empty.</p>
+                        </div>
+                    )}
+                </TabsContent>
+            </Tabs>
         </CardContent>
        </Card>
 
-       <Card>
-        <CardHeader>
-            <CardTitle className="font-headline flex items-center">
-                <RefreshCcw className="mr-3 h-5 w-5 text-yellow-500" /> Smart Follow-Up Center ({followUpData.length})
-            </CardTitle>
-            <CardDescription>
-                A prioritized list of prospects who need a follow-up. AI will help you craft the perfect message.
-            </CardDescription>
-        </CardHeader>
-        <CardContent>
-            {followUpData.length > 0 ? (
-                <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {followUpData.map(item => (
-                        <FollowUpCard 
-                            key={item.id} 
-                            item={item} 
-                            onGenerateFollowUp={(prospect) => handleGenerateScript(prospect, 'Warm Follow-Up DM', handleFollowUpScriptConfirm)} 
-                        />
-                    ))}
-                </div>
-            ) : (
-                <div className="text-center py-10 text-muted-foreground">
-                    <CheckSquare className="mx-auto h-12 w-12 text-green-500" />
-                    <p className="mt-4 font-semibold">Follow-up inbox is clear!</p>
-                    <p className="text-sm">No prospects are currently marked for follow-up.</p>
-                </div>
-            )}
-        </CardContent>
-       </Card>
-
-        <Card>
-            <CardHeader>
-                <CardTitle className="font-headline flex items-center">
-                    <BellRing className="mr-3 h-5 w-5 text-purple-500" /> Gentle Reminder Center ({reminderData.length})
-                </CardTitle>
-                <CardDescription>
-                    Prospects you've contacted who haven't replied in a while. Time for a gentle nudge.
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                {reminderData.length > 0 ? (
-                    <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                        {reminderData.map(item => (
-                            <ReminderCard 
-                                key={item.id} 
-                                item={item} 
-                                onGenerateReminder={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Send Reminder', handleReminderScriptConfirm)} 
-                            />
-                        ))}
-                    </div>
-                ) : (
-                    <div className="text-center py-10 text-muted-foreground">
-                        <CheckSquare className="mx-auto h-12 w-12 text-green-500" />
-                        <p className="mt-4 font-semibold">No reminders needed!</p>
-                        <p className="text-sm">Everyone has been contacted recently.</p>
-                    </div>
-                )}
-            </CardContent>
-       </Card>
-
-       <Card>
-        <CardHeader>
-            <CardTitle className="font-headline flex items-center">
-                <RefreshCcw className="mr-3 h-5 w-5 text-blue-500" /> Prospect Revival Center ({revivalData.length})
-            </CardTitle>
-            <CardDescription>
-                A 4-day sequence to re-engage prospects who went silent after receiving an audit.
-            </CardDescription>
-        </CardHeader>
-        <CardContent>
-            {revivalData.length > 0 ? (
-                <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {revivalData.map(item => (
-                        <RevivalCard 
-                            key={item.id} 
-                            item={item} 
-                            onGenerateScript={handleGenerateScript}
-                            onLogActivity={async () => { // Simplified logger for now
-                                await updateProspect(item.id, { lastContacted: new Date().toISOString() });
-                                toast({ title: 'Activity Logged!'});
-                                fetchDashboardData();
-                            }}
-                        />
-                    ))}
-                </div>
-            ) : (
-                <div className="text-center py-10 text-muted-foreground">
-                    <CheckSquare className="mx-auto h-12 w-12 text-green-500" />
-                    <p className="mt-4 font-semibold">Revival pipeline is empty.</p>
-                    <p className="text-sm">No prospects are currently in the revival sequence.</p>
-                </div>
-            )}
-        </CardContent>
-       </Card>
     </div>
   );
 }

@@ -964,7 +964,9 @@ export const getRevivalAgendaItems = async (): Promise<RevivalAgendaItem[]> => {
     
     snapshot.docs.forEach(doc => {
         const prospect = doc.data() as OutreachProspect;
-        const lastContactedDate = prospect.lastContacted ? new Date(prospect.lastContacted) : new Date();
+        const lastContactedDate = prospect.lastContacted ? new Date(prospect.lastContacted) : new Date(0);
+        if (lastContactedDate.getTime() === 0) return; // Skip if no valid last contacted date
+
         const daysSinceContact = (new Date().getTime() - lastContactedDate.getTime()) / (1000 * 3600 * 24);
 
         let revivalDay: 2 | 3 | 4 | null = null;

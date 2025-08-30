@@ -13,7 +13,7 @@ import Link from 'next/link';
 
 interface RevivalCardProps {
   item: RevivalAgendaItem;
-  onGenerateScript: (prospect: OutreachProspect, scriptType: 'Warm Follow-Up DM' | 'Soft Close') => void;
+  onGenerateScript: (prospect: OutreachProspect, scriptType: 'Warm Follow-Up DM' | 'Soft Close', onConfirm: (script: string) => void) => void;
   onLogActivity: (prospect: OutreachProspect) => void;
 }
 
@@ -21,7 +21,6 @@ export function RevivalCard({ item, onGenerateScript, onLogActivity }: RevivalCa
   const lastContactedDate = item.lastContacted ? new Date(item.lastContacted) : null;
   const isDateValid = lastContactedDate && isValid(lastContactedDate);
   const timeAgo = isDateValid ? formatDistanceToNow(lastContactedDate, { addSuffix: true }) : 'N/A';
-  const daysSinceContact = isDateValid ? differenceInDays(new Date(), lastContactedDate) : 0;
 
   const getActionDetails = () => {
     switch (item.revivalDay) {
@@ -31,7 +30,7 @@ export function RevivalCard({ item, onGenerateScript, onLogActivity }: RevivalCa
           description: "Re-open the conversation with a new, valuable insight from their audit.",
           buttonText: "Generate Value Nudge",
           icon: Sparkles,
-          onClick: () => onGenerateScript(item, 'Warm Follow-Up DM'),
+          onClick: () => onGenerateScript(item, 'Warm Follow-Up DM', () => onLogActivity(item)),
         };
       case 3:
         return {
@@ -47,7 +46,7 @@ export function RevivalCard({ item, onGenerateScript, onLogActivity }: RevivalCa
           description: "Create urgency by mentioning you are closing client slots for the month.",
           buttonText: "Generate Scarcity Message",
           icon: Star,
-          onClick: () => onGenerateScript(item, 'Soft Close'),
+          onClick: () => onGenerateScript(item, 'Soft Close', () => onLogActivity(item)),
         };
     }
   };
