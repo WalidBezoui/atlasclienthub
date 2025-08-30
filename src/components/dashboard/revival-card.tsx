@@ -58,7 +58,7 @@ export function RevivalCard({ item, onGenerateScript, onLogActivity }: RevivalCa
     <Card className="flex flex-col h-full shadow-md hover:shadow-lg transition-shadow border-2 border-transparent hover:border-blue-500/50">
       <CardHeader className="pb-2">
          <div className="flex justify-between items-start">
-            <CardTitle className="font-semibold text-base truncate">{item.name}</CardTitle>
+            <p className="font-semibold text-base truncate">{item.name}</p>
             <Badge variant="secondary" className="text-xs">Day {item.revivalDay}</Badge>
          </div>
         {item.instagramHandle && (

@@ -661,7 +661,7 @@ export default function DashboardPage() {
             </CardDescription>
         </CardHeader>
         <CardContent>
-             <Tabs defaultValue="warmUp" className="md:grid md:grid-cols-4 md:gap-6">
+             <Tabs defaultValue="warmUp" className="md:grid md:grid-cols-[200px_1fr] md:gap-6">
                 <TabsList className="grid grid-cols-1 h-auto md:flex md:flex-col md:items-stretch md:justify-start">
                   {actionHubTabs.map((tab) => (
                     <TabsTrigger key={tab.value} value={tab.value} className="justify-start gap-2 text-base md:text-sm py-2.5">
@@ -672,7 +672,7 @@ export default function DashboardPage() {
                   ))}
                 </TabsList>
 
-                <div className="mt-4 md:mt-0 md:col-span-3">
+                <div className="mt-4 md:mt-0">
                   <TabsContent value="warmUp">
                       {warmUpData.totalInWarmUp > 0 ? (
                            <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">

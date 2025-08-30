@@ -41,7 +41,7 @@ export function ReminderCard({ item, onGenerateReminder }: ReminderCardProps) {
     <Card className="flex flex-col h-full shadow-md hover:shadow-lg transition-shadow">
       <CardHeader className="pb-2">
          <div className="flex justify-between items-start">
-            <CardTitle className="font-semibold text-base truncate">{item.name}</CardTitle>
+            <p className="font-semibold text-base truncate">{item.name}</p>
             <Badge variant="secondary" className="text-xs">{item.status}</Badge>
          </div>
         {item.instagramHandle && (
