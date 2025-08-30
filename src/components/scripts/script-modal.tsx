@@ -12,13 +12,12 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Copy, RefreshCw, Loader2, ClipboardList, Send, ExternalLink, Save, ChevronDown } from 'lucide-react';
+import { Copy, RefreshCw, Loader2, ClipboardList, Save, ChevronDown, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
 import type { OutreachProspect } from '@/lib/types';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Separator } from '../ui/separator';
 
 interface ScriptModalProps {
   isOpen: boolean;
@@ -28,7 +27,7 @@ interface ScriptModalProps {
   onRegenerate?: (customInstructions: string) => Promise<string | null>;
   isLoadingInitially?: boolean;
   
-  onConfirm?: (scriptContent: string, openIg: boolean) => void;
+  onConfirm?: (scriptContent: string, openIg?: boolean) => void;
   confirmButtonText?: string;
   isConfirming?: boolean;
   showConfirmButton?: boolean;
@@ -45,6 +44,7 @@ export function ScriptModal({
   onConfirm,
   isConfirming = false,
   showConfirmButton = false,
+  confirmButtonText = "Confirm", // Provide a default value
   prospect,
 }: ScriptModalProps) {
   const { toast } = useToast();
@@ -87,7 +87,7 @@ export function ScriptModal({
     }
   };
   
-  const handleConfirm = (openIg: boolean) => {
+  const handleConfirm = (openIg: boolean = false) => {
     if (onConfirm) {
       onConfirm(currentScript, openIg);
     }
@@ -95,6 +95,7 @@ export function ScriptModal({
       window.open(`https://www.instagram.com/${prospect.instagramHandle.replace('@', '')}/`, '_blank');
     }
   };
+
 
   const isBusy = isRegenerating || isLoadingInitially || isConfirming;
 

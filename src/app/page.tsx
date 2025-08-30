@@ -724,8 +724,8 @@ export default function DashboardPage() {
                                   <ReminderCard 
                                       key={item.id} 
                                       item={item} 
-                                      onGenerateReminder={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Send Reminder', handleReminderScriptConfirm)}
-                                      onViewConversation={() => handleOpenConversationModal(item as OutreachProspect)}
+                                      onGenerateReminder={(prospect) => handleGenerateScript(prospect, 'Send Reminder', handleReminderScriptConfirm)}
+                                      onViewConversation={() => handleOpenConversationModal(item)}
                                   />
                               ))}
                           </div>
