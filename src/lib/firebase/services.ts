@@ -20,7 +20,7 @@ import {
 } from 'firebase/firestore';
 import { subMonths, format, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, isToday, isPast, subDays } from 'date-fns';
 
-import type { Client, InstagramAudit, OutreachProspect, MonthlyActivity, OutreachLeadStage, AgendaItem, StatusHistoryItem, WarmUpActivity, WarmUpPipelineData, WarmUpAction, FollowUpAgendaItem, ReminderAgendaItem } from '@/lib/types';
+import type { Client, InstagramAudit, OutreachProspect, MonthlyActivity, OutreachLeadStage, AgendaItem, StatusHistoryItem, WarmUpActivity, WarmUpPipelineData, WarmUpAction, FollowUpAgendaItem, ReminderAgendaItem, RevivalAgendaItem } from '@/lib/types';
 
 // Generic function to get current user ID
 const getCurrentUserId = (): string | null => {
@@ -941,6 +941,55 @@ export const getWarmUpPipelineData = async (): Promise<WarmUpPipelineData> => {
     totalInWarmUp: snapshot.size - updatePromises.length,
     ...categorizedData,
   };
+};
+
+export const getRevivalAgendaItems = async (): Promise<RevivalAgendaItem[]> => {
+    const userId = getCurrentUserId();
+    if (!userId) return [];
+    
+    const twoDaysAgo = subDays(new Date(), 2);
+    const tenDaysAgo = subDays(new Date(), 10);
+    
+    const q = query(
+        prospectsCollection,
+        where('userId', '==', userId),
+        where('status', 'in', ['Audit Delivered', 'Quote Sent']),
+        where('lastContacted', '<=', Timestamp.fromDate(twoDaysAgo)),
+        where('lastContacted', '>=', Timestamp.fromDate(tenDaysAgo)),
+        orderBy('lastContacted', 'asc')
+    );
+    
+    const snapshot = await getDocs(q);
+    const revivalItems: RevivalAgendaItem[] = [];
+    
+    snapshot.docs.forEach(doc => {
+        const prospect = doc.data() as OutreachProspect;
+        const lastContactedDate = prospect.lastContacted ? new Date(prospect.lastContacted) : new Date();
+        const daysSinceContact = (new Date().getTime() - lastContactedDate.getTime()) / (1000 * 3600 * 24);
+
+        let revivalDay: 2 | 3 | 4 | null = null;
+        if (daysSinceContact >= 4) {
+            revivalDay = 4;
+        } else if (daysSinceContact >= 3) {
+            revivalDay = 3;
+        } else if (daysSinceContact >= 2) {
+            revivalDay = 2;
+        }
+
+        if (revivalDay) {
+            revivalItems.push({
+                id: doc.id,
+                name: prospect.name,
+                instagramHandle: prospect.instagramHandle,
+                status: prospect.status,
+                lastContacted: prospect.lastContacted,
+                revivalDay: revivalDay,
+                ...prospect, // Pass full prospect data
+            });
+        }
+    });
+
+    return revivalItems;
 };
 
 

@@ -216,3 +216,7 @@ export type FollowUpAgendaItem = OutreachProspect & {
 export type ReminderAgendaItem = Pick<OutreachProspect, 'id' | 'name' | 'instagramHandle' | 'status' | 'lastContacted' | 'conversationHistory'> & {
   lastMessageSnippet: string;
 };
+
+export type RevivalAgendaItem = OutreachProspect & {
+  revivalDay: 2 | 3 | 4;
+};

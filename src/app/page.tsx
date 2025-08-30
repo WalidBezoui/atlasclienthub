@@ -9,9 +9,9 @@ import Link from 'next/link';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip as ChartTooltip, Legend } from 'recharts';
 import { ChartConfig, ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import { useAuth } from '@/hooks/useAuth';
-import { getDashboardOverview, getMonthlyActivityData, getDailyAgendaItems, getWarmUpPipelineData, updateProspect, getProspects, getFollowUpAgendaItems, getReminderAgendaItems } from '@/lib/firebase/services';
+import { getDashboardOverview, getMonthlyActivityData, getDailyAgendaItems, getWarmUpPipelineData, updateProspect, getProspects, getFollowUpAgendaItems, getReminderAgendaItems, getRevivalAgendaItems } from '@/lib/firebase/services';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
-import type { MonthlyActivity, AgendaItem, WarmUpPipelineData, WarmUpPipelineItem, WarmUpAction, OutreachProspect, OutreachLeadStage, StatusHistoryItem, WarmUpActivity, FollowUpAgendaItem, ReminderAgendaItem } from '@/lib/types';
+import type { MonthlyActivity, AgendaItem, WarmUpPipelineData, WarmUpPipelineItem, WarmUpAction, OutreachProspect, OutreachLeadStage, StatusHistoryItem, WarmUpActivity, FollowUpAgendaItem, ReminderAgendaItem, RevivalAgendaItem } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { format, subMonths, formatDistanceToNow, isPast, isToday, addDays } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -34,6 +34,7 @@ import { ScriptModal } from '@/components/scripts/script-modal';
 import { generateContextualScript, type GenerateContextualScriptInput } from '@/ai/flows/generate-contextual-script';
 import { FollowUpCard } from '@/components/dashboard/follow-up-card';
 import { ReminderCard } from '@/components/dashboard/reminder-card';
+import { RevivalCard } from '@/components/dashboard/revival-card';
 
 
 const initialOverviewData = {
@@ -245,6 +246,7 @@ export default function DashboardPage() {
   const [warmUpData, setWarmUpData] = useState<WarmUpPipelineData>(initialWarmUpData);
   const [followUpData, setFollowUpData] = useState<FollowUpAgendaItem[]>([]);
   const [reminderData, setReminderData] = useState<ReminderAgendaItem[]>([]);
+  const [revivalData, setRevivalData] = useState<RevivalAgendaItem[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const { toast } = useToast();
   
@@ -266,13 +268,14 @@ export default function DashboardPage() {
     if (!user) return;
     setIsLoadingData(true);
     try {
-      const [overview, monthlyActivity, dailyAgenda, warmUpPipeline, followUps, reminders] = await Promise.all([
+      const [overview, monthlyActivity, dailyAgenda, warmUpPipeline, followUps, reminders, revival] = await Promise.all([
         getDashboardOverview(),
         getMonthlyActivityData(),
         getDailyAgendaItems(),
         getWarmUpPipelineData(),
         getFollowUpAgendaItems(),
         getReminderAgendaItems(),
+        getRevivalAgendaItems(),
       ]);
       setOverviewData(overview);
       setChartData(monthlyActivity.length > 0 ? monthlyActivity : initialChartData);
@@ -280,6 +283,7 @@ export default function DashboardPage() {
       setWarmUpData(warmUpPipeline);
       setFollowUpData(followUps);
       setReminderData(reminders);
+      setRevivalData(revival);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
     } finally {
@@ -748,6 +752,41 @@ export default function DashboardPage() {
                     </div>
                 )}
             </CardContent>
+       </Card>
+
+       <Card>
+        <CardHeader>
+            <CardTitle className="font-headline flex items-center">
+                <RefreshCcw className="mr-3 h-5 w-5 text-blue-500" /> Prospect Revival Center ({revivalData.length})
+            </CardTitle>
+            <CardDescription>
+                A 4-day sequence to re-engage prospects who went silent after receiving an audit.
+            </CardDescription>
+        </CardHeader>
+        <CardContent>
+            {revivalData.length > 0 ? (
+                <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {revivalData.map(item => (
+                        <RevivalCard 
+                            key={item.id} 
+                            item={item} 
+                            onGenerateScript={handleGenerateScript}
+                            onLogActivity={async () => { // Simplified logger for now
+                                await updateProspect(item.id, { lastContacted: new Date().toISOString() });
+                                toast({ title: 'Activity Logged!'});
+                                fetchDashboardData();
+                            }}
+                        />
+                    ))}
+                </div>
+            ) : (
+                <div className="text-center py-10 text-muted-foreground">
+                    <CheckSquare className="mx-auto h-12 w-12 text-green-500" />
+                    <p className="mt-4 font-semibold">Revival pipeline is empty.</p>
+                    <p className="text-sm">No prospects are currently in the revival sequence.</p>
+                </div>
+            )}
+        </CardContent>
        </Card>
     </div>
   );
