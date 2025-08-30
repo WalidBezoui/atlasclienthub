@@ -298,6 +298,7 @@ export default function DashboardPage() {
     setCurrentScriptModalConfig({
         title: `Generate ${scriptType}`,
         onConfirm: onConfirmCallback,
+        confirmButtonText: scriptType === 'Send Reminder' ? 'Copy & Log Reminder' : 'Copy & Log Follow-up'
     });
     
     try {
@@ -372,8 +373,8 @@ export default function DashboardPage() {
     const updates: Partial<OutreachProspect> = {
         conversationHistory: `${currentProspectForScript.conversationHistory || ''}${currentProspectForScript.conversationHistory ? '\n\n' : ''}Me: ${scriptContent}`.trim(),
         lastContacted: now,
-        lastScriptSent: "Send Reminder", // Use a specific label for reminders
-        followUpNeeded: true, // Re-schedule a follow-up
+        lastScriptSent: "Send Reminder",
+        followUpNeeded: true, 
         followUpDate: addDays(new Date(), 7).toISOString(),
     };
     
@@ -520,6 +521,7 @@ export default function DashboardPage() {
         isLoadingInitially={isGeneratingScript}
         showConfirmButton={true}
         onConfirm={currentScriptModalConfig.onConfirm}
+        confirmButtonText={currentScriptModalConfig.confirmButtonText || "Confirm"}
         prospect={currentProspectForScript}
       />
       
@@ -557,6 +559,7 @@ export default function DashboardPage() {
                   prospect={currentProspectForConversation}
                   value={conversationHistoryContent}
                   onChange={setConversationHistoryContent}
+                  onGenerateReply={generateContextualScript}
                   isDirty={isConversationDirty}
                 />
               </div>
@@ -670,7 +673,7 @@ export default function DashboardPage() {
         </CardHeader>
         <CardContent>
              <Tabs defaultValue="warmUp" className="md:grid md:grid-cols-1 lg:grid-cols-[250px_1fr] lg:gap-6">
-                <TabsList className="grid w-full grid-cols-2 md:flex md:flex-col md:items-stretch md:justify-start md:h-auto lg:w-full lg:grid-cols-1">
+                <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:flex lg:flex-col lg:items-stretch lg:justify-start lg:h-auto lg:w-full">
                   {actionHubTabs.map((tab) => (
                     <TabsTrigger key={tab.value} value={tab.value} className="justify-start gap-2 text-base md:text-sm py-2.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold hover:bg-muted/50 transition-colors">
                        <tab.icon className={cn("mr-2 h-5 w-5", tab.color)}/>

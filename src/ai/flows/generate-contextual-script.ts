@@ -174,7 +174,7 @@ Your task is to craft the perfect, personalized Instagram DM based on the prospe
 **IF "Warm Follow-Up DM" or "Send Reminder":**
    - **Goal:** To re-engage a prospect who has not replied to a previous message, without being pushy or annoying.
    - **Analysis:**
-     1.  **Examine the History:** Look at the \\\`conversationHistory\\\` and \\\`lastScriptSent\\\`. What was the last thing WE said? Was it an offer for an audit? A qualifier question? A general DM?
+     1.  **Examine the History:** Look at the \`conversationHistory\` and \`lastScriptSent\`. What was the last thing WE said? Was it an offer for an audit? A qualifier question? A general DM?
      2.  **Determine the Context:** Are we following up on a specific, unanswered offer, or just a conversation that went cold?
    - **Structure:**
      1.  **Contextual Opener:** Gently and specifically remind them of the last interaction. This is critical.
@@ -237,6 +237,7 @@ const generateContextualScriptFlow = ai.defineFlow(
   }
 );
     
+
 
 
 

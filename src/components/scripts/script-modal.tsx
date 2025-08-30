@@ -173,7 +173,7 @@ export function ScriptModal({
                 <div className="flex rounded-md shadow-sm">
                     <Button onClick={() => handleConfirm(false)} disabled={isBusy || !currentScript} className="relative flex-1 rounded-r-none">
                          {isConfirming ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                         Copy & Log Follow-up
+                         {confirmButtonText || "Confirm"}
                     </Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -184,7 +184,7 @@ export function ScriptModal({
                       <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => handleConfirm(true)}>
                               <ExternalLink className="mr-2 h-4 w-4" />
-                              Copy, Log & Open IG
+                              {confirmButtonText ? `${confirmButtonText.replace("Log", "Log &")} Open IG` : "Confirm & Open IG"}
                           </DropdownMenuItem>
                       </DropdownMenuContent>
                   </DropdownMenu>
