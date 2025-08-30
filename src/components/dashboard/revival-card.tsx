@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { RevivalAgendaItem, OutreachProspect, OutreachLeadStage } from '@/lib/types';
 import { formatDistanceToNow, isValid, differenceInDays } from 'date-fns';
-import { Send, TrendingUp, Sparkles, Star, Link as LinkIcon } from 'lucide-react';
+import { Send, TrendingUp, Sparkles, Star, Link as LinkIcon, MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
@@ -15,9 +15,10 @@ interface RevivalCardProps {
   item: RevivalAgendaItem;
   onGenerateScript: (prospect: OutreachProspect, scriptType: 'Warm Follow-Up DM' | 'Soft Close', onConfirm: (script: string) => void) => void;
   onLogActivity: (prospect: OutreachProspect) => void;
+  onViewConversation: (prospect: OutreachProspect) => void;
 }
 
-export function RevivalCard({ item, onGenerateScript, onLogActivity }: RevivalCardProps) {
+export function RevivalCard({ item, onGenerateScript, onLogActivity, onViewConversation }: RevivalCardProps) {
   const lastContactedDate = item.lastContacted ? new Date(item.lastContacted) : null;
   const isDateValid = lastContactedDate && isValid(lastContactedDate);
   const timeAgo = isDateValid ? formatDistanceToNow(lastContactedDate, { addSuffix: true }) : 'N/A';
@@ -27,7 +28,7 @@ export function RevivalCard({ item, onGenerateScript, onLogActivity }: RevivalCa
       case 2:
         return {
           title: "Day 2: Soft Value Nudge",
-          description: "Re-open the conversation with a new, valuable insight from their audit.",
+          description: "Re-open the conversation with a new, valuable insight.",
           buttonText: "Generate Value Nudge",
           icon: Sparkles,
           onClick: () => onGenerateScript(item, 'Warm Follow-Up DM', () => onLogActivity(item)),
@@ -35,7 +36,7 @@ export function RevivalCard({ item, onGenerateScript, onLogActivity }: RevivalCa
       case 3:
         return {
           title: "Day 3: Social Proof Drip",
-          description: "Post a relevant case study or result and log it here to keep the prospect warm.",
+          description: "Post a relevant case study and log it here.",
           buttonText: "Log Social Proof Post",
           icon: TrendingUp,
           onClick: () => onLogActivity(item),
@@ -43,8 +44,8 @@ export function RevivalCard({ item, onGenerateScript, onLogActivity }: RevivalCa
       case 4:
         return {
           title: "Day 4: Scarcity Trigger",
-          description: "Create urgency by mentioning you are closing client slots for the month.",
-          buttonText: "Generate Scarcity Message",
+          description: "Create urgency by mentioning you are closing client slots.",
+          buttonText: "Generate Scarcity Msg",
           icon: Star,
           onClick: () => onGenerateScript(item, 'Soft Close', () => onLogActivity(item)),
         };
@@ -77,7 +78,10 @@ export function RevivalCard({ item, onGenerateScript, onLogActivity }: RevivalCa
         <div className="flex items-center text-xs font-medium text-muted-foreground">
           <p>Audit sent {timeAgo}</p>
         </div>
-        <div className="p-3 bg-muted/50 rounded-md">
+        <div 
+          className="p-3 bg-muted/50 rounded-md cursor-pointer hover:bg-muted"
+          onClick={() => onViewConversation(item as OutreachProspect)}
+        >
             <p className="text-sm font-semibold flex items-center"><ActionIcon className="mr-2 h-4 w-4 text-blue-500"/>{actionDetails.title}</p>
             <p className="text-xs text-muted-foreground mt-1">{actionDetails.description}</p>
         </div>

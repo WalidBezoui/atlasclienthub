@@ -18,14 +18,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { Separator } from '@/components/ui/separator';
-import { Progress } from '@/components/ui/progress';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,7 +38,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { WarmUpDialog } from '@/components/outreach/warm-up-dialog';
 import { CommentGeneratorDialog } from '@/components/outreach/CommentGeneratorDialog';
 import { ScriptModal } from '@/components/scripts/script-modal';
@@ -47,6 +46,7 @@ import { generateContextualScript, type GenerateContextualScriptInput } from '@/
 import { FollowUpCard } from '@/components/dashboard/follow-up-card';
 import { ReminderCard } from '@/components/dashboard/reminder-card';
 import { RevivalCard } from '@/components/dashboard/revival-card';
+import { WarmUpCard } from '@/components/dashboard/warm-up-card';
 
 
 const initialOverviewData = {
@@ -148,105 +148,6 @@ const DashboardSkeleton = () => (
         </div>
     </div>
 );
-
-const WarmUpDashboardCard = ({
-  item,
-  onLogActivity,
-  onOpenWarmUpDialog,
-  onGenerateOutreach,
-}: {
-  item: WarmUpPipelineItem;
-  onLogActivity: (prospectId: string, action: WarmUpAction) => void;
-  onOpenWarmUpDialog: (prospect: WarmUpPipelineItem) => void;
-  onGenerateOutreach: (prospect: WarmUpPipelineItem) => void;
-}) => {
-  
-  const getUrgencyBadge = (): { text: string; variant: "destructive" | "secondary" | "outline" } => {
-    if (!item.nextActionDue) return { text: "Next", variant: "secondary" };
-    try {
-        const dueDate = new Date(item.nextActionDue);
-        if (isNaN(dueDate.getTime())) return { text: "Next", variant: "secondary" };
-        if (isPast(dueDate) && !isToday(dueDate)) return { text: "Overdue", variant: "destructive" };
-        if (isToday(dueDate)) return { text: "Due Today", variant: "secondary" };
-        return { text: `Due ${formatDistanceToNow(dueDate, { addSuffix: true })}`, variant: "outline" };
-    } catch {
-        return { text: "Next", variant: "secondary" };
-    }
-  };
-
-  const { text, variant } = getUrgencyBadge();
-
-  const handleQuickAction = (e: React.MouseEvent, action: WarmUpAction) => {
-    e.stopPropagation();
-    onLogActivity(item.id, action);
-  };
-  
-  const quickActionIcons: { action: WarmUpAction; icon: React.ElementType; tooltip: string }[] = [
-    { action: 'Liked Posts', icon: Heart, tooltip: "Log 'Liked Posts'" },
-    { action: 'Viewed Story', icon: Eye, tooltip: "Log 'Viewed Story'" },
-    { action: 'Left Comment', icon: MessageCircleIcon, tooltip: 'Open Comment Generator' },
-  ];
-
-  return (
-    <div className="p-3 bg-card border rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer group flex flex-col" onClick={() => onOpenWarmUpDialog(item)}>
-      <div className="flex justify-between items-start">
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold truncate text-sm group-hover:underline">{item.name}</p>
-           <a 
-                href={`https://instagram.com/${item.instagramHandle?.replace('@','')}`} 
-                target="_blank" rel="noopener noreferrer" 
-                onClick={(e) => e.stopPropagation()} 
-                className="text-xs text-muted-foreground truncate flex items-center gap-1.5 hover:text-primary hover:underline w-fit group"
-            >
-             @{item.instagramHandle || 'N/A'}
-             <LinkIcon className="h-3 w-3 text-muted-foreground/70 transition-colors group-hover:text-primary" />
-            </a>
-        </div>
-         <TooltipProvider>
-            <div className="flex items-center gap-1">
-                 {quickActionIcons.map(({action, icon: Icon, tooltip}) => {
-                     const isDone = item.completedActions.includes(action);
-                     return (
-                         <Tooltip key={action}>
-                             <TooltipTrigger asChild>
-                                <Button 
-                                    variant={isDone ? 'secondary' : 'ghost'} 
-                                    size="icon" 
-                                    className="h-7 w-7" 
-                                    onClick={(e) => handleQuickAction(e, action)} 
-                                    disabled={isDone}
-                                >
-                                    <Icon className={cn("h-4 w-4", isDone && 'text-muted-foreground')} />
-                                </Button>
-                             </TooltipTrigger>
-                             <TooltipContent><p>{isDone ? `Already logged '${action}'` : tooltip}</p></TooltipContent>
-                         </Tooltip>
-                     );
-                 })}
-            </div>
-        </TooltipProvider>
-      </div>
-      <div className="mt-2 space-y-2 flex-grow">
-        <div>
-            <div className="text-xs flex justify-between items-center mb-1">
-                <span className="font-medium text-muted-foreground">Progress</span>
-                <span className="font-semibold">{Math.round(item.progress)}%</span>
-            </div>
-            <Progress value={item.progress} className="h-1.5"/>
-        </div>
-        <div className="text-xs flex justify-between pt-1 items-center">
-            <span className="text-muted-foreground">Next: <span className="font-medium text-foreground">{item.nextAction}</span></span>
-            <Badge variant={variant} className="text-xs">{text}</Badge>
-        </div>
-      </div>
-      <div className="pt-3 mt-auto">
-         <Button variant="default" size="sm" className="w-full h-8" onClick={(e) => { e.stopPropagation(); onGenerateOutreach(item); }} disabled={item.completedActions.includes('Replied to Story')}>
-             <MessagesSquare className="mr-2 h-4 w-4"/> Generate Outreach DM
-         </Button>
-      </div>
-    </div>
-  );
-};
 
 
 export default function DashboardPage() {
@@ -768,8 +669,8 @@ export default function DashboardPage() {
             </CardDescription>
         </CardHeader>
         <CardContent>
-             <Tabs defaultValue="warmUp" className="md:grid md:grid-cols-[250px_1fr] md:gap-6">
-                <TabsList className="grid w-full grid-cols-2 lg:flex lg:flex-col lg:items-stretch lg:justify-start lg:h-auto md:w-full md:grid-cols-1">
+             <Tabs defaultValue="warmUp" className="md:grid md:grid-cols-1 lg:grid-cols-[250px_1fr] lg:gap-6">
+                <TabsList className="grid w-full grid-cols-2 md:flex md:flex-col md:items-stretch md:justify-start md:h-auto lg:w-full lg:grid-cols-1">
                   {actionHubTabs.map((tab) => (
                     <TabsTrigger key={tab.value} value={tab.value} className="justify-start gap-2 text-base md:text-sm py-2.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold hover:bg-muted/50 transition-colors">
                        <tab.icon className={cn("mr-2 h-5 w-5", tab.color)}/>
@@ -782,10 +683,10 @@ export default function DashboardPage() {
                 <div className="mt-4 md:mt-0">
                   <TabsContent value="warmUp">
                       {warmUpData.totalInWarmUp > 0 ? (
-                           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
-                             {warmUpData.overdue.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Cold Outreach DM', handleDashboardScriptConfirm)} />)}
-                             {warmUpData.dueToday.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Cold Outreach DM', handleDashboardScriptConfirm)} />)}
-                             {warmUpData.upcoming.map(item => <WarmUpDashboardCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Cold Outreach DM', handleDashboardScriptConfirm)} />)}
+                           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                             {warmUpData.overdue.map(item => <WarmUpCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Cold Outreach DM', handleDashboardScriptConfirm)} />)}
+                             {warmUpData.dueToday.map(item => <WarmUpCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Cold Outreach DM', handleDashboardScriptConfirm)} />)}
+                             {warmUpData.upcoming.map(item => <WarmUpCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Cold Outreach DM', handleDashboardScriptConfirm)} />)}
                            </div>
                       ) : (
                           <div className="text-center py-10 text-muted-foreground rounded-lg bg-muted/50">
@@ -796,12 +697,13 @@ export default function DashboardPage() {
                   </TabsContent>
                   <TabsContent value="followUp">
                        {followUpData.length > 0 ? (
-                          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+                          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                               {followUpData.map(item => (
                                   <FollowUpCard 
                                       key={item.id} 
                                       item={item} 
-                                      onGenerateFollowUp={(prospect) => handleGenerateScript(prospect, 'Warm Follow-Up DM', handleFollowUpScriptConfirm)} 
+                                      onGenerateFollowUp={(prospect) => handleGenerateScript(prospect, 'Warm Follow-Up DM', handleFollowUpScriptConfirm)}
+                                      onViewConversation={() => handleOpenConversationModal(item as OutreachProspect)}
                                   />
                               ))}
                           </div>
@@ -814,7 +716,7 @@ export default function DashboardPage() {
                   </TabsContent>
                    <TabsContent value="reminders">
                       {reminderData.length > 0 ? (
-                          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+                          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                               {reminderData.map(item => (
                                   <ReminderCard 
                                       key={item.id} 
@@ -833,7 +735,7 @@ export default function DashboardPage() {
                   </TabsContent>
                   <TabsContent value="revival">
                       {revivalData.length > 0 ? (
-                          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+                          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                               {revivalData.map(item => (
                                   <RevivalCard 
                                       key={item.id} 
@@ -844,6 +746,7 @@ export default function DashboardPage() {
                                           toast({ title: 'Activity Logged!'});
                                           fetchDashboardData();
                                       }}
+                                       onViewConversation={() => handleOpenConversationModal(item as OutreachProspect)}
                                   />
                               ))}
                           </div>
