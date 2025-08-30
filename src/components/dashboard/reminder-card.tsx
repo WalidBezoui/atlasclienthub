@@ -2,13 +2,14 @@
 'use client';
 
 import React from 'react';
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { ReminderAgendaItem, OutreachProspect } from '@/lib/types';
 import { formatDistanceToNow, isValid } from 'date-fns';
-import { Clock, Send } from 'lucide-react';
+import { Clock, Send, Link as LinkIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
 
 interface ReminderCardProps {
   item: ReminderAgendaItem;
@@ -40,10 +41,20 @@ export function ReminderCard({ item, onGenerateReminder }: ReminderCardProps) {
     <Card className="flex flex-col h-full shadow-md hover:shadow-lg transition-shadow">
       <CardHeader className="pb-2">
          <div className="flex justify-between items-start">
-            <p className="font-semibold truncate">{item.name}</p>
+            <CardTitle className="font-semibold text-base truncate">{item.name}</CardTitle>
             <Badge variant="secondary" className="text-xs">{item.status}</Badge>
          </div>
-         <p className="text-xs text-muted-foreground">@{item.instagramHandle}</p>
+        {item.instagramHandle && (
+           <a 
+              href={`https://instagram.com/${item.instagramHandle.replace('@','')}`} 
+              target="_blank" rel="noopener noreferrer" 
+              onClick={(e) => e.stopPropagation()} 
+              className="text-xs text-muted-foreground truncate flex items-center gap-1.5 hover:text-primary hover:underline w-fit group"
+          >
+           @{item.instagramHandle}
+           <LinkIcon className="h-3 w-3 text-muted-foreground/70 transition-colors group-hover:text-primary" />
+          </a>
+        )}
       </CardHeader>
       <CardContent className="flex-grow space-y-3">
         <div className={cn("flex items-center text-xs font-medium", getUrgencyColor())}>
