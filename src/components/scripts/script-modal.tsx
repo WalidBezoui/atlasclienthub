@@ -44,7 +44,7 @@ export function ScriptModal({
   onConfirm,
   isConfirming = false,
   showConfirmButton = false,
-  confirmButtonText = "Confirm", // Provide a default value
+  confirmButtonText, // Can be undefined
   prospect,
 }: ScriptModalProps) {
   const { toast } = useToast();
@@ -92,7 +92,7 @@ export function ScriptModal({
       onConfirm(currentScript, openIg);
     }
     if (prospect?.instagramHandle && openIg) {
-      window.open(`https://www.instagram.com/${prospect.instagramHandle.replace('@', '')}/`, '_blank');
+      window.open(`https://www.instagram.com/direct/t/${prospect.instagramHandle.replace('@', '')}`, '_blank');
     }
   };
 
