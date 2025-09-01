@@ -177,8 +177,7 @@ export default function DashboardPage() {
   const [scriptModalTitle, setScriptModalTitle] = useState('Generated Script');
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   const [currentProspectForScript, setCurrentProspectForScript] = useState<OutreachProspect | null>(null);
-  const [currentScriptGenerationInput, setCurrentScriptGenerationInput] = useState<GenerateContextualScriptInput | null>(null);
-  const [scriptCallback, setScriptCallback] = useState<(script: string) => void>(() => () => {});
+  const [scriptCallback, setScriptCallback] = useState<((script: string) => void) | null>(null);
   
   // State for Conversation History Modal
   const [isConversationModalOpen, setIsConversationModalOpen] = useState(false);
@@ -277,7 +276,7 @@ export default function DashboardPage() {
         setWarmUpData(originalWarmUpData);
     }
   }, [warmUpData, toast, fetchDashboardData]);
-  
+
   const handleGenerateScript = useCallback(async (
     prospect: OutreachProspect, 
     scriptType: GenerateContextualScriptInput['scriptType'], 
@@ -290,7 +289,7 @@ export default function DashboardPage() {
     setIsGeneratingScript(true);
     setGeneratedScript('');
     setScriptModalTitle(config.title);
-    setScriptCallback(() => config.onScriptReady);
+    setScriptCallback(() => config.onScriptReady); // Correctly set the callback
     setIsScriptModalOpen(true);
     
     const input: GenerateContextualScriptInput = {
@@ -304,8 +303,6 @@ export default function DashboardPage() {
         businessType: prospect.businessType,
         conversationHistory: prospect.conversationHistory
     };
-    
-    setCurrentScriptGenerationInput(input);
     
     try {
         const result = await generateContextualScript(input);
@@ -375,8 +372,7 @@ export default function DashboardPage() {
         toast({ title: "Error", description: "No prospect selected for this action.", variant: "destructive" });
         return;
     }
-
-    // Directly fetch the latest prospect data to avoid stale state issues.
+    
     const allProspects = await getProspects();
     const freshProspect = allProspects.find(p => p.id === currentProspectForScript.id);
 
@@ -405,10 +401,8 @@ export default function DashboardPage() {
   }, [currentProspectForScript, fetchDashboardData, toast]);
 
 
-  const handleRegenerateScript = useCallback(async (customInstructions: string): Promise<string | null> => {
-    if (!currentScriptGenerationInput) return null;
-    const updatedInput = { ...currentScriptGenerationInput, customInstructions };
-    setCurrentScriptGenerationInput(updatedInput);
+  const handleRegenerateScript = useCallback(async (customInstructions: string, input: GenerateContextualScriptInput): Promise<string | null> => {
+    const updatedInput = { ...input, customInstructions };
     
     setIsGeneratingScript(true);
     setGeneratedScript('');
@@ -422,7 +416,7 @@ export default function DashboardPage() {
     } finally {
       setIsGeneratingScript(false);
     }
-  }, [currentScriptGenerationInput, toast]);
+  }, [toast]);
   
   const handleOpenWarmUpDialog = async (item: WarmUpPipelineItem) => {
     const allProspects = await getProspects();
@@ -530,12 +524,21 @@ export default function DashboardPage() {
       
        <ScriptModal
         isOpen={isScriptModalOpen}
-        onClose={() => setIsScriptModalOpen(false)}
+        onClose={() => {
+            setIsScriptModalOpen(false);
+            setScriptCallback(null);
+            setCurrentProspectForScript(null);
+        }}
         scriptContent={generatedScript}
         title={scriptModalTitle}
-        onRegenerate={handleRegenerateScript}
+        onRegenerate={(instructions, currentInput) => handleRegenerateScript(instructions, currentInput)}
         isLoadingInitially={isGeneratingScript}
-        onScriptReady={scriptCallback}
+        onScriptReady={(script) => {
+            if (scriptCallback) {
+                scriptCallback(script);
+            }
+            setIsScriptModalOpen(false);
+        }}
         prospect={currentProspectForScript}
       />
       
@@ -691,7 +694,7 @@ export default function DashboardPage() {
         </CardHeader>
         <CardContent>
              <Tabs defaultValue="warmUp" className="md:grid md:grid-cols-1 lg:grid-cols-[250px_1fr] lg:gap-6">
-                <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:flex lg:flex-col lg:items-stretch lg:justify-start lg:h-auto lg:w-full">
+                <TabsList className="h-auto flex-wrap justify-start lg:flex lg:flex-col lg:items-stretch lg:justify-start lg:h-auto lg:w-full">
                   {actionHubTabs.map((tab) => (
                     <TabsTrigger key={tab.value} value={tab.value} className="justify-start gap-2 text-base md:text-sm py-2.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-semibold hover:bg-muted/50 transition-colors">
                        <tab.icon className={cn("mr-2 h-5 w-5", tab.color)}/>
