@@ -100,7 +100,7 @@ function OutreachPage() {
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   const [currentProspectForScript, setCurrentProspectForScript] = useState<OutreachProspect | null>(null);
   const [currentScriptGenerationInput, setCurrentScriptGenerationInput] = useState<GenerateContextualScriptInput | null>(null);
-  const [scriptModalConfig, setScriptModalConfig] = useState<any>({});
+  const [scriptCallback, setScriptCallback] = useState<{ onReady: (script: string) => void } | null>(null);
   
   // State for conversation modal
   const [isConversationModalOpen, setIsConversationModalOpen] = useState(false);
@@ -318,7 +318,7 @@ function OutreachPage() {
         const finalProspect = await getProspects().then(all => all.find(p => p.id === docId) || savedProspect);
 
         if (options?.andGenerateScript) {
-            handleGenerateScript(finalProspect, 'Cold Outreach DM');
+            handleGenerateScript(finalProspect, 'Cold Outreach DM', { title: "Generate Cold Outreach DM", onScriptReady: handleScriptConfirm });
         } else if (options?.andWarmUp) {
             handleOpenWarmUpDialog(finalProspect);
         }
@@ -478,13 +478,66 @@ function OutreachPage() {
     setScriptModalTitle(title);
     setGeneratedScript("Failed to generate script. Please try again.");
   };
+  
+  const handleScriptConfirm = async (scriptContent: string) => {
+    if (!currentProspectForScript) return;
+    
+    const prospect = currentProspectForScript;
+    const scriptType = currentScriptGenerationInput?.scriptType || "Unknown";
 
-  const handleGenerateScript = useCallback(async (prospect: OutreachProspect, scriptType: GenerateContextualScriptInput['scriptType']) => {
+    const currentHistory = prospect.conversationHistory || '';
+    const newHistory = `${currentHistory}${currentHistory ? '\n\n' : ''}Me: ${scriptContent}`.trim();
+    const contactDate = new Date().toISOString();
+    const warmUpActivities = new Set(prospect.warmUp?.map(a => a.action));
+
+    const updates: Partial<OutreachProspect> = {
+        conversationHistory: newHistory,
+        lastContacted: contactDate,
+        lastScriptSent: scriptType,
+    };
+
+    let newStatus: OutreachLeadStage | undefined;
+    
+    if (!warmUpActivities.has('Replied to Story') && prospect.status === 'Warming Up') {
+      const newWarmUpActivity: WarmUpActivity = {
+          id: crypto.randomUUID(),
+          action: 'Replied to Story',
+          date: new Date().toISOString(),
+      };
+      updates.warmUp = [...(prospect.warmUp || []), newWarmUpActivity];
+    }
+
+    if ((prospect.status === 'To Contact' || prospect.status === 'Warming Up') && scriptType === 'Cold Outreach DM') {
+        newStatus = 'Cold';
+    } else if (prospect.status === 'Cold' && (scriptType.includes('Follow-Up') || scriptType.includes('Reminder'))) {
+        newStatus = 'Warm';
+    } else if (scriptType === 'Audit Delivery Message') {
+        newStatus = 'Audit Delivered';
+        updates.linkSent = true;
+    }
+    
+    if (newStatus) {
+        updates.status = newStatus;
+        updates.statusHistory = [...(prospect.statusHistory || []), { status: newStatus, date: contactDate }];
+    }
+    
+    try {
+        await updateProspect(prospect.id, updates);
+        updateProspectInState(prospect.id, updates);
+        toast({ title: "Conversation Updated", description: "Script has been saved to the conversation history and status updated." });
+        setIsScriptModalOpen(false);
+    } catch (error: any) {
+        toast({ title: "Update Failed", description: error.message || 'Could not update prospect history.', variant: 'destructive' });
+    }
+  };
+
+  const handleGenerateScript = useCallback(async (prospect: OutreachProspect, scriptType: GenerateContextualScriptInput['scriptType'], config: { title: string, onScriptReady: (script: string) => void}) => {
     setCurrentProspectForScript(prospect);
     setIsGeneratingScript(true);
     setIsScriptModalOpen(true);
     setGeneratedScript('');
     setScriptModalTitle(`Generating ${scriptType}...`);
+    setScriptCallback({ onReady: config.onScriptReady });
     
     const input: GenerateContextualScriptInput = {
         scriptType,
@@ -524,62 +577,6 @@ function OutreachPage() {
     };
     
     setCurrentScriptGenerationInput(input);
-
-    const onConfirmScript = async (scriptContent: string) => {
-      if (!prospect) return;
-
-      const currentHistory = prospect.conversationHistory || '';
-      const newHistory = `${currentHistory}${currentHistory ? '\n\n' : ''}Me: ${scriptContent}`.trim();
-      const contactDate = new Date().toISOString();
-      const warmUpActivities = new Set(prospect.warmUp?.map(a => a.action));
-
-      const updates: Partial<OutreachProspect> = {
-          conversationHistory: newHistory,
-          lastContacted: contactDate,
-          lastScriptSent: scriptType,
-      };
-
-      let newStatus: OutreachLeadStage | undefined;
-      // Auto-complete warm up if generating script and it's not done
-      if (!warmUpActivities.has('Replied to Story') && prospect.status === 'Warming Up') {
-        const newWarmUpActivity: WarmUpActivity = {
-            id: crypto.randomUUID(),
-            action: 'Replied to Story',
-            date: new Date().toISOString(),
-        };
-        updates.warmUp = [...(prospect.warmUp || []), newWarmUpActivity];
-      }
-
-      if (prospect.status === 'To Contact' && scriptType === 'Cold Outreach DM') {
-          newStatus = 'Cold';
-      } else if (prospect.status === 'Cold' && (scriptType.includes('Follow-Up') || scriptType.includes('Reminder'))) {
-          newStatus = 'Warm';
-      } else if (scriptType === 'Audit Delivery Message') {
-          newStatus = 'Audit Delivered';
-          updates.linkSent = true;
-      }
-      
-      if (newStatus) {
-          updates.status = newStatus;
-          updates.statusHistory = [...(prospect.statusHistory || []), { status: newStatus, date: contactDate }];
-      }
-      
-      try {
-          await updateProspect(prospect.id, updates);
-          updateProspectInState(prospect.id, updates);
-          toast({ title: "Conversation Updated", description: "Script has been saved to the conversation history and status updated." });
-          setIsScriptModalOpen(false);
-      } catch (error: any) {
-          toast({ title: "Update Failed", description: error.message || 'Could not update prospect history.', variant: 'destructive' });
-      }
-    };
-    
-    setScriptModalConfig({
-        showConfirmButton: true,
-        confirmButtonText: "Copy & Open DM",
-        onConfirm: onConfirmScript,
-        prospect: prospect, 
-    });
     
     try {
         const result = await generateContextualScript(input);
@@ -621,17 +618,7 @@ function OutreachPage() {
     setIsScriptModalOpen(true);
     setGeneratedScript('');
     setScriptModalTitle(`Generating Qualifier for ${prospect.name}...`);
-    
-    setScriptModalConfig({
-        showConfirmButton: true,
-        confirmButtonText: "Copy & Open IG",
-        prospect: prospect,
-        onConfirm: async (scriptContent: string) => {
-           if (currentProspectForScript) {
-             await handleSendQualifier(currentProspectForScript, scriptContent);
-           }
-        }
-    });
+    setScriptCallback({ onReady: (script) => handleSendQualifier(prospect, script) });
 
     const input: GenerateQualifierInput = {
         prospectName: prospect.name,
@@ -652,7 +639,7 @@ function OutreachPage() {
     } finally {
         setIsGeneratingScript(false);
     }
-  }, [handleSendQualifier, toast, currentProspectForScript]);
+  }, [handleSendQualifier, toast]);
   
   const handleGenerateNextReply = useCallback(async (prospect: OutreachProspect, customInstructions: string): Promise<string> => {
     if (!prospect) {
@@ -897,6 +884,91 @@ function OutreachPage() {
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
+  };
+
+  const formatProspectForExport = (p: OutreachProspect): string => {
+        const sections = {
+            "BASIC INFO": [
+                { label: "Name", value: p.name },
+                { label: "Instagram", value: p.instagramHandle ? `@${p.instagramHandle}` : 'N/A' },
+                { label: "Business Name", value: p.businessName },
+                { label: "Website", value: p.website },
+                { label: "Email", value: p.email },
+                { label: "Location", value: p.prospectLocation },
+                { label: "Industry", value: p.industry },
+            ],
+            "LEAD STATUS": [
+                { label: "Status", value: p.status },
+                { label: "Source", value: p.source },
+                { label: "Lead Score", value: p.leadScore },
+                { label: "Created", value: p.createdAt ? new Date(p.createdAt).toLocaleString() : 'N/A' },
+                { label: "Last Contacted", value: p.lastContacted ? new Date(p.lastContacted).toLocaleString() : 'N/A' },
+                { label: "Follow-up Needed", value: p.followUpNeeded ? 'Yes' : 'No' },
+                { label: "Follow-up Date", value: p.followUpDate ? new Date(p.followUpDate).toLocaleDateString() : 'N/A' },
+            ],
+            "METRICS & PROFILE": [
+                { label: "Followers", value: p.followerCount },
+                { label: "Posts", value: p.postCount },
+                { label: "Avg. Likes", value: p.avgLikes },
+                { label: "Avg. Comments", value: p.avgComments },
+                { label: "Business Type", value: `${p.businessType || ''}${p.businessType === 'Other' ? ` (${p.businessTypeOther})` : ''}` },
+                { label: "Account Stage", value: p.accountStage },
+                { label: "Visual Style", value: p.visualStyle },
+                { label: "Bio Summary", value: p.bioSummary },
+            ],
+            "PAIN POINTS & GOALS": [
+                { label: "Pain Points", value: p.painPoints?.join(', ') || 'N/A' },
+                { label: "Goals", value: p.goals?.join(', ') || 'N/A' },
+            ],
+            "AI & CONTEXT": [
+                { label: "Unique Note", value: p.uniqueNote },
+                { label: "AI Help Statement", value: p.helpStatement },
+                { label: "Tone Preference", value: p.tonePreference },
+                { label: "Notes", value: p.notes },
+            ],
+            "CONVERSATION HISTORY": [{ label: "", value: p.conversationHistory || "No conversation history logged." }]
+        };
+
+        let output = `PROSPECT DETAILS: ${p.name}\n========================================\n\n`;
+        for (const [section, items] of Object.entries(sections)) {
+            output += `--- ${section} ---\n`;
+            for (const item of items) {
+                if (item.value) {
+                    if (item.label) {
+                        output += `${item.label}: ${item.value}\n`;
+                    } else {
+                        output += `${item.value}\n`;
+                    }
+                }
+            }
+            output += '\n';
+        }
+        return output;
+    };
+
+  const handleCopyToClipboard = (prospect: OutreachProspect) => {
+      const textToCopy = formatProspectForExport(prospect);
+      navigator.clipboard.writeText(textToCopy).then(() => {
+          toast({ title: "Copied to clipboard!", description: `Full details for ${prospect.name} copied.` });
+      }).catch(err => {
+          toast({ title: "Copy failed", description: "Could not copy details.", variant: "destructive" });
+      });
+  };
+
+  const handleExportToFile = (prospect: OutreachProspect) => {
+      const textToExport = formatProspectForExport(prospect);
+      const blob = new Blob([textToExport], { type: 'text/plain;charset=utf-8;' });
+      const link = document.createElement("a");
+      if (link.download !== undefined) {
+          const url = URL.createObjectURL(blob);
+          const filename = `@${prospect.instagramHandle || prospect.name}_details_${new Date().toISOString().split('T')[0]}.txt`;
+          link.setAttribute("href", url);
+          link.setAttribute("download", filename);
+          link.style.visibility = 'hidden';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+      }
   };
 
   if (authLoading || (isLoading && !prospects.length && user)) {
@@ -1297,8 +1369,10 @@ function OutreachPage() {
                         onGenerateQualifier={handleGenerateQualifier}
                         onEvaluate={handleEvaluateProspect}
                         onDelete={setProspectToDelete}
-                        onGenerateScript={handleGenerateScript}
+                        onGenerateScript={(p, type) => handleGenerateScript(p, type, { title: `Generate ${type}`, onScriptReady: handleScriptConfirm })}
                         onWarmUp={handleOpenWarmUpDialog}
+                        onCopyDetails={handleCopyToClipboard}
+                        onExportDetails={handleExportToFile}
                       />
                   ))
               ) : (
@@ -1353,10 +1427,12 @@ function OutreachPage() {
                           onStartAudit={handleStartAudit}
                           onGenerateComment={handleOpenCommentGenerator}
                           onGenerateQualifier={handleGenerateQualifier}
-                          onGenerateScript={handleGenerateScript}
+                          onGenerateScript={(p, type) => handleGenerateScript(p, type, { title: `Generate ${type}`, onScriptReady: handleScriptConfirm })}
                           onEvaluate={handleEvaluateProspect}
                           onDelete={setProspectToDelete}
                           onWarmUp={handleOpenWarmUpDialog}
+                          onCopyDetails={handleCopyToClipboard}
+                          onExportDetails={handleExportToFile}
                         />
                     ))
                   ) : (
@@ -1408,14 +1484,17 @@ function OutreachPage() {
         onClose={() => {
             setCurrentProspectForScript(null);
             setIsScriptModalOpen(false);
+            setScriptCallback(null);
         }}
         scriptContent={generatedScript}
         title={scriptModalTitle}
         onRegenerate={handleRegenerateScript}
         isLoadingInitially={isGeneratingScript && !generatedScript}
-        showConfirmButton={scriptModalConfig.showConfirmButton}
-        confirmButtonText={scriptModalConfig.confirmButtonText}
-        onConfirm={scriptModalConfig.onConfirm ? () => scriptModalConfig.onConfirm(generatedScript) : undefined}
+        onScriptReady={(script) => {
+          if (scriptCallback?.onReady) {
+            scriptCallback.onReady(script);
+          }
+        }}
         prospect={currentProspectForScript}
       />
     </div>
@@ -1429,5 +1508,6 @@ export default function OutreachPageWrapper() {
         </Suspense>
     )
 }
+
 
 

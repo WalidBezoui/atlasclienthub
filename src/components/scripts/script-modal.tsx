@@ -26,7 +26,7 @@ interface ScriptModalProps {
   title?: string;
   onRegenerate?: (customInstructions: string) => Promise<string | null>;
   isLoadingInitially?: boolean;
-  onScriptReady: (script: string) => void;
+  onScriptReady?: (script: string) => void; // New, simplified callback
   prospect?: OutreachProspect | null;
 }
 
@@ -37,7 +37,7 @@ export function ScriptModal({
   title = "Generated Script",
   onRegenerate,
   isLoadingInitially = false,
-  onScriptReady,
+  onScriptReady, // New prop
   prospect,
 }: ScriptModalProps) {
   const { toast } = useToast();
@@ -89,7 +89,6 @@ export function ScriptModal({
       if (openIg && prospect?.instagramHandle) {
           window.open(`https://www.instagram.com/direct/t/${prospect.instagramHandle.replace('@', '')}`, '_blank');
       }
-      // Delay closing to give feedback
       setTimeout(() => {
         onClose();
         setIsConfirming(false);
