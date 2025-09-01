@@ -655,7 +655,7 @@ export const getDailyAgendaItems = async (): Promise<AgendaItem[]> => {
                 description: `Next action: ${nextAction}`,
                 dueDate: lastActivity.nextActionDue,
             });
-            processedIds.add(prospect.id);
+            processedIds.add(doc.id);
         });
 
     return agendaItems;
