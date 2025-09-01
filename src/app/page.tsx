@@ -177,6 +177,8 @@ export default function DashboardPage() {
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   const [currentProspectForScript, setCurrentProspectForScript] = useState<OutreachProspect | null>(null);
   const [currentScriptGenerationInput, setCurrentScriptGenerationInput] = useState<GenerateContextualScriptInput | null>(null);
+  const [scriptModalTitle, setScriptModalTitle] = useState('Generated Script');
+  const [scriptCallback, setScriptCallback] = useState<(script: string) => void>(() => () => {});
   
   // State for Conversation History Modal
   const [isConversationModalOpen, setIsConversationModalOpen] = useState(false);
@@ -184,8 +186,6 @@ export default function DashboardPage() {
   const [conversationHistoryContent, setConversationHistoryContent] = useState<string | null>(null);
   const [isSavingConversation, setIsSavingConversation] = useState(false);
   const [showUnsavedConfirm, setShowUnsavedConfirm] = useState(false);
-  const [scriptModalTitle, setScriptModalTitle] = useState('Generated Script');
-  const [scriptCallback, setScriptCallback] = useState<(script: string) => void>(() => () => {});
 
 
   const fetchDashboardData = useCallback(async () => {

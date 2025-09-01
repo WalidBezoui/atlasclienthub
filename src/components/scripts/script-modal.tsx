@@ -49,12 +49,12 @@ export function ScriptModal({
     setCurrentScript(scriptContent); 
   }, [scriptContent]);
 
-  const handleCopy = () => {
-    if (!currentScript) {
+  const handleCopy = (textToCopy: string) => {
+    if (!textToCopy) {
         toast({ title: 'Nothing to copy', variant: 'destructive' });
         return;
     }
-    navigator.clipboard.writeText(currentScript)
+    navigator.clipboard.writeText(textToCopy)
       .then(() => {
         toast({ title: "Copied!", description: "Script copied to clipboard." });
       })
@@ -80,8 +80,9 @@ export function ScriptModal({
     }
   };
   
-  const handleConfirm = (openIg: boolean = false) => {
+  const handleConfirmAndLog = (openIg: boolean = false) => {
     if (onScriptReady) {
+      handleCopy(currentScript);
       onScriptReady(currentScript);
       if (openIg && prospect?.instagramHandle) {
           window.open(`https://www.instagram.com/direct/t/${prospect.instagramHandle.replace('@', '')}`, '_blank');
@@ -165,13 +166,13 @@ export function ScriptModal({
           </Button>
 
           <div className="flex flex-col sm:flex-row gap-2">
-            <Button variant="outline" onClick={handleCopy} disabled={isBusy || !currentScript}>
+            <Button variant="outline" onClick={() => handleCopy(currentScript)} disabled={isBusy || !currentScript}>
                 <Copy className="mr-2 h-4 w-4" /> Copy Only
             </Button>
             
             {onScriptReady && (
                 <div className="flex rounded-md shadow-sm">
-                    <Button onClick={() => handleConfirm(false)} disabled={isBusy || !currentScript} className="relative flex-1 rounded-r-none">
+                    <Button onClick={() => handleConfirmAndLog(false)} disabled={isBusy || !currentScript} className="relative flex-1 rounded-r-none">
                          <Save className="mr-2 h-4 w-4" />
                          {confirmButtonText}
                     </Button>
@@ -182,7 +183,7 @@ export function ScriptModal({
                          </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleConfirm(true)}>
+                          <DropdownMenuItem onClick={() => handleConfirmAndLog(true)}>
                               <ExternalLink className="mr-2 h-4 w-4" />
                               {`${confirmButtonText} & Open IG`}
                           </DropdownMenuItem>
