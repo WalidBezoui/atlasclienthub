@@ -173,12 +173,14 @@ export default function DashboardPage() {
 
   // State for Script Modal
   const [isScriptModalOpen, setIsScriptModalOpen] = useState(false);
-  const [generatedScript, setGeneratedScript] = useState('');
   const [scriptModalTitle, setScriptModalTitle] = useState('Generated Script');
+  const [generatedScript, setGeneratedScript] = useState('');
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   const [currentProspectForScript, setCurrentProspectForScript] = useState<OutreachProspect | null>(null);
   const [currentScriptGenerationInput, setCurrentScriptGenerationInput] = useState<GenerateContextualScriptInput | null>(null);
-  const [currentScriptModalConfig, setCurrentScriptModalConfig] = useState<any>({});
+  const [scriptModalConfig, setScriptModalConfig] = useState<any>({});
+  const [scriptCallback, setScriptCallback] = useState<(script: string) => void>(() => () => {});
+
 
   // State for Conversation History Modal
   const [isConversationModalOpen, setIsConversationModalOpen] = useState(false);
@@ -283,14 +285,15 @@ export default function DashboardPage() {
     config: {
       title: string;
       confirmButtonText: string;
-      onConfirm: (script: string) => void;
+      onScriptReady: (script: string) => void;
     }
   ) => {
     setCurrentProspectForScript(prospect);
     setIsGeneratingScript(true);
-    setIsScriptModalOpen(true);
     setGeneratedScript('');
     setScriptModalTitle(config.title);
+    setScriptCallback(() => config.onScriptReady); // Store the callback
+    setIsScriptModalOpen(true);
     
     const input: GenerateContextualScriptInput = {
         scriptType,
@@ -305,7 +308,7 @@ export default function DashboardPage() {
     };
     
     setCurrentScriptGenerationInput(input);
-    setCurrentScriptModalConfig(config);
+    setScriptModalConfig(config);
     
     try {
         const result = await generateContextualScript(input);
@@ -344,7 +347,6 @@ export default function DashboardPage() {
     try {
         await updateProspect(currentProspectForScript.id, updates);
         toast({ title: "Action Complete!", description: "Outreach logged and prospect status advanced to 'Cold'." });
-        setIsScriptModalOpen(false);
         fetchDashboardData(); 
     } catch(error: any) {
         toast({ title: "Update Failed", description: error.message || 'Could not update prospect.', variant: 'destructive' });
@@ -365,7 +367,6 @@ export default function DashboardPage() {
     try {
         await updateProspect(currentProspectForScript.id, updates);
         toast({ title: "Follow-Up Sent!", description: "Follow-up logged and prospect updated." });
-        setIsScriptModalOpen(false);
         fetchDashboardData();
     } catch(error: any) {
         toast({ title: "Update Failed", description: error.message || 'Could not update prospect.', variant: 'destructive' });
@@ -387,7 +388,6 @@ export default function DashboardPage() {
     try {
         await updateProspect(currentProspectForScript.id, updates);
         toast({ title: "Reminder Sent!", description: "Reminder logged and a new follow-up has been scheduled for 7 days." });
-        setIsScriptModalOpen(false);
         fetchDashboardData();
     } catch(error: any) {
         toast({ title: "Update Failed", description: error.message || 'Could not update prospect.', variant: 'destructive' });
@@ -525,10 +525,9 @@ export default function DashboardPage() {
         title={scriptModalTitle}
         onRegenerate={handleRegenerateScript}
         isLoadingInitially={isGeneratingScript}
-        showConfirmButton={true}
-        onConfirm={currentScriptModalConfig.onConfirm}
-        confirmButtonText={currentScriptModalConfig.confirmButtonText}
+        onScriptReady={scriptCallback}
         prospect={currentProspectForScript}
+        confirmButtonText={scriptModalConfig.confirmButtonText}
       />
       
        <WarmUpDialog
@@ -697,9 +696,9 @@ export default function DashboardPage() {
                   <TabsContent value="warmUp">
                       {warmUpData.totalInWarmUp > 0 ? (
                            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                             {warmUpData.overdue.map(item => <WarmUpCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Cold Outreach DM', { title: "Generate Cold Outreach DM", confirmButtonText: "Copy, Log & Send", onConfirm: handleDashboardScriptConfirm })} />)}
-                             {warmUpData.dueToday.map(item => <WarmUpCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Cold Outreach DM', { title: "Generate Cold Outreach DM", confirmButtonText: "Copy, Log & Send", onConfirm: handleDashboardScriptConfirm })} />)}
-                             {warmUpData.upcoming.map(item => <WarmUpCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Cold Outreach DM', { title: "Generate Cold Outreach DM", confirmButtonText: "Copy, Log & Send", onConfirm: handleDashboardScriptConfirm })} />)}
+                             {warmUpData.overdue.map(item => <WarmUpCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Cold Outreach DM', { title: "Generate Cold Outreach DM", confirmButtonText: "Copy, Log & Send", onScriptReady: handleDashboardScriptConfirm })} />)}
+                             {warmUpData.dueToday.map(item => <WarmUpCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Cold Outreach DM', { title: "Generate Cold Outreach DM", confirmButtonText: "Copy, Log & Send", onScriptReady: handleDashboardScriptConfirm })} />)}
+                             {warmUpData.upcoming.map(item => <WarmUpCard key={item.id} item={item} onLogActivity={handleLogWarmUpActivity} onOpenWarmUpDialog={handleOpenWarmUpDialog} onGenerateOutreach={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Cold Outreach DM', { title: "Generate Cold Outreach DM", confirmButtonText: "Copy, Log & Send", onScriptReady: handleDashboardScriptConfirm })} />)}
                            </div>
                       ) : (
                           <div className="text-center py-10 text-muted-foreground rounded-lg bg-muted/50">
@@ -715,7 +714,7 @@ export default function DashboardPage() {
                                   <FollowUpCard 
                                       key={item.id} 
                                       item={item} 
-                                      onGenerateFollowUp={(prospect) => handleGenerateScript(prospect, 'Warm Follow-Up DM', { title: 'Generate Follow-Up', confirmButtonText: 'Copy & Log Follow-Up', onConfirm: handleFollowUpScriptConfirm })}
+                                      onGenerateFollowUp={(prospect) => handleGenerateScript(prospect, 'Warm Follow-Up DM', { title: 'Generate Follow-Up', confirmButtonText: 'Copy & Log Follow-Up', onScriptReady: handleFollowUpScriptConfirm })}
                                   />
                               ))}
                           </div>
@@ -733,7 +732,7 @@ export default function DashboardPage() {
                                   <ReminderCard 
                                       key={item.id} 
                                       item={item} 
-                                      onGenerateReminder={(prospect) => handleGenerateScript(prospect, 'Send Reminder', { title: "Generate Reminder", confirmButtonText: "Copy & Log Reminder", onConfirm: handleReminderScriptConfirm })}
+                                      onGenerateReminder={(prospect) => handleGenerateScript(prospect, 'Send Reminder', { title: "Generate Reminder", confirmButtonText: "Copy & Log Reminder", onScriptReady: handleReminderScriptConfirm })}
                                       onViewConversation={() => handleOpenConversationModal(item)}
                                   />
                               ))}
@@ -752,7 +751,7 @@ export default function DashboardPage() {
                                   <RevivalCard 
                                       key={item.id} 
                                       item={item} 
-                                      onGenerateScript={(prospect, scriptType, onConfirm) => handleGenerateScript(prospect, scriptType, { title: `Generate ${scriptType}`, confirmButtonText: 'Copy & Log', onConfirm })}
+                                      onGenerateScript={(prospect, scriptType, onConfirm) => handleGenerateScript(prospect, scriptType, { title: `Generate ${scriptType}`, confirmButtonText: 'Copy & Log', onScriptReady: onConfirm })}
                                       onLogActivity={async () => {
                                           await updateProspect(item.id, { lastContacted: new Date().toISOString() });
                                           toast({ title: 'Activity Logged!'});
