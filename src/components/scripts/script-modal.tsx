@@ -44,6 +44,7 @@ export function ScriptModal({
   const [currentScript, setCurrentScript] = useState(scriptContent);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [customInstructions, setCustomInstructions] = useState('');
+  const [isConfirming, setIsConfirming] = useState(false);
 
   useEffect(() => {
     setCurrentScript(scriptContent); 
@@ -80,18 +81,23 @@ export function ScriptModal({
     }
   };
   
-  const handleConfirmAndLog = (openIg: boolean = false) => {
+  const handleConfirm = (openIg: boolean = false) => {
     if (onScriptReady) {
+      setIsConfirming(true);
       handleCopy(currentScript);
       onScriptReady(currentScript);
       if (openIg && prospect?.instagramHandle) {
           window.open(`https://www.instagram.com/direct/t/${prospect.instagramHandle.replace('@', '')}`, '_blank');
       }
-      onClose();
+      // Delay closing to give feedback
+      setTimeout(() => {
+        onClose();
+        setIsConfirming(false);
+      }, 500);
     }
   };
 
-  const isBusy = isRegenerating || isLoadingInitially;
+  const isBusy = isRegenerating || isLoadingInitially || isConfirming;
 
   const confirmButtonText = title?.includes("Reminder") 
       ? "Copy & Log Reminder" 
@@ -172,9 +178,9 @@ export function ScriptModal({
             
             {onScriptReady && (
                 <div className="flex rounded-md shadow-sm">
-                    <Button onClick={() => handleConfirmAndLog(false)} disabled={isBusy || !currentScript} className="relative flex-1 rounded-r-none">
-                         <Save className="mr-2 h-4 w-4" />
-                         {confirmButtonText}
+                    <Button onClick={() => handleConfirm(false)} disabled={isBusy || !currentScript} className="relative flex-1 rounded-r-none">
+                         {isConfirming ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                         {confirmButtonText || "Confirm"}
                     </Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -183,7 +189,7 @@ export function ScriptModal({
                          </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleConfirmAndLog(true)}>
+                          <DropdownMenuItem onClick={() => handleConfirm(true)}>
                               <ExternalLink className="mr-2 h-4 w-4" />
                               {`${confirmButtonText} & Open IG`}
                           </DropdownMenuItem>

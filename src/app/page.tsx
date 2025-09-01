@@ -174,10 +174,10 @@ export default function DashboardPage() {
   // State for Script Modal
   const [isScriptModalOpen, setIsScriptModalOpen] = useState(false);
   const [generatedScript, setGeneratedScript] = useState('');
+  const [scriptModalTitle, setScriptModalTitle] = useState('Generated Script');
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   const [currentProspectForScript, setCurrentProspectForScript] = useState<OutreachProspect | null>(null);
   const [currentScriptGenerationInput, setCurrentScriptGenerationInput] = useState<GenerateContextualScriptInput | null>(null);
-  const [scriptModalTitle, setScriptModalTitle] = useState('Generated Script');
   const [scriptCallback, setScriptCallback] = useState<(script: string) => void>(() => () => {});
   
   // State for Conversation History Modal
@@ -371,11 +371,23 @@ export default function DashboardPage() {
   }, [currentProspectForScript, fetchDashboardData, toast]);
   
   const handleReminderScriptConfirm = useCallback(async (scriptContent: string) => {
-    if (!currentProspectForScript) return;
+    if (!currentProspectForScript) {
+        toast({ title: "Error", description: "No prospect selected for this action.", variant: "destructive" });
+        return;
+    }
+
+    // Directly fetch the latest prospect data to avoid stale state issues.
+    const allProspects = await getProspects();
+    const freshProspect = allProspects.find(p => p.id === currentProspectForScript.id);
+
+    if (!freshProspect) {
+        toast({ title: "Error", description: "Could not retrieve latest prospect data.", variant: "destructive" });
+        return;
+    }
     
     const now = new Date().toISOString();
     const updates: Partial<OutreachProspect> = {
-        conversationHistory: `${currentProspectForScript.conversationHistory || ''}${currentProspectForScript.conversationHistory ? '\n\n' : ''}Me: ${scriptContent}`.trim(),
+        conversationHistory: `${freshProspect.conversationHistory || ''}${freshProspect.conversationHistory ? '\n\n' : ''}Me: ${scriptContent}`.trim(),
         lastContacted: now,
         lastScriptSent: "Send Reminder",
         followUpNeeded: true, 
@@ -387,6 +399,7 @@ export default function DashboardPage() {
         toast({ title: "Reminder Sent!", description: "Reminder logged and a new follow-up has been scheduled for 7 days." });
         fetchDashboardData();
     } catch(error: any) {
+        console.error("Reminder update failed:", error);
         toast({ title: "Update Failed", description: error.message || 'Could not update prospect.', variant: 'destructive' });
     }
   }, [currentProspectForScript, fetchDashboardData, toast]);
@@ -728,7 +741,7 @@ export default function DashboardPage() {
                                   <ReminderCard 
                                       key={item.id} 
                                       item={item} 
-                                      onGenerateReminder={(prospect) => handleGenerateScript(prospect, 'Send Reminder', { title: "Generate Reminder", onScriptReady: handleReminderScriptConfirm })}
+                                      onGenerateReminder={(prospect) => handleGenerateScript(prospect as OutreachProspect, 'Send Reminder', { title: "Generate Reminder", onScriptReady: handleReminderScriptConfirm })}
                                       onViewConversation={() => handleOpenConversationModal(item)}
                                   />
                               ))}
