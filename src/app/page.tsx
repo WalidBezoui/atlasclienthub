@@ -174,6 +174,7 @@ export default function DashboardPage() {
   // State for Script Modal
   const [isScriptModalOpen, setIsScriptModalOpen] = useState(false);
   const [generatedScript, setGeneratedScript] = useState('');
+  const [scriptModalTitle, setScriptModalTitle] = useState('Generated Script');
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   const [currentProspectForScript, setCurrentProspectForScript] = useState<OutreachProspect | null>(null);
   const [currentScriptGenerationInput, setCurrentScriptGenerationInput] = useState<GenerateContextualScriptInput | null>(null);
@@ -521,7 +522,7 @@ export default function DashboardPage() {
         isOpen={isScriptModalOpen}
         onClose={() => setIsScriptModalOpen(false)}
         scriptContent={generatedScript}
-        title={currentScriptModalConfig.title}
+        title={scriptModalTitle}
         onRegenerate={handleRegenerateScript}
         isLoadingInitially={isGeneratingScript}
         showConfirmButton={true}
