@@ -1,4 +1,5 @@
 
+
 'use client';
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { LayoutDashboard, Users, Flame, UserCheck, PlusCircle, BarChart3, CheckSquare, Clock, FileQuestion, Send, UserRound, ListChecks, ArrowRight, UserPlus, Eye, MessageCircle as MessageCircleIcon, MoreVertical, Heart, MessagesSquare, Edit, Link as LinkIcon, RefreshCcw, BellRing, TrendingUp, Save } from 'lucide-react';
@@ -177,7 +178,7 @@ export default function DashboardPage() {
   const [scriptModalTitle, setScriptModalTitle] = useState('Generated Script');
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   const [currentProspectForScript, setCurrentProspectForScript] = useState<OutreachProspect | null>(null);
-  const [scriptCallback, setScriptCallback] = useState<((script: string) => void) | null>(null);
+  const [scriptCallback, setScriptCallback] = useState<{ onReady: (script: string) => void } | null>(null);
   
   // State for Conversation History Modal
   const [isConversationModalOpen, setIsConversationModalOpen] = useState(false);
@@ -289,7 +290,7 @@ export default function DashboardPage() {
     setIsGeneratingScript(true);
     setGeneratedScript('');
     setScriptModalTitle(config.title);
-    setScriptCallback(() => config.onScriptReady); // Correctly set the callback
+    setScriptCallback({ onReady: config.onScriptReady });
     setIsScriptModalOpen(true);
     
     const input: GenerateContextualScriptInput = {
@@ -381,18 +382,23 @@ export default function DashboardPage() {
         return;
     }
     
-    const now = new Date().toISOString();
+    const now = new Date();
+    const newStatus: OutreachLeadStage = 'Warm';
+    const newHistoryEntry: StatusHistoryItem = { status: newStatus, date: now.toISOString() };
+
     const updates: Partial<OutreachProspect> = {
         conversationHistory: `${freshProspect.conversationHistory || ''}${freshProspect.conversationHistory ? '\n\n' : ''}Me: ${scriptContent}`.trim(),
-        lastContacted: now,
+        lastContacted: now.toISOString(),
         lastScriptSent: "Send Reminder",
         followUpNeeded: true, 
-        followUpDate: addDays(new Date(), 7).toISOString(),
+        followUpDate: addDays(now, 7).toISOString(),
+        status: newStatus,
+        statusHistory: [...(freshProspect.statusHistory || []), newHistoryEntry],
     };
     
     try {
         await updateProspect(currentProspectForScript.id, updates);
-        toast({ title: "Reminder Sent!", description: "Reminder logged and a new follow-up has been scheduled for 7 days." });
+        toast({ title: "Reminder Sent!", description: "Status updated to 'Warm' and a follow-up has been scheduled." });
         fetchDashboardData();
     } catch(error: any) {
         console.error("Reminder update failed:", error);
@@ -531,11 +537,11 @@ export default function DashboardPage() {
         }}
         scriptContent={generatedScript}
         title={scriptModalTitle}
-        onRegenerate={(instructions, currentInput) => handleRegenerateScript(instructions, currentInput)}
+        onRegenerate={handleRegenerateScript}
         isLoadingInitially={isGeneratingScript}
         onScriptReady={(script) => {
-            if (scriptCallback) {
-                scriptCallback(script);
+            if (scriptCallback?.onReady) {
+                scriptCallback.onReady(script);
             }
             setIsScriptModalOpen(false);
         }}
@@ -704,7 +710,7 @@ export default function DashboardPage() {
                   ))}
                 </TabsList>
 
-                <div className="mt-4 md:mt-0">
+                <div className="mt-4 lg:mt-0">
                   <TabsContent value="warmUp">
                       {warmUpData.totalInWarmUp > 0 ? (
                            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -788,3 +794,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+
