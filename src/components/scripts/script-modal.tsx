@@ -174,7 +174,7 @@ export function ScriptModal({
                 <div className="flex rounded-md shadow-sm">
                     <Button onClick={() => onConfirm(currentScript)} disabled={isBusy || !currentScript} className="relative flex-1 rounded-r-none">
                          {isConfirming ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                         {confirmButtonText}
+                         {confirmButtonText || "Confirm"}
                     </Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
