@@ -5,97 +5,97 @@
 
 @layer base {
   :root {
-    --background: 220 20% 97%; /* Cool Gray Light */
-    --foreground: 220 15% 20%; /* Dark Slate Blue */
+    --background: 40 43% 95%; /* Sage Beige */
+    --foreground: 0 0% 11%; /* Charcoal Black */
 
-    --card: 0 0% 100%; /* White */
-    --card-foreground: 220 15% 20%; /* Dark Slate Blue */
+    --card: 0 0% 99%; /* Off-White */
+    --card-foreground: 0 0% 11%; /* Charcoal Black */
 
-    --popover: 0 0% 100%; /* White */
-    --popover-foreground: 220 15% 20%; /* Dark Slate Blue */
+    --popover: 0 0% 99%; /* Off-White */
+    --popover-foreground: 0 0% 11%; /* Charcoal Black */
 
-    --primary: 210 90% 45%; /* Majorelle Blue */
-    --primary-foreground: 0 0% 100%; /* White for contrast on blue */
+    --primary: 43 74% 59%; /* Mustard Gold */
+    --primary-foreground: 0 0% 11%; /* Charcoal Black for contrast on gold */
 
-    --secondary: 30 80% 60%; /* Terracotta Orange */
-    --secondary-foreground: 0 0% 100%; /* White */
+    --secondary: 40 10% 88%; /* A slightly darker greige for secondary elements */
+    --secondary-foreground: 0 0% 11%; /* Charcoal Black */
 
-    --muted: 220 20% 94%; /* Lighter Cool Gray */
-    --muted-foreground: 220 10% 45%; /* Medium Slate */
+    --muted: 40 15% 92%; /* Muted version of Sage Beige */
+    --muted-foreground: 0 0% 40%; /* A lighter charcoal */
 
-    --accent: 35 90% 60%; /* Ochre Gold */
-    --accent-foreground: 220 15% 20%; /* Dark Slate Blue */
+    --accent: 43 74% 59%; /* Using Primary as Accent */
+    --accent-foreground: 0 0% 11%; /* Charcoal Black */
 
-    --destructive: 0 84% 60%; /* Bright Red */
-    --destructive-foreground: 0 0% 100%; /* White */
+    --destructive: 6 60% 61%; /* Muted Red */
+    --destructive-foreground: 0 0% 99%; /* Off-White */
 
-    --border: 220 20% 88%; /* Light gray border */
-    --input: 220 20% 92%; /* Slightly darker for input background */
-    --ring: 210 90% 50%; /* Majorelle Blue for focus rings */
+    --border: 40 20% 88%; /* Light gray-beige border */
+    --input: 40 30% 92%; /* Slightly darker for input background */
+    --ring: 43 74% 59%; /* Mustard Gold for focus rings */
 
     --radius: 0.5rem;
 
     /* Sidebar specific colors */
-    --sidebar-background: 220 15% 15%; /* Very Dark Slate Blue */
-    --sidebar-foreground: 220 15% 90%; /* Light Cool Gray */
-    --sidebar-primary: 35 90% 60%; /* Ochre Gold (for active items) */
-    --sidebar-primary-foreground: 220 15% 15%; /* Very Dark Slate Blue (text on active gold) */
-    --sidebar-accent: 220 15% 25%; /* Lighter Dark Slate for hover */
-    --sidebar-accent-foreground: 0 0% 100%; /* White */
-    --sidebar-border: 220 15% 12%; /* Darker than background */
-    --sidebar-ring: 35 90% 60%; /* Ochre Gold for ring */
+    --sidebar-background: 0 0% 13%; /* Dark Charcoal Black */
+    --sidebar-foreground: 40 43% 95%; /* Sage Beige */
+    --sidebar-primary: 43 74% 59%; /* Mustard Gold (for active items) */
+    --sidebar-primary-foreground: 0 0% 11%; /* Charcoal Black (text on active gold) */
+    --sidebar-accent: 0 0% 20%; /* Lighter Dark Charcoal for hover */
+    --sidebar-accent-foreground: 0 0% 99%; /* Off-White */
+    --sidebar-border: 0 0% 10%; /* Darker than background */
+    --sidebar-ring: 43 74% 59%; /* Mustard Gold for ring */
 
-    --chart-1: 210 80% 50%; /* Blue */
-    --chart-2: 30 80% 55%; /* Terracotta */
-    --chart-3: 35 85% 55%; /* Gold */
-    --chart-4: 180 40% 40%; /* Teal */
-    --chart-5: 280 50% 55%; /* Purple */
+    --chart-1: 43 74% 59%; /* Mustard Gold */
+    --chart-2: 30 20% 55%; /* Muted Terracotta */
+    --chart-3: 210 20% 55%; /* Muted Blue */
+    --chart-4: 120 20% 55%; /* Muted Green */
+    --chart-5: 0 0% 40%; /* Medium Charcoal */
   }
 
   .dark {
-    --background: 220 15% 12%; /* Dark Slate Blue */
-    --foreground: 220 20% 90%; /* Light Cool Gray */
+    --background: 0 0% 11%; /* Charcoal Black */
+    --foreground: 40 43% 95%; /* Sage Beige */
 
-    --card: 220 15% 16%; /* Slightly lighter dark slate */
-    --card-foreground: 220 20% 90%;
+    --card: 0 0% 13%; /* Dark Charcoal Black */
+    --card-foreground: 40 43% 95%; /* Sage Beige */
 
-    --popover: 220 15% 16%;
-    --popover-foreground: 220 20% 90%;
+    --popover: 0 0% 13%;
+    --popover-foreground: 40 43% 95%;
 
-    --primary: 210 90% 55%; /* Majorelle Blue, slightly lighter */
-    --primary-foreground: 0 0% 100%;
+    --primary: 43 74% 59%; /* Mustard Gold */
+    --primary-foreground: 0 0% 11%;
 
-    --secondary: 30 80% 65%; /* Terracotta, slightly lighter */
-    --secondary-foreground: 0 0% 100%;
+    --secondary: 0 0% 20%; /* Darker gray */
+    --secondary-foreground: 40 43% 95%;
 
-    --muted: 220 15% 20%;
-    --muted-foreground: 220 15% 70%;
+    --muted: 0 0% 18%;
+    --muted-foreground: 40 15% 70%;
 
-    --accent: 35 90% 65%; /* Ochre Gold, slightly lighter */
-    --accent-foreground: 220 15% 15%;
+    --accent: 43 74% 59%; /* Mustard Gold */
+    --accent-foreground: 0 0% 11%;
 
-    --destructive: 0 70% 60%; /* Red, slightly less saturated */
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 6 60% 61%; /* Muted Red */
+    --destructive-foreground: 0 0% 99%;
 
-    --border: 220 15% 25%;
-    --input: 220 15% 22%;
-    --ring: 210 90% 55%;
+    --border: 0 0% 20%;
+    --input: 0 0% 18%;
+    --ring: 43 74% 59%;
 
     /* Sidebar specific colors for dark mode */
-    --sidebar-background: 220 15% 10%; /* Very Dark Slate Blue */
-    --sidebar-foreground: 220 20% 85%;
-    --sidebar-primary: 35 90% 65%; /* Ochre Gold */
-    --sidebar-primary-foreground: 220 15% 10%;
-    --sidebar-accent: 220 15% 20%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 220 15% 8%;
-    --sidebar-ring: 35 90% 65%;
+    --sidebar-background: 0 0% 8%; /* Very Dark Charcoal */
+    --sidebar-foreground: 40 43% 90%;
+    --sidebar-primary: 43 74% 59%; /* Mustard Gold */
+    --sidebar-primary-foreground: 0 0% 11%;
+    --sidebar-accent: 0 0% 15%;
+    --sidebar-accent-foreground: 0 0% 99%;
+    --sidebar-border: 0 0% 5%;
+    --sidebar-ring: 43 74% 59%;
 
-    --chart-1: 210 80% 55%;
-    --chart-2: 30 80% 60%;
-    --chart-3: 35 85% 60%;
-    --chart-4: 180 40% 50%;
-    --chart-5: 280 50% 60%;
+    --chart-1: 43 74% 59%;
+    --chart-2: 30 20% 55%;
+    --chart-3: 210 Muted Blue;
+    --chart-4: 120 Muted Green;
+    --chart-5: 0 0% 70%;
   }
 }
 
