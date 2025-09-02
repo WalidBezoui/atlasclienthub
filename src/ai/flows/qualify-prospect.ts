@@ -16,7 +16,7 @@ import { PAIN_POINTS, GOALS } from '@/lib/types';
 // This schema remains internal as the AI needs it for structured output.
 const QualificationDataSchema = z.object({
     isBusiness: z.enum(['yes', 'no', 'unknown']).describe("Is this a business/creator account, not a personal one?"),
-    industry: z.string().nullable().describe("The specific industry or niche of the prospect (e.g., 'Skincare - Organic products')."),
+    industry: z.string().nullable().describe("The specific industry or niche of the prospect (e.g., 'Skincare - Organic products', 'Fashion - Streetwear brand', 'Coach - Business mindset')."),
     hasInconsistentGrid: z.enum(['yes', 'no', 'unknown']).describe("Does their grid seem inconsistent or lack clear branding? (Based on user's visual assessment)"),
     hasLowEngagement: z.enum(['yes', 'no', 'unknown']).describe("Is their engagement (likes/comments) low for their follower count?"),
     hasNoClearCTA: z.enum(['yes', 'no', 'unknown']).describe("Does their bio have a weak, unclear, or missing Call-to-Action?"),
@@ -94,7 +94,7 @@ const analysisPrompt = ai.definePrompt({
 1.  **Synthesize All Information**: Combine the raw data with the user's expert assessment. The user's input is a critical signal, especially the "Strategic Gap".
 
 2.  **Fill QualificationData Object**: Populate EVERY field in the \`qualificationData\` object based on your synthesis.
-    -   Set \`industry\` directly from the user's input.
+    -   Set \`industry\` directly from the user's input. BE SPECIFIC (e.g., 'Skincare - Organic products', not just 'Skincare').
     -   Infer \`isBusiness\` from all available data. A business account sells something or has a professional purpose. If the user assessment includes "hobby", it's 'no'. Otherwise, 'yes'.
     -   Infer \`postingConsistency\`. If user notes "hasn't posted in a while", mark 'inconsistent'. Otherwise 'consistent'.
     -   **Map user's text assessments to enum values**:
@@ -169,6 +169,21 @@ const qualifyProspectFlow = ai.defineFlow(
         foundationScore += 5;
         rationale.push("Foundation: Audience > 1k (+5)");
     }
+    
+    // Industry Scoring
+    const industryStr = (qualificationData.industry || '').toLowerCase();
+    const goodIndustries = ['coach', 'consultant', 'ecom', 'product', 'skincare', 'fashion', 'local', 'business', 'agency', 'service', 'boutique', 'studio'];
+    const badIndustries = ['hobby', 'personal blog', 'fan page'];
+    
+    if (goodIndustries.some(term => industryStr.includes(term))) {
+        foundationScore += 10;
+        rationale.push("Foundation: High-potential Industry (+10)");
+    }
+    if (badIndustries.some(term => industryStr.includes(term))) {
+        foundationScore -= 20;
+        rationale.push("Foundation: Low-potential Industry (-20)");
+    }
+
 
     // Opportunity Score (Max 40)
     if (qualificationData.contentPillarClarity === 'unclear') {

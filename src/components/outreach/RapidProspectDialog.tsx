@@ -108,7 +108,6 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
       }
       
       setFetchedMetrics(metricsResult.data);
-      // ** SMART PRE-FILLING LOGIC **
       prefillQualificationForm(metricsResult.data);
       setStep('questions');
 
@@ -125,15 +124,16 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
     
     // Pre-fill Profitability
     const newProfitability: string[] = [];
-    if (/\b(shop|buy|course|product|e-?com)\b/.test(bio)) newProfitability.push(profitabilityQuestions[1]);
-    if (/\b(coach|consult|service|agency|book a call)\b/.test(bio)) newProfitability.push(profitabilityQuestions[0]);
+    if (/\b(shop|buy|course|product|e-?com(merce)?)\b/.test(bio)) newProfitability.push(profitabilityQuestions[1]);
+    if (/\b(coach|consult|service|agency|book(ing)?|call)\b/.test(bio)) newProfitability.push(profitabilityQuestions[0]);
+    if (/\b(local|cafe|restaurant|studio|salon|clinic)\b/.test(bio)) newProfitability.push(profitabilityQuestions[2]);
     if (newProfitability.length > 0) setProfitabilityAnswer(newProfitability);
     
     // Pre-fill CTA
     const newCta: string[] = [];
     if (!bio.includes('http')) {
         newCta.push(ctaQuestions[4]); // No link
-    } else if (bio.includes('linktr.ee') || bio.includes('lnk.bio')) {
+    } else if (bio.includes('linktr.ee') || bio.includes('lnk.bio') || bio.includes('stan.store')) {
         newCta.push(ctaQuestions[2]); // Generic linktree
     }
     if (newCta.length > 0) setCtaAnswer(newCta);
