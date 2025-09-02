@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState } from 'react';
@@ -17,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
 import { Checkbox } from '../ui/checkbox';
+import { ScrollArea } from '../ui/scroll-area';
 
 type Step = 'initial' | 'fetching' | 'questions' | 'analyzing' | 'results';
 
@@ -58,14 +58,13 @@ type RapidProspectDialogProps = {
 
 export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDialogProps) {
   const [step, setStep] = useState<Step>('initial');
-  const [questionStep, setQuestionStep] = useState(0);
   const [instagramHandle, setInstagramHandle] = useState('');
   
   const [fetchedMetrics, setFetchedMetrics] = useState<InstagramMetrics | null>(null);
   const [analysisResult, setAnalysisResult] = useState<QualifyProspectOutput | null>(null);
   
   // State for user answers
-  const [industryAnswer, setIndustryAnswer] = useState<string | undefined>();
+  const [industryAnswer, setIndustryAnswer] = useState<string>('');
   const [profitabilityAnswer, setProfitabilityAnswer] = useState<string[]>([]);
   const [visualsAnswer, setVisualsAnswer] = useState<string[]>([]);
   const [ctaAnswer, setCtaAnswer] = useState<string[]>([]);
@@ -77,11 +76,10 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
 
   const resetState = () => {
     setStep('initial');
-    setQuestionStep(0);
     setInstagramHandle('');
     setFetchedMetrics(null);
     setAnalysisResult(null);
-    setIndustryAnswer(undefined);
+    setIndustryAnswer('');
     setProfitabilityAnswer([]);
     setVisualsAnswer([]);
     setCtaAnswer([]);
@@ -111,7 +109,6 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
       
       setFetchedMetrics(metricsResult.data);
       setStep('questions');
-      setQuestionStep(0);
 
     } catch (error: any) {
       toast({ title: 'Fetch Failed', description: error.message, variant: 'destructive' });
@@ -258,38 +255,40 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
         });
     };
   
-    const questions = [
+    const allQuestions = [
       {
         id: 'industry',
-        label: "1/5: What's their industry and specific niche?",
-        component: <Input placeholder="e.g., Skincare - Organic, handmade products" defaultValue={industryAnswer} onChange={(e) => setIndustryAnswer(e.target.value)} onKeyPress={(e) => {if(e.key === 'Enter') {e.preventDefault(); setQuestionStep(1);}}} autoFocus/>,
+        label: "What's their industry and specific niche?",
+        component: <Input placeholder="e.g., Skincare - Organic, handmade products" defaultValue={industryAnswer} onChange={(e) => setIndustryAnswer(e.target.value)} autoFocus/>,
         isComplete: !!industryAnswer,
       },
       {
         id: 'strategic-gap',
-        label: '2/5: What is the biggest "Strategic Gap" you can fix?',
-        component: <div className="space-y-2">{strategicGapQuestions.map((option) => <div key={option} className="flex items-center space-x-2"><Checkbox id={`rapid-gap-${option.replace(/\s/g, '-')}`} checked={strategicGapAnswer.includes(option)} onCheckedChange={(checked) => handleCheckboxChange(setStrategicGapAnswer, option, !!checked)} /><Label htmlFor={`rapid-gap-${option.replace(/\s/g, '-')}`} className="font-normal cursor-pointer">{option}</Label></div>)}</div>,
+        label: 'What is the biggest "Strategic Gap" you can fix?',
+        component: <div className="space-y-2">{strategicGapQuestions.map((option) => <div key={option} className="flex items-center space-x-2"><Checkbox id={`rapid-gap-${option.replace(/\s/g, '-')}`} checked={strategicGapAnswer.includes(option)} onCheckedChange={(checked) => handleCheckboxChange(setStrategicGapAnswer, option, !!checked)} /><Label htmlFor={`rapid-gap-${option.replace(/\s/g, '-')}`} className="font-normal cursor-pointer text-sm">{option}</Label></div>)}</div>,
         isComplete: strategicGapAnswer.length > 0,
       },
       {
         id: 'profitability',
-        label: '3/5: How does this account likely make money?',
-        component: <div className="space-y-2">{profitabilityQuestions.map((option) => <div key={option} className="flex items-center space-x-2"><Checkbox id={`rapid-profit-${option.replace(/\s/g, '-')}`} checked={profitabilityAnswer.includes(option)} onCheckedChange={(checked) => handleCheckboxChange(setProfitabilityAnswer, option, !!checked)} /><Label htmlFor={`rapid-profit-${option.replace(/\s/g, '-')}`} className="font-normal cursor-pointer">{option}</Label></div>)}</div>,
+        label: 'How does this account likely make money?',
+        component: <div className="space-y-2">{profitabilityQuestions.map((option) => <div key={option} className="flex items-center space-x-2"><Checkbox id={`rapid-profit-${option.replace(/\s/g, '-')}`} checked={profitabilityAnswer.includes(option)} onCheckedChange={(checked) => handleCheckboxChange(setProfitabilityAnswer, option, !!checked)} /><Label htmlFor={`rapid-profit-${option.replace(/\s/g, '-')}`} className="font-normal cursor-pointer text-sm">{option}</Label></div>)}</div>,
         isComplete: profitabilityAnswer.length > 0,
       },
       {
         id: 'visuals',
-        label: "4/5: What's your first impression of their visual branding?",
-        component: <div className="space-y-2">{visualsQuestions.map((option) => <div key={option} className="flex items-center space-x-2"><Checkbox id={`rapid-visuals-${option.replace(/\s/g, '-')}`} checked={visualsAnswer.includes(option)} onCheckedChange={(checked) => handleCheckboxChange(setVisualsAnswer, option, !!checked)} /><Label htmlFor={`rapid-visuals-${option.replace(/\s/g, '-')}`} className="font-normal cursor-pointer">{option}</Label></div>)}</div>,
+        label: "What's your first impression of their visual branding?",
+        component: <div className="space-y-2">{visualsQuestions.map((option) => <div key={option} className="flex items-center space-x-2"><Checkbox id={`rapid-visuals-${option.replace(/\s/g, '-')}`} checked={visualsAnswer.includes(option)} onCheckedChange={(checked) => handleCheckboxChange(setVisualsAnswer, option, !!checked)} /><Label htmlFor={`rapid-visuals-${option.replace(/\s/g, '-')}`} className="font-normal cursor-pointer text-sm">{option}</Label></div>)}</div>,
         isComplete: visualsAnswer.length > 0,
       },
       {
         id: 'cta',
-        label: '5/5: What is the state of their bio & call-to-action (CTA)?',
-        component: <div className="space-y-2">{ctaQuestions.map((option) => <div key={option} className="flex items-center space-x-2"><Checkbox id={`rapid-cta-${option.replace(/\s/g, '-')}`} checked={ctaAnswer.includes(option)} onCheckedChange={(checked) => handleCheckboxChange(setCtaAnswer, option, !!checked)} /><Label htmlFor={`rapid-cta-${option.replace(/\s/g, '-')}`} className="font-normal cursor-pointer">{option}</Label></div>)}</div>,
+        label: 'What is the state of their bio & call-to-action (CTA)?',
+        component: <div className="space-y-2">{ctaQuestions.map((option) => <div key={option} className="flex items-center space-x-2"><Checkbox id={`rapid-cta-${option.replace(/\s/g, '-')}`} checked={ctaAnswer.includes(option)} onCheckedChange={(checked) => handleCheckboxChange(setCtaAnswer, option, !!checked)} /><Label htmlFor={`rapid-cta-${option.replace(/\s/g, '-')}`} className="font-normal cursor-pointer text-sm">{option}</Label></div>)}</div>,
         isComplete: ctaAnswer.length > 0,
       }
     ];
+
+    const canSubmitQuestions = allQuestions.every(q => q.isComplete);
 
   const renderContent = () => {
     switch (step) {
@@ -319,18 +318,20 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
             </div>
         );
       case 'questions':
-        const currentQuestion = questions[questionStep];
         return (
-          <div className="space-y-4 py-4">
-              <div className="p-4 border rounded-lg bg-muted/50 space-y-3">
-                 <h3 className="font-semibold text-lg text-center mb-2">Manual Assessment for {instagramHandle}</h3>
-                 
-                 <div>
-                    <Label className="font-semibold flex items-center mb-2">{currentQuestion.label}</Label>
-                    {currentQuestion.component}
-                 </div>
-              </div>
-          </div>
+           <ScrollArea className="h-full -mx-6 px-6">
+                <div className="space-y-4 py-4">
+                    <div className="p-4 border rounded-lg bg-muted/50 space-y-3">
+                        <h3 className="font-semibold text-lg text-center mb-2">Manual Assessment for {instagramHandle}</h3>
+                        {allQuestions.map((q) => (
+                           <div key={q.id}>
+                               <Label className="font-semibold flex items-center mb-2 text-sm">{q.label}</Label>
+                               {q.component}
+                           </div>
+                        ))}
+                    </div>
+                </div>
+            </ScrollArea>
         );
       case 'results':
         if (!analysisResult) return null;
@@ -360,26 +361,19 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
   
   const renderFooter = () => {
     if (step === 'questions') {
-      const isLastStep = questionStep === questions.length - 1;
       return (
         <DialogFooter className="mt-auto shrink-0 border-t pt-4 flex justify-between">
-          <Button variant="outline" onClick={() => questionStep > 0 ? setQuestionStep(q => q - 1) : setStep('initial')}><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
-          {isLastStep ? (
-              <Button onClick={handleFinalAnalysis} disabled={!questions.every(q => q.isComplete)}>
-                Analyze <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-          ) : (
-              <Button onClick={() => setQuestionStep(q => q + 1)} disabled={!questions[questionStep].isComplete}>
-                Next <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-          )}
+          <Button variant="outline" onClick={() => setStep('initial')}><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
+          <Button onClick={handleFinalAnalysis} disabled={!canSubmitQuestions || isLoading}>
+            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <BrainCircuit className="mr-2 h-4 w-4"/>} Analyze
+          </Button>
         </DialogFooter>
       );
     }
     if (step === 'results') {
       return (
         <DialogFooter className="mt-auto shrink-0 border-t pt-4 flex-col sm:flex-row gap-2">
-          <Button variant="outline" className="w-full sm:w-auto" onClick={() => {setQuestionStep(questions.length - 1); setStep('questions');}}><ArrowLeft className="mr-2 h-4 w-4" /> Re-assess</Button>
+          <Button variant="outline" className="w-full sm:w-auto" onClick={() => setStep('questions')}><ArrowLeft className="mr-2 h-4 w-4" /> Re-assess</Button>
           <div className="flex w-full sm:w-auto gap-2">
             <Button className="flex-1" onClick={() => handleSave({ andWarmUp: true })} disabled={isLoading}>
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}
@@ -393,7 +387,7 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
         </DialogFooter>
       );
     }
-    return null;
+    return <DialogFooter className="mt-auto shrink-0 border-t pt-4"><Button variant="ghost" onClick={handleClose}>Cancel</Button></DialogFooter>;
   };
 
   return (
@@ -409,3 +403,6 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
     </Dialog>
   );
 }
+
+
+    
