@@ -27,23 +27,18 @@ const QualificationDataSchema = z.object({
     postingConsistency: z.enum(['consistent', 'inconsistent', 'unknown']).describe("How consistently are they posting content? Check post dates if available.")
 });
 
-// New input schema that takes all data at once.
 const QualifyProspectInputSchema = z.object({
-  // Fetched Metrics
   instagramHandle: z.string().describe("The prospect's Instagram handle."),
   followerCount: z.number().nullable().describe("The prospect's follower count."),
   postCount: z.number().nullable().describe("The prospect's post count."),
   avgLikes: z.number().nullable().describe("Average likes on recent posts."),
   avgComments: z.number().nullable().describe("Average comments on recent posts."),
   biography: z.string().nullable().describe("The prospect's Instagram bio text."),
-
-  // User's Manual Assessment
   userProfitabilityAssessment: z.array(z.string()).describe("User's answers to how the account makes money."),
   userVisualsAssessment: z.array(z.string()).describe("User's answers about the account's visual branding."),
   userCtaAssessment: z.array(z.string()).describe("User's answers about the account's bio and CTA."),
   industry: z.string().describe("User's answer about the prospect's industry and niche."),
   userStrategicGapAssessment: z.array(z.string()).describe("User's answers identifying the prospect's primary strategic gap."),
-
 });
 export type QualifyProspectInput = z.infer<typeof QualifyProspectInputSchema>;
 
@@ -57,15 +52,22 @@ const QualifyProspectOutputSchema = z.object({
 });
 export type QualifyProspectOutput = z.infer<typeof QualifyProspectOutputSchema>;
 
+
 export async function qualifyProspect(input: QualifyProspectInput): Promise<QualifyProspectOutput> {
   return qualifyProspectFlow(input);
 }
 
-const prompt = ai.definePrompt({
-  name: 'qualifyProspectPrompt',
-  input: {schema: QualifyProspectInputSchema},
-  output: {schema: QualifyProspectOutputSchema},
-  prompt: `You are a senior Instagram growth strategist performing a final qualification analysis. You have been provided with raw data fetched from Instagram AND a manual assessment from a human user who has followed a specific checklist. Your job is to synthesize all of this information into a complete qualification report.
+
+const analysisPrompt = ai.definePrompt({
+  name: 'qualifyProspectAnalysisPrompt',
+  input: { schema: QualifyProspectInputSchema },
+  output: { schema: z.object({
+    qualificationData: QualificationDataSchema,
+    painPoints: z.array(z.enum(PAIN_POINTS)).optional(),
+    goals: z.array(z.enum(GOALS)).optional(),
+    summary: z.string(),
+  })},
+  prompt: `You are a senior Instagram growth strategist performing a qualification analysis. You have been provided with raw data from Instagram AND a manual assessment from a human user. Your job is to synthesize all of this information into a structured analysis.
 
 **PROSPECT DATA (from Instagram):**
 - **Handle:** {{instagramHandle}}
@@ -91,51 +93,31 @@ const prompt = ai.definePrompt({
 
 1.  **Synthesize All Information**: Combine the raw data with the user's expert assessment. The user's input is a critical signal, especially the "Strategic Gap".
 
-2.  **Fill QualificationData Object**: Populate every field in the \`qualificationData\` object.
+2.  **Fill QualificationData Object**: Populate EVERY field in the \`qualificationData\` object based on your synthesis.
     -   Set \`industry\` directly from the user's input.
     -   Infer \`isBusiness\` from all available data. A business account sells something or has a professional purpose. If the user assessment includes "hobby", it's 'no'. Otherwise, 'yes'.
-    -   Infer \`postingConsistency\`. If the user notes "hasn't posted in a while", mark as 'inconsistent'. Otherwise assume 'consistent' unless data suggests otherwise.
-    -   **Crucially, map the user's text assessments to the correct enum values**:
-        -   For \`profitabilityPotential\`: If any assessment includes "high-ticket" -> 'high'; if any assessment includes "products" or "local business" -> 'medium'; if any assessment includes "hobby" -> 'low'. Default to 'medium'.
+    -   Infer \`postingConsistency\`. If user notes "hasn't posted in a while", mark 'inconsistent'. Otherwise 'consistent'.
+    -   **Map user's text assessments to enum values**:
+        -   For \`profitabilityPotential\`: "high-ticket" -> 'high'; "products" or "local business" -> 'medium'; "hobby" -> 'low'. Default to 'medium'.
         -   For \`hasInconsistentGrid\`: 'yes' if assessments include "Inconsistent & Messy", "Great content, messy grid", or "Outdated". Otherwise 'no'.
         -   For \`hasNoClearCTA\` and \`salesFunnelStrength\`: If "No link", set CTA to 'yes' and funnel to 'none'. If "Generic linktree" or "Weak CTA", set CTA to 'yes' and funnel to 'weak'. If "Strong, direct link", set CTA to 'no' and funnel to 'strong'.
-        -   For \`contentPillarClarity\`: Infer this based on all other info. If visuals are messy and CTA is weak, pillars are likely 'unclear'. If visuals are "Clean but Generic", pillars might be 'somewhat-clear'. If "Highly Polished", pillars are 'very-clear'.
+        -   For \`contentPillarClarity\`: If visuals are messy and CTA is weak, pillars are likely 'unclear'. If visuals are "Clean but Generic", pillars might be 'somewhat-clear'.
     -   Based on the synthesis, determine the primary \`valueProposition\` we can offer, heavily influenced by the "Strategic Gap". If the gap is visuals, set 'visuals'. If it's about getting clients/sales, set 'leads'. If it's about reach, set 'engagement'.
 
-3.  **Smart Engagement Analysis**: Calculate the engagement rate (Avg. Likes + Avg. Comments) / Follower Count.
+3.  **Smart Engagement Analysis**: Calculate the engagement rate (Avg. Likes + Avg. Comments) / Follower Count if possible.
     -   If rate is < 1%, set \`hasLowEngagement\` to 'yes'.
-    -   If rate is 1% - 3%, set \`hasLowEngagement\` to 'no' (it's average).
-    -   If rate is > 3%, set \`hasLowEngagement\` to 'no' (it's good).
+    -   If rate is >= 1%, set \`hasLowEngagement\` to 'no'.
     -   If data is unavailable, set to 'unknown'.
-    -   You MUST perform this calculation.
 
-4.  **Calculate Lead Score**: Use the finalized \`qualificationData\` to calculate the \`leadScore\` based on the scoring model below.
+4.  **Identify Pain Points & Goals**: Based on the complete picture, select the most relevant \`painPoints\` and \`goals\`. The "Strategic Gap" should heavily influence the pain points.
 
-5.  **Write Score Rationale**: In the \`scoreRationale\` field, provide a step-by-step breakdown of the score. List the points for the Foundation Score and the Opportunity Score separately and sum them up. Be specific. Example: "Foundation Score (45/65): Is Business (+15), High Profitability (+20), Strong Funnel (+10). Opportunity Score (25/35): Low Engagement (+10), Inconsistent Grid (+10), No Clear CTA (+5). Total: 70."
-
-6.  **Identify Pain Points & Goals**: Based on the complete picture, select the most relevant \`painPoints\` and \`goals\`. The "Strategic Gap" should heavily influence the pain points.
-
-7.  **Write Summary**: Create a concise, 1-2 sentence summary of your analysis, mentioning the industry and the primary strategic gap.
+5.  **Write Summary**: Create a concise, 1-2 sentence summary of your analysis, mentioning the industry and the primary strategic gap.
 
 ---
-**Scoring Model (Max 100):**
-- **Part 1: Foundation Score (Business Viability - Max 65)**
-  - Base Score: 10
-  - Is a Business: 'yes' (+15)
-  - Profitability Potential: 'high' (+20), 'medium' (+10), 'low' (-15)
-  - Sales Funnel Strength: 'strong' (+10), 'weak' (+5)
-  - Audience Size: followerCount > 10000 (+10), followerCount > 1000 (+5)
-- **Part 2: Opportunity Score (Problems We Can Solve - Max 35)**
-  - Content/Strategy Problem: 'contentPillarClarity' is 'unclear' (+10), 'somewhat-clear' (+5)
-  - Engagement Problem: 'hasLowEngagement' is 'yes' (+10)
-  - Visuals/Branding Problem: 'hasInconsistentGrid' is 'yes' (+10)
-  - CTA/Bio Problem: 'hasNoClearCTA' is 'yes' (+5)
-- **Final Score = Foundation Score + Opportunity Score**
-
----
-Now, execute the final analysis for **{{instagramHandle}}**.
+Now, execute the analysis for **{{instagramHandle}}**.
 `,
 });
+
 
 const qualifyProspectFlow = ai.defineFlow(
   {
@@ -143,8 +125,83 @@ const qualifyProspectFlow = ai.defineFlow(
     inputSchema: QualifyProspectInputSchema,
     outputSchema: QualifyProspectOutputSchema,
   },
-  async input => {
-    const {output} = await prompt(input);
-    return output!;
+  async (input) => {
+    // 1. Get the structured analysis from the AI
+    const { output: analysis } = await analysisPrompt(input);
+    if (!analysis) {
+        throw new Error("Failed to get analysis from AI.");
+    }
+    const { qualificationData, painPoints, goals, summary } = analysis;
+
+    // 2. Calculate the lead score based on the AI's structured data
+    let foundationScore = 10;
+    let opportunityScore = 0;
+    const rationale: string[] = [];
+    
+    // Foundation Score (Max 60)
+    if (qualificationData.isBusiness === 'yes') {
+        foundationScore += 15;
+        rationale.push("Foundation: Is a Business (+15)");
+    }
+    if (qualificationData.profitabilityPotential === 'high') {
+        foundationScore += 20;
+        rationale.push("Foundation: High Profitability (+20)");
+    } else if (qualificationData.profitabilityPotential === 'medium') {
+        foundationScore += 10;
+        rationale.push("Foundation: Medium Profitability (+10)");
+    } else if (qualificationData.profitabilityPotential === 'low') {
+        foundationScore -= 15;
+        rationale.push("Foundation: Low Profitability (-15)");
+    }
+    
+    if (qualificationData.salesFunnelStrength === 'strong') {
+        foundationScore += 10;
+        rationale.push("Foundation: Strong Funnel (+10)");
+    } else if (qualificationData.salesFunnelStrength === 'weak') {
+        foundationScore += 5;
+        rationale.push("Foundation: Weak Funnel (+5)");
+    }
+
+    if (input.followerCount && input.followerCount > 10000) {
+        foundationScore += 15;
+        rationale.push("Foundation: Audience > 10k (+15)");
+    } else if (input.followerCount && input.followerCount > 1000) {
+        foundationScore += 5;
+        rationale.push("Foundation: Audience > 1k (+5)");
+    }
+
+    // Opportunity Score (Max 40)
+    if (qualificationData.contentPillarClarity === 'unclear') {
+        opportunityScore += 10;
+        rationale.push("Opportunity: Unclear Content Strategy (+10)");
+    } else if (qualificationData.contentPillarClarity === 'somewhat-clear') {
+        opportunityScore += 5;
+        rationale.push("Opportunity: Content Strategy needs work (+5)");
+    }
+    if (qualificationData.hasLowEngagement === 'yes') {
+        opportunityScore += 10;
+        rationale.push("Opportunity: Low Engagement (+10)");
+    }
+    if (qualificationData.hasInconsistentGrid === 'yes') {
+        opportunityScore += 10;
+        rationale.push("Opportunity: Inconsistent Grid (+10)");
+    }
+    if (qualificationData.hasNoClearCTA === 'yes') {
+        opportunityScore += 10;
+        rationale.push("Opportunity: No Clear CTA (+10)");
+    }
+
+    const leadScore = Math.max(0, Math.min(100, foundationScore + opportunityScore));
+    const scoreRationale = `Foundation Score: ${foundationScore}/60 | Opportunity Score: ${opportunityScore}/40\n- ${rationale.join('\n- ')}`;
+
+    // 3. Return the final combined output
+    return {
+      qualificationData,
+      leadScore,
+      scoreRationale,
+      painPoints: painPoints || [],
+      goals: goals || [],
+      summary,
+    };
   }
 );
