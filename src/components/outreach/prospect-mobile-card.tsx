@@ -12,7 +12,7 @@ import { OUTREACH_LEAD_STAGE_OPTIONS } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuGroup, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from '../ui/dropdown-menu';
 import { Button } from '../ui/button';
-import { MoreHorizontal, Edit, MessagesSquare, GraduationCap, Bot, MessageCircle, FileQuestion, Trash2, Star, Users, Flame, Clock, FileText, Clipboard } from 'lucide-react';
+import { MoreHorizontal, Edit, MessagesSquare, GraduationCap, Bot, MessageCircle, FileQuestion, Trash2, Star, Users, Flame, Clock, FileText, Clipboard, RefreshCw } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import { Progress } from '../ui/progress';
 import { formatDistanceToNow } from 'date-fns';
@@ -27,7 +27,7 @@ interface ProspectMobileCardProps {
   onStartAudit: (prospect: OutreachProspect) => void;
   onGenerateComment: (prospect: OutreachProspect) => void;
   onGenerateQualifier: (prospect: OutreachProspect) => void;
-  onEvaluate: (prospect: OutreachProspect) => void;
+  onEvaluate: (prospect: OutreachProspect, isReevaluation: boolean) => void;
   onDelete: (prospect: OutreachProspect) => void;
   onGenerateScript: (prospect: OutreachProspect, scriptType: any) => void;
   onWarmUp: (prospect: OutreachProspect) => void;
@@ -118,7 +118,8 @@ const ProspectMobileCard = React.memo(({
                         <DropdownMenuSub>
                            <DropdownMenuSubTrigger><Bot className="mr-2 h-4 w-4"/>AI Actions</DropdownMenuSubTrigger>
                            <DropdownMenuSubContent>
-                                <DropdownMenuItem onClick={() => onEvaluate(prospect)}>Evaluate</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => onEvaluate(prospect, false)}>Evaluate</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => onEvaluate(prospect, true)}><RefreshCw className="mr-2 h-4 w-4" />Re-evaluate Score</DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => onGenerateComment(prospect)}>Generate Comment</DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => onGenerateQualifier(prospect)}>Ask Qualifier Question</DropdownMenuItem>
                            </DropdownMenuSubContent>

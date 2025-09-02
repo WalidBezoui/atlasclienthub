@@ -10,7 +10,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuGroup, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
-import { Edit, Trash2, MoreHorizontal, Link as LinkIcon, Bot, MessageCircle, MessagesSquare, GraduationCap, FileQuestion, Loader2, Star, Languages, Flame, UserPlus, Clock, Clipboard, FileText } from 'lucide-react';
+import { Edit, Trash2, MoreHorizontal, Link as LinkIcon, Bot, MessageCircle, MessagesSquare, GraduationCap, FileQuestion, Loader2, Star, Languages, Flame, UserPlus, Clock, Clipboard, FileText, RefreshCw } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { OutreachProspect, OutreachLeadStage, WarmUpAction } from '@/lib/types';
@@ -74,7 +74,7 @@ interface ProspectTableRowProps {
   onGenerateComment: (prospect: OutreachProspect) => void;
   onGenerateQualifier: (prospect: OutreachProspect) => void;
   onGenerateScript: (prospect: OutreachProspect, scriptType: any) => void;
-  onEvaluate: (prospect: OutreachProspect) => void;
+  onEvaluate: (prospect: OutreachProspect, isReevaluation: boolean) => void;
   onDelete: (prospect: OutreachProspect) => void;
   onWarmUp: (prospect: OutreachProspect) => void;
   onCopyDetails: (prospect: OutreachProspect) => void;
@@ -270,7 +270,8 @@ const ProspectTableRow = React.memo(({
                             <DropdownMenuSeparator />
                             <DropdownMenuGroup>
                                 <DropdownMenuLabel>AI Actions</DropdownMenuLabel>
-                                <DropdownMenuItem onClick={() => onEvaluate(prospect)} disabled={!prospect.instagramHandle}><Bot className="mr-2 h-4 w-4" /> Fetch & Evaluate</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => onEvaluate(prospect, false)} disabled={!prospect.instagramHandle}><Bot className="mr-2 h-4 w-4" /> Fetch & Evaluate</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => onEvaluate(prospect, true)} disabled={!prospect.instagramHandle}><RefreshCw className="mr-2 h-4 w-4" /> Re-evaluate Score</DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => onGenerateComment(prospect)}><MessageCircle className="mr-2 h-4 w-4" /> Generate Comment</DropdownMenuItem>
                                 <Tooltip>
                                     <TooltipTrigger asChild>

@@ -100,7 +100,7 @@ function OutreachPage() {
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   const [currentProspectForScript, setCurrentProspectForScript] = useState<OutreachProspect | null>(null);
   const [currentScriptGenerationInput, setCurrentScriptGenerationInput] = useState<GenerateContextualScriptInput | null>(null);
-  const [scriptModalConfig, setScriptModalConfig] = useState<any>({});
+  const [scriptCallback, setScriptCallback] = useState<{ onReady: (script: string) => void } | null>(null);
   
   // State for conversation modal
   const [isConversationModalOpen, setIsConversationModalOpen] = useState(false);
@@ -177,7 +177,7 @@ function OutreachPage() {
     setProspects(current => current.map(p => p.id === id ? { ...p, ...updates } : p));
   }, []);
 
-  const handleEvaluateProspect = async (prospect: OutreachProspect) => {
+  const handleEvaluateProspect = async (prospect: OutreachProspect, isReevaluation = false) => {
     if (!prospect.instagramHandle) {
       toast({ title: 'Cannot Evaluate', description: 'Prospect does not have an Instagram handle.', variant: 'destructive' });
       return;
@@ -201,11 +201,19 @@ function OutreachPage() {
         avgLikes: metricsResult.data.avgLikes,
         avgComments: metricsResult.data.avgComments,
         biography: metricsResult.data.biography,
-        userProfitabilityAssessment: ["Selling physical or digital products (e-commerce, courses)"],
-        userVisualsAssessment: ["Clean but Generic (Looks like a template, lacks personality)"],
-        userCtaAssessment: ['Strong, direct link to a sales page, booking site, or freebie'],
+        userProfitabilityAssessment: isReevaluation && prospect.qualificationData
+            ? [prospect.qualificationData.profitabilityPotential] // simplified for now
+            : ["Selling physical or digital products (e-commerce, courses)"], // Default for new eval
+        userVisualsAssessment: isReevaluation && prospect.qualificationData?.hasInconsistentGrid === 'yes'
+            ? ["Inconsistent & Messy (No clear visual direction or style)"]
+            : ["Clean but Generic (Looks like a template, lacks personality)"],
+        userCtaAssessment: isReevaluation && prospect.qualificationData?.salesFunnelStrength
+            ? [prospect.qualificationData.salesFunnelStrength]
+            : ['Strong, direct link to a sales page, booking site, or freebie'],
         industry: prospect.industry || 'unknown',
-        userStrategicGapAssessment: ["Visuals / Branding (inconsistent grid, bad photos, messy look)"],
+        userStrategicGapAssessment: isReevaluation && prospect.qualificationData?.valueProposition
+            ? [prospect.qualificationData.valueProposition]
+            : ["Visuals / Branding (inconsistent grid, bad photos, messy look)"],
       };
       
       const analysisResult = await qualifyProspect(qualifyInput);
@@ -318,7 +326,7 @@ function OutreachPage() {
         const finalProspect = await getProspects().then(all => all.find(p => p.id === docId) || savedProspect);
 
         if (options?.andGenerateScript) {
-            handleGenerateScript(finalProspect, 'Cold Outreach DM');
+            handleGenerateScript(finalProspect, 'Cold Outreach DM', { title: "Generate Cold Outreach DM", onScriptReady: handleScriptConfirm });
         } else if (options?.andWarmUp) {
             handleOpenWarmUpDialog(finalProspect);
         }
@@ -478,13 +486,66 @@ function OutreachPage() {
     setScriptModalTitle(title);
     setGeneratedScript("Failed to generate script. Please try again.");
   };
+  
+  const handleScriptConfirm = async (scriptContent: string) => {
+    if (!currentProspectForScript) return;
+    
+    const prospect = currentProspectForScript;
+    const scriptType = currentScriptGenerationInput?.scriptType || "Unknown";
 
-  const handleGenerateScript = useCallback(async (prospect: OutreachProspect, scriptType: GenerateContextualScriptInput['scriptType']) => {
+    const currentHistory = prospect.conversationHistory || '';
+    const newHistory = `${currentHistory}${currentHistory ? '\n\n' : ''}Me: ${scriptContent}`.trim();
+    const contactDate = new Date().toISOString();
+    const warmUpActivities = new Set(prospect.warmUp?.map(a => a.action));
+
+    const updates: Partial<OutreachProspect> = {
+        conversationHistory: newHistory,
+        lastContacted: contactDate,
+        lastScriptSent: scriptType,
+    };
+
+    let newStatus: OutreachLeadStage | undefined;
+    
+    if (!warmUpActivities.has('Replied to Story') && prospect.status === 'Warming Up') {
+      const newWarmUpActivity: WarmUpActivity = {
+          id: crypto.randomUUID(),
+          action: 'Replied to Story',
+          date: new Date().toISOString(),
+      };
+      updates.warmUp = [...(prospect.warmUp || []), newWarmUpActivity];
+    }
+
+    if ((prospect.status === 'To Contact' || prospect.status === 'Warming Up') && scriptType === 'Cold Outreach DM') {
+        newStatus = 'Cold';
+    } else if (prospect.status === 'Cold' && (scriptType.includes('Follow-Up') || scriptType.includes('Reminder'))) {
+        newStatus = 'Warm';
+    } else if (scriptType === 'Audit Delivery Message') {
+        newStatus = 'Audit Delivered';
+        updates.linkSent = true;
+    }
+    
+    if (newStatus) {
+        updates.status = newStatus;
+        updates.statusHistory = [...(prospect.statusHistory || []), { status: newStatus, date: contactDate }];
+    }
+    
+    try {
+        await updateProspect(prospect.id, updates);
+        updateProspectInState(prospect.id, updates);
+        toast({ title: "Conversation Updated", description: "Script has been saved to the conversation history and status updated." });
+        setIsScriptModalOpen(false);
+    } catch (error: any) {
+        toast({ title: "Update Failed", description: error.message || 'Could not update prospect history.', variant: 'destructive' });
+    }
+  };
+
+  const handleGenerateScript = useCallback(async (prospect: OutreachProspect, scriptType: GenerateContextualScriptInput['scriptType'], config: { title: string, onScriptReady: (script: string) => void}) => {
     setCurrentProspectForScript(prospect);
     setIsGeneratingScript(true);
     setIsScriptModalOpen(true);
     setGeneratedScript('');
     setScriptModalTitle(`Generating ${scriptType}...`);
+    setScriptCallback({ onReady: config.onScriptReady });
     
     const input: GenerateContextualScriptInput = {
         scriptType,
@@ -524,62 +585,6 @@ function OutreachPage() {
     };
     
     setCurrentScriptGenerationInput(input);
-
-    const onConfirmScript = async (scriptContent: string) => {
-      if (!prospect) return;
-
-      const currentHistory = prospect.conversationHistory || '';
-      const newHistory = `${currentHistory}${currentHistory ? '\n\n' : ''}Me: ${scriptContent}`.trim();
-      const contactDate = new Date().toISOString();
-      const warmUpActivities = new Set(prospect.warmUp?.map(a => a.action));
-
-      const updates: Partial<OutreachProspect> = {
-          conversationHistory: newHistory,
-          lastContacted: contactDate,
-          lastScriptSent: scriptType,
-      };
-
-      let newStatus: OutreachLeadStage | undefined;
-      // Auto-complete warm up if generating script and it's not done
-      if (!warmUpActivities.has('Replied to Story') && prospect.status === 'Warming Up') {
-        const newWarmUpActivity: WarmUpActivity = {
-            id: crypto.randomUUID(),
-            action: 'Replied to Story',
-            date: new Date().toISOString(),
-        };
-        updates.warmUp = [...(prospect.warmUp || []), newWarmUpActivity];
-      }
-
-      if (prospect.status === 'To Contact' && scriptType === 'Cold Outreach DM') {
-          newStatus = 'Cold';
-      } else if (prospect.status === 'Cold' && (scriptType.includes('Follow-Up') || scriptType.includes('Reminder'))) {
-          newStatus = 'Warm';
-      } else if (scriptType === 'Audit Delivery Message') {
-          newStatus = 'Audit Delivered';
-          updates.linkSent = true;
-      }
-      
-      if (newStatus) {
-          updates.status = newStatus;
-          updates.statusHistory = [...(prospect.statusHistory || []), { status: newStatus, date: contactDate }];
-      }
-      
-      try {
-          await updateProspect(prospect.id, updates);
-          updateProspectInState(prospect.id, updates);
-          toast({ title: "Conversation Updated", description: "Script has been saved to the conversation history and status updated." });
-          setIsScriptModalOpen(false);
-      } catch (error: any) {
-          toast({ title: "Update Failed", description: error.message || 'Could not update prospect history.', variant: 'destructive' });
-      }
-    };
-    
-    setScriptModalConfig({
-        showConfirmButton: true,
-        confirmButtonText: "Copy & Open DM",
-        onConfirm: onConfirmScript,
-        prospect: prospect, 
-    });
     
     try {
         const result = await generateContextualScript(input);
@@ -621,17 +626,7 @@ function OutreachPage() {
     setIsScriptModalOpen(true);
     setGeneratedScript('');
     setScriptModalTitle(`Generating Qualifier for ${prospect.name}...`);
-    
-    setScriptModalConfig({
-        showConfirmButton: true,
-        confirmButtonText: "Copy & Open IG",
-        prospect: prospect,
-        onConfirm: async (scriptContent: string) => {
-           if (currentProspectForScript) {
-             await handleSendQualifier(currentProspectForScript, scriptContent);
-           }
-        }
-    });
+    setScriptCallback({ onReady: (script) => handleSendQualifier(prospect, script) });
 
     const input: GenerateQualifierInput = {
         prospectName: prospect.name,
@@ -652,7 +647,7 @@ function OutreachPage() {
     } finally {
         setIsGeneratingScript(false);
     }
-  }, [handleSendQualifier, toast, currentProspectForScript]);
+  }, [handleSendQualifier, toast]);
   
   const handleGenerateNextReply = useCallback(async (prospect: OutreachProspect, customInstructions: string): Promise<string> => {
     if (!prospect) {
@@ -1380,9 +1375,9 @@ function OutreachPage() {
                         onStartAudit={handleStartAudit}
                         onGenerateComment={handleOpenCommentGenerator}
                         onGenerateQualifier={handleGenerateQualifier}
-                        onEvaluate={handleEvaluateProspect}
+                        onEvaluate={(p) => handleEvaluateProspect(p, true)}
                         onDelete={setProspectToDelete}
-                        onGenerateScript={handleGenerateScript}
+                        onGenerateScript={(p, type) => handleGenerateScript(p, type, { title: `Generate ${type}`, onScriptReady: handleScriptConfirm })}
                         onWarmUp={handleOpenWarmUpDialog}
                         onCopyDetails={handleCopyToClipboard}
                         onExportDetails={handleExportToFile}
@@ -1440,8 +1435,8 @@ function OutreachPage() {
                           onStartAudit={handleStartAudit}
                           onGenerateComment={handleOpenCommentGenerator}
                           onGenerateQualifier={handleGenerateQualifier}
-                          onGenerateScript={handleGenerateScript}
-                          onEvaluate={handleEvaluateProspect}
+                          onGenerateScript={(p, type) => handleGenerateScript(p, type, { title: `Generate ${type}`, onScriptReady: handleScriptConfirm })}
+                          onEvaluate={(p) => handleEvaluateProspect(p, true)}
                           onDelete={setProspectToDelete}
                           onWarmUp={handleOpenWarmUpDialog}
                           onCopyDetails={handleCopyToClipboard}
@@ -1497,14 +1492,17 @@ function OutreachPage() {
         onClose={() => {
             setCurrentProspectForScript(null);
             setIsScriptModalOpen(false);
+            setScriptCallback(null);
         }}
         scriptContent={generatedScript}
         title={scriptModalTitle}
         onRegenerate={handleRegenerateScript}
         isLoadingInitially={isGeneratingScript && !generatedScript}
-        showConfirmButton={scriptModalConfig.showConfirmButton}
-        confirmButtonText={scriptModalConfig.confirmButtonText}
-        onConfirm={scriptModalConfig.onConfirm ? () => scriptModalConfig.onConfirm(generatedScript) : undefined}
+        onScriptReady={(script) => {
+          if (scriptCallback?.onReady) {
+            scriptCallback.onReady(script);
+          }
+        }}
         prospect={currentProspectForScript}
       />
     </div>
@@ -1518,6 +1516,7 @@ export default function OutreachPageWrapper() {
         </Suspense>
     )
 }
+
 
 
 
