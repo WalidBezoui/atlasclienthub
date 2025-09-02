@@ -18,15 +18,17 @@ import { Label } from '../ui/label';
 import { Input } from '../ui/input';
 import type { OutreachProspect } from '@/lib/types';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import type { GenerateContextualScriptInput } from '@/ai/flows/generate-contextual-script';
+
 
 interface ScriptModalProps {
   isOpen: boolean;
   onClose: () => void;
   scriptContent: string;
   title?: string;
-  onRegenerate?: (customInstructions: string) => Promise<string | null>;
+  onRegenerate?: (customInstructions: string, input: GenerateContextualScriptInput) => Promise<string | null>;
   isLoadingInitially?: boolean;
-  onScriptReady?: (script: string) => void; // New, simplified callback
+  onScriptReady?: (script: string) => void;
   prospect?: OutreachProspect | null;
 }
 
@@ -37,7 +39,7 @@ export function ScriptModal({
   title = "Generated Script",
   onRegenerate,
   isLoadingInitially = false,
-  onScriptReady, // New prop
+  onScriptReady,
   prospect,
 }: ScriptModalProps) {
   const { toast } = useToast();
@@ -66,10 +68,23 @@ export function ScriptModal({
   };
 
   const handleRegenerate = async () => {
-    if (!onRegenerate) return;
+    if (!onRegenerate || !prospect) return;
     setIsRegenerating(true);
+    
+    // This is a bit of a hack, but we need the original input to regenerate.
+    // This assumes the `title` contains the script type.
+    const scriptType = title.replace('Generate ', '').replace(' for ...', '') as GenerateContextualScriptInput['scriptType'];
+    
+    const input: GenerateContextualScriptInput = {
+      scriptType,
+      clientName: prospect.name,
+      clientHandle: prospect.instagramHandle,
+      businessName: prospect.businessName,
+      // Add other relevant prospect fields here as needed
+    };
+
     try {
-      const newScript = await onRegenerate(customInstructions);
+      const newScript = await onRegenerate(customInstructions, input);
       if (newScript) {
         setCurrentScript(newScript);
         toast({ title: "Script Regenerated!", description: "A new version of the script has been generated." });
@@ -98,11 +113,14 @@ export function ScriptModal({
 
   const isBusy = isRegenerating || isLoadingInitially || isConfirming;
 
-  const confirmButtonText = title?.includes("Reminder") 
+  const confirmButtonText = onScriptReady ? (
+    title?.includes("Reminder") 
       ? "Copy & Log Reminder" 
       : title?.includes("Follow-Up") 
       ? "Copy & Log Follow-Up"
-      : "Copy & Log";
+      : "Copy, Save & Log"
+  ) : "Use this script";
+
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {

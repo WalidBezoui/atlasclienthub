@@ -370,39 +370,38 @@ export default function DashboardPage() {
   
   const handleReminderScriptConfirm = useCallback(async (scriptContent: string) => {
     if (!currentProspectForScript) {
-        toast({ title: "Error", description: "No prospect selected for this action.", variant: "destructive" });
-        return;
+      toast({ title: "Error", description: "No prospect selected for this action.", variant: "destructive" });
+      return;
     }
-    
+  
     const allProspects = await getProspects();
     const freshProspect = allProspects.find(p => p.id === currentProspectForScript.id);
-
+  
     if (!freshProspect) {
-        toast({ title: "Error", description: "Could not retrieve latest prospect data.", variant: "destructive" });
-        return;
+      toast({ title: "Error", description: "Could not retrieve latest prospect data.", variant: "destructive" });
+      return;
     }
-    
+  
     const now = new Date();
     const newStatus: OutreachLeadStage = 'Warm';
     const newHistoryEntry: StatusHistoryItem = { status: newStatus, date: now.toISOString() };
-
+  
     const updates: Partial<OutreachProspect> = {
-        conversationHistory: `${freshProspect.conversationHistory || ''}${freshProspect.conversationHistory ? '\n\n' : ''}Me: ${scriptContent}`.trim(),
-        lastContacted: now.toISOString(),
-        lastScriptSent: "Send Reminder",
-        followUpNeeded: true, 
-        followUpDate: addDays(now, 7).toISOString(),
-        status: newStatus,
-        statusHistory: [...(freshProspect.statusHistory || []), newHistoryEntry],
+      conversationHistory: `${freshProspect.conversationHistory || ''}${freshProspect.conversationHistory ? '\n\n' : ''}Me: ${scriptContent}`.trim(),
+      lastContacted: now.toISOString(),
+      lastScriptSent: "Send Reminder",
+      followUpNeeded: false, 
+      status: newStatus,
+      statusHistory: [...(freshProspect.statusHistory || []), newHistoryEntry],
     };
-    
+  
     try {
-        await updateProspect(currentProspectForScript.id, updates);
-        toast({ title: "Reminder Sent!", description: "Status updated to 'Warm' and a follow-up has been scheduled." });
-        fetchDashboardData();
-    } catch(error: any) {
-        console.error("Reminder update failed:", error);
-        toast({ title: "Update Failed", description: error.message || 'Could not update prospect.', variant: 'destructive' });
+      await updateProspect(currentProspectForScript.id, updates);
+      toast({ title: "Reminder Sent!", description: "Status updated to 'Warm' and prospect is no longer in reminders." });
+      fetchDashboardData();
+    } catch (error: any) {
+      console.error("Reminder update failed:", error);
+      toast({ title: "Update Failed", description: error.message || 'Could not update prospect.', variant: 'destructive' });
     }
   }, [currentProspectForScript, fetchDashboardData, toast]);
 
@@ -794,5 +793,6 @@ export default function DashboardPage() {
     </div>
   );
 }
+
 
 
