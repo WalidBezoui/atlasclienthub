@@ -265,25 +265,25 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
       {
         id: 'strategic-gap',
         label: 'What is the biggest "Strategic Gap" you can fix?',
-        component: <div className="space-y-2">{strategicGapQuestions.map((option) => <div key={option} className="flex items-center space-x-2"><Checkbox id={`rapid-gap-${option.replace(/\s/g, '-')}`} checked={strategicGapAnswer.includes(option)} onCheckedChange={(checked) => handleCheckboxChange(setStrategicGapAnswer, option, !!checked)} /><Label htmlFor={`rapid-gap-${option.replace(/\s/g, '-')}`} className="font-normal cursor-pointer text-sm">{option}</Label></div>)}</div>,
+        component: <div className="space-y-2">{strategicGapQuestions.map((option) => <div key={option} className="flex items-center space-x-2"><Checkbox id={`rapid-gap-${option.replace(/\s+/g, '-')}`} checked={strategicGapAnswer.includes(option)} onCheckedChange={(checked) => handleCheckboxChange(setStrategicGapAnswer, option, !!checked)} /><Label htmlFor={`rapid-gap-${option.replace(/\s+/g, '-')}`} className="font-normal cursor-pointer text-sm">{option}</Label></div>)}</div>,
         isComplete: strategicGapAnswer.length > 0,
       },
       {
         id: 'profitability',
         label: 'How does this account likely make money?',
-        component: <div className="space-y-2">{profitabilityQuestions.map((option) => <div key={option} className="flex items-center space-x-2"><Checkbox id={`rapid-profit-${option.replace(/\s/g, '-')}`} checked={profitabilityAnswer.includes(option)} onCheckedChange={(checked) => handleCheckboxChange(setProfitabilityAnswer, option, !!checked)} /><Label htmlFor={`rapid-profit-${option.replace(/\s/g, '-')}`} className="font-normal cursor-pointer text-sm">{option}</Label></div>)}</div>,
+        component: <div className="space-y-2">{profitabilityQuestions.map((option) => <div key={option} className="flex items-center space-x-2"><Checkbox id={`rapid-profit-${option.replace(/\s+/g, '-')}`} checked={profitabilityAnswer.includes(option)} onCheckedChange={(checked) => handleCheckboxChange(setProfitabilityAnswer, option, !!checked)} /><Label htmlFor={`rapid-profit-${option.replace(/\s+/g, '-')}`} className="font-normal cursor-pointer text-sm">{option}</Label></div>)}</div>,
         isComplete: profitabilityAnswer.length > 0,
       },
       {
         id: 'visuals',
         label: "What's your first impression of their visual branding?",
-        component: <div className="space-y-2">{visualsQuestions.map((option) => <div key={option} className="flex items-center space-x-2"><Checkbox id={`rapid-visuals-${option.replace(/\s/g, '-')}`} checked={visualsAnswer.includes(option)} onCheckedChange={(checked) => handleCheckboxChange(setVisualsAnswer, option, !!checked)} /><Label htmlFor={`rapid-visuals-${option.replace(/\s/g, '-')}`} className="font-normal cursor-pointer text-sm">{option}</Label></div>)}</div>,
+        component: <div className="space-y-2">{visualsQuestions.map((option) => <div key={option} className="flex items-center space-x-2"><Checkbox id={`rapid-visuals-${option.replace(/\s+/g, '-')}`} checked={visualsAnswer.includes(option)} onCheckedChange={(checked) => handleCheckboxChange(setVisualsAnswer, option, !!checked)} /><Label htmlFor={`rapid-visuals-${option.replace(/\s+/g, '-')}`} className="font-normal cursor-pointer text-sm">{option}</Label></div>)}</div>,
         isComplete: visualsAnswer.length > 0,
       },
       {
         id: 'cta',
         label: 'What is the state of their bio & call-to-action (CTA)?',
-        component: <div className="space-y-2">{ctaQuestions.map((option) => <div key={option} className="flex items-center space-x-2"><Checkbox id={`rapid-cta-${option.replace(/\s/g, '-')}`} checked={ctaAnswer.includes(option)} onCheckedChange={(checked) => handleCheckboxChange(setCtaAnswer, option, !!checked)} /><Label htmlFor={`rapid-cta-${option.replace(/\s/g, '-')}`} className="font-normal cursor-pointer text-sm">{option}</Label></div>)}</div>,
+        component: <div className="space-y-2">{ctaQuestions.map((option) => <div key={option} className="flex items-center space-x-2"><Checkbox id={`rapid-cta-${option.replace(/\s+/g, '-')}`} checked={ctaAnswer.includes(option)} onCheckedChange={(checked) => handleCheckboxChange(setCtaAnswer, option, !!checked)} /><Label htmlFor={`rapid-cta-${option.replace(/\s+/g, '-')}`} className="font-normal cursor-pointer text-sm">{option}</Label></div>)}</div>,
         isComplete: ctaAnswer.length > 0,
       }
     ];
@@ -403,6 +403,3 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
     </Dialog>
   );
 }
-
-
-    

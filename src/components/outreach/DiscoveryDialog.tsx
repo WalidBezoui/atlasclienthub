@@ -45,14 +45,6 @@ const ctaQuestions = [
   "No link in bio at all, or a broken link"
 ];
 
-const checklistItems = [
-    { id: 'active', label: "Are they an active business?", description: "Have they posted in the last 7-10 days?" },
-    { id: 'size', label: 'Are they the "Goldilocks" size?', description: "Do they have between ~500 and ~15,000 followers?" },
-    { id: 'engaged', label: "Are they an engaged owner?", description: "Do they reply to comments on their own posts?" },
-    { id: 'monetizing', label: "Is there a clear product or service?", description: 'Do they have a website, shop link, or "Book a Call" button?' },
-    { id: 'gap', label: 'Is there an obvious "Strategic Gap" YOU can fix?', description: "e.g., messy bio, bad photos, no Reels, etc." },
-];
-
 const strategicGapQuestions = [
     "Visuals / Branding (inconsistent grid, bad photos, messy look)",
     "Content Strategy (no clear topics, not posting Reels, boring content)",
@@ -123,19 +115,19 @@ const EvaluationForm = ({ onAnalyze, onCancel, isAnalyzing, setProfitability, se
                 </div>
                  <div>
                     <Label className="font-medium text-xs mb-2 block">2. What is the biggest "Strategic Gap" you can fix?</Label>
-                    <div className="space-y-1">{strategicGapQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><Checkbox id={`gap-${o}`} onCheckedChange={(checked) => handleCheckboxChange(setStrategicGap, o, !!checked)} /><Label htmlFor={`gap-${o}`} className="font-normal text-xs">{o}</Label></div>)}</div>
+                    <div className="space-y-1">{strategicGapQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><Checkbox id={`gap-${o.replace(/\s+/g, '-')}`} onCheckedChange={(checked) => handleCheckboxChange(setStrategicGap, o, !!checked)} /><Label htmlFor={`gap-${o.replace(/\s+/g, '-')}`} className="font-normal text-xs">{o}</Label></div>)}</div>
                 </div>
                 <div>
                     <Label className="font-medium text-xs mb-2 block">3. How does this account likely make money?</Label>
-                    <div className="space-y-1">{profitabilityQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><Checkbox id={`profit-${o}`} onCheckedChange={(checked) => handleCheckboxChange(setProfitability, o, !!checked)} /><Label htmlFor={`profit-${o}`} className="font-normal text-xs">{o}</Label></div>)}</div>
+                    <div className="space-y-1">{profitabilityQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><Checkbox id={`profit-${o.replace(/\s+/g, '-')}`} onCheckedChange={(checked) => handleCheckboxChange(setProfitability, o, !!checked)} /><Label htmlFor={`profit-${o.replace(/\s+/g, '-')}`} className="font-normal text-xs">{o}</Label></div>)}</div>
                 </div>
                 <div>
                     <Label className="font-medium text-xs mb-2 block">4. What is the state of their visual branding?</Label>
-                    <div className="space-y-1">{visualsQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><Checkbox id={`visual-${o}`} onCheckedChange={(checked) => handleCheckboxChange(setVisuals, o, !!checked)} /><Label htmlFor={`visual-${o}`} className="font-normal text-xs">{o}</Label></div>)}</div>
+                    <div className="space-y-1">{visualsQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><Checkbox id={`visual-${o.replace(/\s+/g, '-')}`} onCheckedChange={(checked) => handleCheckboxChange(setVisuals, o, !!checked)} /><Label htmlFor={`visual-${o.replace(/\s+/g, '-')}`} className="font-normal text-xs">{o}</Label></div>)}</div>
                 </div>
                 <div>
                     <Label className="font-medium text-xs mb-2 block">5. What is the state of their bio & call-to-action (CTA)?</Label>
-                    <div className="space-y-1">{ctaQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><Checkbox id={`cta-${o}`} onCheckedChange={(checked) => handleCheckboxChange(setCta, o, !!checked)} /><Label htmlFor={`cta-${o}`} className="font-normal text-xs">{o}</Label></div>)}</div>
+                    <div className="space-y-1">{ctaQuestions.map((o) => <div key={o} className="flex items-center space-x-2"><Checkbox id={`cta-${o.replace(/\s+/g, '-')}`} onCheckedChange={(checked) => handleCheckboxChange(setCta, o, !!checked)} /><Label htmlFor={`cta-${o.replace(/\s+/g, '-')}`} className="font-normal text-xs">{o}</Label></div>)}</div>
                 </div>
                 <div className="flex justify-end gap-2 pt-2">
                     <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
@@ -479,9 +471,3 @@ export function DiscoveryDialog({ isOpen, onClose, onProspectAdded, existingPros
       </Dialog>
   );
 }
-
-
-
-
-
-    
