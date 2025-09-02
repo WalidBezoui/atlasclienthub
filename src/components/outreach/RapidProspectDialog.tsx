@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -108,6 +108,8 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
       }
       
       setFetchedMetrics(metricsResult.data);
+      // ** SMART PRE-FILLING LOGIC **
+      prefillQualificationForm(metricsResult.data);
       setStep('questions');
 
     } catch (error: any) {
@@ -118,6 +120,35 @@ export function RapidProspectDialog({ isOpen, onClose, onSave }: RapidProspectDi
     }
   };
   
+  const prefillQualificationForm = (metrics: InstagramMetrics) => {
+    const bio = metrics.biography?.toLowerCase() || '';
+    
+    // Pre-fill Profitability
+    const newProfitability: string[] = [];
+    if (/\b(shop|buy|course|product|e-?com)\b/.test(bio)) newProfitability.push(profitabilityQuestions[1]);
+    if (/\b(coach|consult|service|agency|book a call)\b/.test(bio)) newProfitability.push(profitabilityQuestions[0]);
+    if (newProfitability.length > 0) setProfitabilityAnswer(newProfitability);
+    
+    // Pre-fill CTA
+    const newCta: string[] = [];
+    if (!bio.includes('http')) {
+        newCta.push(ctaQuestions[4]); // No link
+    } else if (bio.includes('linktr.ee') || bio.includes('lnk.bio')) {
+        newCta.push(ctaQuestions[2]); // Generic linktree
+    }
+    if (newCta.length > 0) setCtaAnswer(newCta);
+
+    // Pre-fill Strategic Gap based on engagement
+    const newStrategicGap: string[] = [];
+    if (metrics.followerCount && metrics.followerCount > 1000) {
+      const engagementRate = ((metrics.avgLikes ?? 0) + (metrics.avgComments ?? 0)) / metrics.followerCount;
+      if (engagementRate < 0.01) { // Engagement is less than 1%
+        newStrategicGap.push(strategicGapQuestions[3]); // Engagement gap
+      }
+    }
+    if(newStrategicGap.length > 0) setStrategicGapAnswer(newStrategicGap);
+  };
+
   const handleFinalAnalysis = async () => {
     if (!fetchedMetrics || profitabilityAnswer.length === 0 || visualsAnswer.length === 0 || ctaAnswer.length === 0 || !industryAnswer || strategicGapAnswer.length === 0) {
         toast({ title: "Missing Input", description: "Please answer all questions to proceed.", variant: "destructive" });
