@@ -320,20 +320,18 @@ export default function DashboardPage() {
     if (!currentProspectForScript) return;
     
     const now = new Date();
-    // Log the "Replied to Story" action since sending the DM is the culmination of that step.
     const newActivity: WarmUpActivity = { 
       id: crypto.randomUUID(), 
       action: 'Replied to Story', 
       date: now.toISOString(),
     };
+    
     const existingWarmUp = currentProspectForScript.warmUp || [];
-    // Ensure we don't add duplicate 'Replied to Story' logs
-    const updatedWarmUp = existingWarmUp.some(a => a.action === 'Replied to Story') 
-        ? existingWarmUp
-        : [...existingWarmUp, newActivity];
+    const updatedWarmUp = [...existingWarmUp, newActivity];
 
     const newStatus: OutreachLeadStage = 'Cold';
     const newHistoryEntry: StatusHistoryItem = { status: newStatus, date: now.toISOString() };
+    const updatedStatusHistory = [...(currentProspectForScript.statusHistory || []), newHistoryEntry];
 
     const updates: Partial<OutreachProspect> = {
       warmUp: updatedWarmUp,
@@ -341,7 +339,7 @@ export default function DashboardPage() {
       lastContacted: now.toISOString(),
       lastScriptSent: "Cold Outreach DM",
       status: newStatus,
-      statusHistory: [...(currentProspectForScript.statusHistory || []), newHistoryEntry],
+      statusHistory: updatedStatusHistory,
     };
 
     try {
@@ -798,7 +796,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-
-
-
