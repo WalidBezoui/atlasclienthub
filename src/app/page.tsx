@@ -318,24 +318,31 @@ export default function DashboardPage() {
   
   const handleDashboardScriptConfirm = useCallback(async (scriptContent: string) => {
     if (!currentProspectForScript) return;
-    
+
+    const allProspects = await getProspects();
+    const freshProspect = allProspects.find(p => p.id === currentProspectForScript.id);
+
+    if (!freshProspect) {
+      toast({ title: "Error", description: "Could not retrieve latest prospect data.", variant: "destructive" });
+      return;
+    }
+
     const now = new Date();
-    const newActivity: WarmUpActivity = { 
-      id: crypto.randomUUID(), 
-      action: 'Replied to Story', 
+    const newActivity: WarmUpActivity = {
+      id: crypto.randomUUID(),
+      action: 'Replied to Story',
       date: now.toISOString(),
     };
-    
-    const existingWarmUp = currentProspectForScript.warmUp || [];
-    const updatedWarmUp = [...existingWarmUp, newActivity];
 
+    const existingWarmUp = freshProspect.warmUp || [];
+    const updatedWarmUp = [...existingWarmUp, newActivity];
     const newStatus: OutreachLeadStage = 'Cold';
     const newHistoryEntry: StatusHistoryItem = { status: newStatus, date: now.toISOString() };
-    const updatedStatusHistory = [...(currentProspectForScript.statusHistory || []), newHistoryEntry];
-
+    const updatedStatusHistory = [...(freshProspect.statusHistory || []), newHistoryEntry];
+    
     const updates: Partial<OutreachProspect> = {
       warmUp: updatedWarmUp,
-      conversationHistory: `${currentProspectForScript.conversationHistory || ''}${currentProspectForScript.conversationHistory ? '\n\n' : ''}Me: ${scriptContent}`.trim(),
+      conversationHistory: `${freshProspect.conversationHistory || ''}${freshProspect.conversationHistory ? '\n\n' : ''}Me: ${scriptContent}`.trim(),
       lastContacted: now.toISOString(),
       lastScriptSent: "Cold Outreach DM",
       status: newStatus,
@@ -343,13 +350,14 @@ export default function DashboardPage() {
     };
 
     try {
-        await updateProspect(currentProspectForScript.id, updates);
-        toast({ title: "Action Complete!", description: "Outreach logged and prospect status advanced to 'Cold'." });
-        fetchDashboardData(); 
-    } catch(error: any) {
-        toast({ title: "Update Failed", description: error.message || 'Could not update prospect.', variant: 'destructive' });
+      await updateProspect(freshProspect.id, updates);
+      toast({ title: "Action Complete!", description: "Outreach logged and prospect status advanced to 'Cold'." });
+      fetchDashboardData();
+    } catch (error: any) {
+      toast({ title: "Update Failed", description: error.message || 'Could not update prospect.', variant: 'destructive' });
     }
   }, [currentProspectForScript, fetchDashboardData, toast]);
+
 
   const handleFollowUpScriptConfirm = useCallback(async (scriptContent: string) => {
     if (!currentProspectForScript) return;
