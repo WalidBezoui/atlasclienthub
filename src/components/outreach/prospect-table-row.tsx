@@ -270,8 +270,7 @@ const ProspectTableRow = React.memo(({
                             <DropdownMenuSeparator />
                             <DropdownMenuGroup>
                                 <DropdownMenuLabel>AI Actions</DropdownMenuLabel>
-                                <DropdownMenuItem onClick={() => onEvaluate(prospect, false)} disabled={!prospect.instagramHandle}><Bot className="mr-2 h-4 w-4" /> Fetch & Evaluate</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => onEvaluate(prospect, true)} disabled={!prospect.instagramHandle}><RefreshCw className="mr-2 h-4 w-4" /> Re-evaluate Score</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => onEvaluate(prospect, true)} disabled={!prospect.instagramHandle}><RefreshCw className="mr-2 h-4 w-4" />Re-evaluate Score</DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => onGenerateComment(prospect)}><MessageCircle className="mr-2 h-4 w-4" /> Generate Comment</DropdownMenuItem>
                                 <Tooltip>
                                     <TooltipTrigger asChild>

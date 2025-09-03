@@ -121,6 +121,8 @@ function OutreachPage() {
   const [isEvaluatingAll, setIsEvaluatingAll] = useState(false);
   const [evaluatingProspectIds, setEvaluatingProspectIds] = useState<Set<string>>(new Set());
   const [prospectsToBulkEvaluate, setProspectsToBulkEvaluate] = useState<OutreachProspect[] | null>(null);
+  const [reEvaluationConfig, setReEvaluationConfig] = useState<{ prospects: OutreachProspect[], title: string } | null>(null);
+
 
   const { toast } = useToast();
   
@@ -247,24 +249,48 @@ function OutreachPage() {
     }
   };
 
-  const handleBulkEvaluateClick = () => {
+  const handleBulkEvaluateUnscoredClick = () => {
     const unscored = prospects.filter(p => (p.leadScore === null || p.leadScore === undefined) && p.instagramHandle);
     if (unscored.length === 0) {
       toast({ title: 'All Prospects Evaluated', description: 'No unscored prospects with an Instagram handle were found.' });
       return;
     }
-    setProspectsToBulkEvaluate(unscored);
+    setReEvaluationConfig({prospects: unscored, title: "Confirm Bulk Evaluation of Unscored Prospects"});
   };
   
+  const handleBulkReevaluateSelectedClick = () => {
+    if(selectedProspects.size === 0) {
+        toast({title: "No Prospects Selected", description: "Please select prospects to re-evaluate.", variant: "destructive"});
+        return;
+    }
+    const selected = prospects.filter(p => selectedProspects.has(p.id) && p.instagramHandle);
+     if (selected.length === 0) {
+      toast({ title: 'No Prospects to Re-evaluate', description: 'None of the selected prospects have an Instagram handle.' });
+      return;
+    }
+    setReEvaluationConfig({prospects: selected, title: "Confirm Re-evaluation of Selected Prospects"});
+  };
+
+  const handleBulkReevaluateAllClick = () => {
+     const allWithHandles = prospects.filter(p => p.instagramHandle);
+     if (allWithHandles.length === 0) {
+      toast({ title: 'No Prospects to Re-evaluate', description: 'No prospects in your list have an Instagram handle.' });
+      return;
+    }
+    setReEvaluationConfig({prospects: allWithHandles, title: "Confirm Re-evaluation of ALL Prospects"});
+  }
+
   const confirmBulkEvaluate = async () => {
-    if (!prospectsToBulkEvaluate) return;
+    if (!reEvaluationConfig) return;
     
+    const prospectsToProcess = reEvaluationConfig.prospects;
+    setReEvaluationConfig(null);
+
     setIsEvaluatingAll(true);
-    setProspectsToBulkEvaluate(null);
     
     let successCount = 0;
     let failCount = 0;
-    const total = prospectsToBulkEvaluate.length;
+    const total = prospectsToProcess.length;
     
     const { id: progressToastId, dismiss } = toast({
       title: 'Starting Bulk Evaluation...',
@@ -272,7 +298,7 @@ function OutreachPage() {
       duration: Infinity,
     });
 
-    for (const [index, prospect] of prospectsToBulkEvaluate.entries()) {
+    for (const [index, prospect] of prospectsToProcess.entries()) {
         toast({
           id: progressToastId,
           title: `Evaluating ${index + 1} of ${total}`,
@@ -280,7 +306,7 @@ function OutreachPage() {
         });
         
         try {
-            await handleEvaluateProspect(prospect);
+            await handleEvaluateProspect(prospect, true); // Always a re-evaluation in this flow
             successCount++;
         } catch (error: any) {
             console.error(`Failed to evaluate @${prospect.instagramHandle}:`, error.message);
@@ -1200,16 +1226,16 @@ function OutreachPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={!!prospectsToBulkEvaluate} onOpenChange={(open) => {if (!open) setProspectsToBulkEvaluate(null)}}>
+      <AlertDialog open={!!reEvaluationConfig} onOpenChange={(open) => {if (!open) setReEvaluationConfig(null)}}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Bulk Evaluation</AlertDialogTitle>
+            <AlertDialogTitle>{reEvaluationConfig?.title}</AlertDialogTitle>
             <AlertDialogDescription>
-              You are about to evaluate {prospectsToBulkEvaluate?.length || 0} unscored prospects. This will use AI credits and may take several minutes. Are you sure you want to continue?
+              You are about to re-evaluate {reEvaluationConfig?.prospects.length || 0} prospects. This will use AI credits and may take several minutes. Are you sure you want to continue?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setProspectsToBulkEvaluate(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setReEvaluationConfig(null)}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmBulkEvaluate}>Confirm & Start</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1279,17 +1305,19 @@ function OutreachPage() {
             </div>
             <div className="flex items-center gap-2 flex-wrap justify-end">
               <TooltipProvider>
-                 <Tooltip>
-                  <TooltipTrigger asChild>
-                     <Button variant="outline" onClick={handleBulkEvaluateClick} disabled={isEvaluatingAll}>
-                        {isEvaluatingAll ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckSquare className="mr-2 h-4 w-4" />}
-                        Evaluate Unscored
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Fetch data &amp; score for all prospects missing a lead score.</p>
-                  </TooltipContent>
-                </Tooltip>
+                 <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" disabled={isEvaluatingAll}>
+                        {isEvaluatingAll ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                        Re-evaluate <ChevronDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={handleBulkEvaluateUnscoredClick}>Re-evaluate Unscored</DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleBulkReevaluateSelectedClick} disabled={selectedProspects.size === 0}>Re-evaluate Selected ({selectedProspects.size})</DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleBulkReevaluateAllClick}>Re-evaluate All ({prospects.length})</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button variant="outline" size="icon" onClick={handleExportToCSV} disabled={isLoading}>
