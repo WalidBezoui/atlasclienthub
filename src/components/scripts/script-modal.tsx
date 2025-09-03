@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -29,6 +30,7 @@ interface ScriptModalProps {
   onRegenerate?: (customInstructions: string, input: GenerateContextualScriptInput) => Promise<string | null>;
   isLoadingInitially?: boolean;
   onScriptReady?: (script: string) => void;
+  onConfirm?: (script: string) => void; // New prop for explicit confirm handling
   prospect?: OutreachProspect | null;
 }
 
@@ -40,6 +42,7 @@ export function ScriptModal({
   onRegenerate,
   isLoadingInitially = false,
   onScriptReady,
+  onConfirm,
   prospect,
 }: ScriptModalProps) {
   const { toast } = useToast();
@@ -96,14 +99,16 @@ export function ScriptModal({
     }
   };
   
-  const handleConfirm = (openIg: boolean = false) => {
-    if (onScriptReady) {
+  const handleConfirmAction = (openIg: boolean = false) => {
+    const confirmAction = onConfirm || onScriptReady; // Prioritize onConfirm
+    if (confirmAction) {
       setIsConfirming(true);
       handleCopy(currentScript);
-      onScriptReady(currentScript);
+      confirmAction(currentScript);
       if (openIg && prospect?.instagramHandle) {
           window.open(`https://www.instagram.com/direct/t/${prospect.instagramHandle.replace('@', '')}`, '_blank');
       }
+      // Delay closing to allow toast to be seen
       setTimeout(() => {
         onClose();
         setIsConfirming(false);
@@ -112,8 +117,9 @@ export function ScriptModal({
   };
 
   const isBusy = isRegenerating || isLoadingInitially || isConfirming;
+  const canConfirm = !!(onConfirm || onScriptReady);
 
-  const confirmButtonText = onScriptReady ? (
+  const confirmButtonText = onConfirm ? (
     title?.includes("Reminder") 
       ? "Copy & Log Reminder" 
       : title?.includes("Follow-Up") 
@@ -193,9 +199,9 @@ export function ScriptModal({
                 <Copy className="mr-2 h-4 w-4" /> Copy Only
             </Button>
             
-            {onScriptReady && (
+            {canConfirm && (
                 <div className="flex rounded-md shadow-sm">
-                    <Button onClick={() => handleConfirm(false)} disabled={isBusy || !currentScript} className="relative flex-1 rounded-r-none">
+                    <Button onClick={() => handleConfirmAction(false)} disabled={isBusy || !currentScript} className="relative flex-1 rounded-r-none">
                          {isConfirming ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                          {confirmButtonText || "Confirm"}
                     </Button>
@@ -206,7 +212,7 @@ export function ScriptModal({
                          </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleConfirm(true)}>
+                          <DropdownMenuItem onClick={() => handleConfirmAction(true)}>
                               <ExternalLink className="mr-2 h-4 w-4" />
                               {`${confirmButtonText} & Open IG`}
                           </DropdownMenuItem>

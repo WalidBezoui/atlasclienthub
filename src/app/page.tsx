@@ -353,6 +353,7 @@ export default function DashboardPage() {
       await updateProspect(freshProspect.id, updates);
       toast({ title: "Action Complete!", description: "Outreach logged and prospect status advanced to 'Cold'." });
       fetchDashboardData();
+      setIsScriptModalOpen(false); // Close modal on success
     } catch (error: any) {
       toast({ title: "Update Failed", description: error.message || 'Could not update prospect.', variant: 'destructive' });
     }
@@ -549,12 +550,7 @@ export default function DashboardPage() {
         title={scriptModalTitle}
         onRegenerate={handleRegenerateScript}
         isLoadingInitially={isGeneratingScript}
-        onScriptReady={(script) => {
-            if (scriptCallback?.onReady) {
-                scriptCallback.onReady(script);
-            }
-            setIsScriptModalOpen(false);
-        }}
+        onConfirm={handleDashboardScriptConfirm}
         prospect={currentProspectForScript}
       />
       
